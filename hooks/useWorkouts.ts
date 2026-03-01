@@ -66,7 +66,54 @@ export function useWorkoutDetail(workoutId: string) {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  return { workout, loading, error, refetch: fetch };
+  async function updateWorkout(payload: import('@/types').UpdateWorkout) {
+    const { error: err } = await supabase
+      .from('workouts')
+      .update(payload)
+      .eq('id', workoutId);
+    if (!err) fetch();
+    return { error: err?.message ?? null };
+  }
+
+  async function deleteWorkout() {
+    const { error: err } = await supabase
+      .from('workouts')
+      .delete()
+      .eq('id', workoutId);
+    return { error: err?.message ?? null };
+  }
+
+  async function deleteSet(setId: string) {
+    const { error: err } = await supabase
+      .from('workout_sets')
+      .delete()
+      .eq('id', setId);
+    if (!err) fetch();
+    return { error: err?.message ?? null };
+  }
+
+  async function updateSet(setId: string, payload: import('@/types').UpdateWorkoutSet) {
+    const { error: err } = await supabase
+      .from('workout_sets')
+      .update(payload)
+      .eq('id', setId);
+    if (!err) fetch();
+    return { error: err?.message ?? null };
+  }
+
+  async function addSet(
+    exerciseId: string,
+    payload: { reps: number | null; weight_kg: number | null; duration_seconds: number | null; notes: string | null },
+  ) {
+    const existingCount = (workout?.workout_sets ?? []).filter((s) => s.exercise_id === exerciseId).length;
+    const { error: err } = await supabase
+      .from('workout_sets')
+      .insert({ workout_id: workoutId, exercise_id: exerciseId, set_number: existingCount + 1, ...payload });
+    if (!err) fetch();
+    return { error: err?.message ?? null };
+  }
+
+  return { workout, loading, error, refetch: fetch, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet };
 }
 
 /** Create a workout with sets in a single operation. */

@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { CartesianChart, Bar } from 'victory-native';
+import { useFont, Line as SkiaLine, vec } from '@shopify/react-native-skia';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { ChartPoint } from '@/hooks/useClientProgress';
 
@@ -11,6 +12,8 @@ type Props = { data: ChartPoint[] };
  */
 export function VolumeChart({ data }: Props) {
   const t = useTheme();
+
+  const font = useFont(require('../../assets/fonts/Roboto-Regular.ttf'), 10);
 
   if (data.length < 2) {
     return (
@@ -28,6 +31,9 @@ export function VolumeChart({ data }: Props) {
 
   return (
     <View>
+      <View style={styles.chartMeta}>
+        <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>↑ kg·reps</Text>
+      </View>
       <View style={styles.chart}>
         <CartesianChart
           data={data}
@@ -35,15 +41,37 @@ export function VolumeChart({ data }: Props) {
           yKeys={['y']}
           domain={{ y: [0, maxY * 1.15] }}
           domainPadding={{ left: 12, right: 12, top: 8 }}
+          axisOptions={{
+            font,
+            tickCount: { x: 4, y: 4 },
+            labelColor: '#888888',
+            lineColor: 'rgba(128,128,128,0.2)',
+            formatXLabel: (v) => String(Math.round(Number(v)) + 1),
+            formatYLabel: (v) =>
+              Number(v) >= 1000
+                ? `${(Number(v) / 1000).toFixed(1)}k`
+                : String(Math.round(Number(v))),
+          }}
         >
-          {({ points, chartBounds }) => (
-            <Bar
-              points={points.y}
-              chartBounds={chartBounds}
-              color={colors.primary}
-              roundedCorners={{ topLeft: 3, topRight: 3 }}
-              animate={{ type: 'spring' }}
-            />
+          {({ points, chartBounds, yScale }) => (
+            <>
+              {yScale.ticks(4).map((tick: number) => (
+                <SkiaLine
+                  key={tick}
+                  p1={vec(chartBounds.left, yScale(tick))}
+                  p2={vec(chartBounds.right, yScale(tick))}
+                  color="rgba(128,128,128,0.1)"
+                  strokeWidth={1}
+                />
+              ))}
+              <Bar
+                points={points.y}
+                chartBounds={chartBounds}
+                color={colors.primary}
+                roundedCorners={{ topLeft: 3, topRight: 3 }}
+                animate={{ type: 'spring' }}
+              />
+            </>
           )}
         </CartesianChart>
       </View>
@@ -66,4 +94,11 @@ const styles = StyleSheet.create({
   },
   footerDate: { ...typography.bodySmall },
   footerStat: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
+  chartMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
+    marginBottom: 2,
+  },
+  yAxisLabel: { ...typography.label },
 });

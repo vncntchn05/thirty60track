@@ -1,0 +1,169 @@
+Workout_ID,Phase,Workout_Name,Category,Order,Exercise_Name,P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,1,Air Squat,P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,2,Glute Bridge,P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,3,Incline Push-up,P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,4,Floor Press + Mod Push-up,P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,5,Dips,P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,6,Plank (Variations),P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,7,Mountain Climbers + Air Squats,P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,8,Cobra Stretch,P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,9,Bear Crawl,P1-A,Abs-A
+P1-A,Phase 1,Workout A: Push Focus,Main,10,Glute Bridge Hold,P1-B,Abs-A
+P1-B,Phase 1,Workout B: Pull Focus,Main,1,Reverse Lunge,P1-B,Abs-A
+P1-B,Phase 1,Workout B: Pull Focus,Main,2,Single-Leg Reach (Bulg Squat),P1-B,Abs-B
+P1-B,Phase 1,Workout B: Pull Focus,Main,3,Pull up/Lat Pulldown,P1-B,Abs-B
+P1-B,Phase 1,Workout B: Pull Focus,Main,4,Mid Row,P1-B,Abs-B
+P1-B,Phase 1,Workout B: Pull Focus,Main,5,RDL,P1-B,Abs-B
+P1-B,Phase 1,Workout B: Pull Focus,Main,6,Cable Pullover,P1-B,Abs-B
+P1-B,Phase 1,Workout B: Pull Focus,Main,7,Towel Curls,P1-B,Abs-B
+P1-B,Phase 1,Workout B: Pull Focus,Main,8,Hammer Curl,P1-B,Abs-B
+P1-B,Phase 1,Workout B: Pull Focus,Main,9,Bear Crawl,P1-B,Abs-B
+P1-B,Phase 1,Workout B: Pull Focus,Main,10,Glute Bridge (Pulsing),P1-C,Abs-B
+P1-C,Phase 1,Workout C: Stability,Main,1,Box Squat,P1-C,Abs-B
+P1-C,Phase 1,Workout C: Stability,Main,2,Step-ups/Weighted,P1-C,Abs-B
+P1-C,Phase 1,Workout C: Stability,Main,3,Landmine,P1-C,Abs-B
+P1-C,Phase 1,Workout C: Stability,Main,4,Squat Press (DB/Bar),P1-C,Abs-C
+P1-C,Phase 1,Workout C: Stability,Main,5,Cable Squat Row,P1-C,Abs-C
+P1-C,Phase 1,Workout C: Stability,Main,6,Cable Torso Rotations,P1-C,Abs-C
+P1-C,Phase 1,Workout C: Stability,Main,7,Scapular Push-ups,P1-C,Abs-C
+P1-C,Phase 1,Workout C: Stability,Main,8,Scapular Pull-up,P1-C,Abs-C
+P1-C,Phase 1,Workout C: Stability,Main,9,Plank Taps,P1-C,Abs-C
+P1-C,Phase 1,Workout C: Stability,Main,10,BW Back Extensions,P1-D,Abs-C
+P1-D,Phase 1,Workout D: Lateral/Total,Main,1,Lateral Lunge,P1-D,Abs-C
+P1-D,Phase 1,Workout D: Lateral/Total,Main,2,Wall Sit,P1-D,Abs-C
+P1-D,Phase 1,Workout D: Lateral/Total,Main,3,Plank-to-Pushup,P1-D,Abs-C
+P1-D,Phase 1,Workout D: Lateral/Total,Main,4,Box Jump,P1-D,Abs-C
+P1-D,Phase 1,Workout D: Lateral/Total,Main,5,Side Planks,P1-D,Abs-C
+P1-D,Phase 1,Workout D: Lateral/Total,Main,6,Ball Squat Toss,P1-D,Abs-D
+P1-D,Phase 1,Workout D: Lateral/Total,Main,7,Single-Leg Step-Up,P1-D,Abs-D
+P1-D,Phase 1,Workout D: Lateral/Total,Main,8,Hip Circles,P1-D,Abs-D
+P1-D,Phase 1,Workout D: Lateral/Total,Main,9,Mountain Climbers,P1-D,Abs-D
+P1-D,Phase 1,Workout D: Lateral/Total,Main,10,In-Out Jumping Jacks,P2-A,Abs-D
+P2-A,Phase 2,Workout A: Push Focus,Main,1,Skater Jumps ,P2-A,Abs-D
+P2-A,Phase 2,Workout A: Push Focus,Main,2,Jump Squats ,P2-A,Abs-D
+P2-A,Phase 2,Workout A: Push Focus,Main,3,Tempo Push-ups ,P2-A,Abs-D
+P2-A,Phase 2,Workout A: Push Focus,Main,4,Chest Pass (Med Ball) ,P2-A,Abs-D
+P2-A,Phase 2,Workout A: Push Focus,Main,5,Plank Jacks ,P2-A,Abs-D
+P2-A,Phase 2,Workout A: Push Focus,Main,6,Flutter Kicks ,P2-A,Abs-D
+P2-A,Phase 2,Workout A: Push Focus,Main,7,T-Pushups ,P2-A,Abs-D
+P2-A,Phase 2,Workout A: Push Focus,Main,8,High Knees (s) ,P2-A,
+P2-A,Phase 2,Workout A: Push Focus,Main,9,Box Jumps ,P2-A,
+P2-A,Phase 2,Workout A: Push Focus,Main,10,Deadbug (Weighted) ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,1,Box Step-ups ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,2,Walking Lunges ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,3,Chin-up Negatives ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,4,Med Ball Slams ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,5,Mountain Climbers ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,6,Bicycle Crunches ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,7,Cable Face Pulls ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,8,Butt Kicks (s) ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,9,Single-Leg Hops ,P2-B,
+P2-B,Phase 2,Workout B: Pull Focus,Main,10,Plank (Weighted) ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,1,Rope Ladder Broad Jumps ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,2,Lateral Bounds ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,3,Med Ball Overhead Hold ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,4,Wall Balls ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,5,Russian Twists ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,6,Static Squat Cable Torso Rotations ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,7,Pike Push-ups ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,8,Jumping Jacks (s) ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,9,Pilates Squat + Squat ,P2-C,
+P2-C,Phase 2,Workout C: Shoulder Focus,Main,10,Side Plank Dips ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,1,Shuttle Runs (yd) ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,2,Speed Skaters ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,3,V-Ups/Knee Raises ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,4,Burpees ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,5,Spiderman Push-ups ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,6,Plank with Knee-to-Elbow ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,7,Mountain Climber Burpee ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,8,Ice Skater Steps ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,9,Squat Thrusts ,P2-D,
+P2-D,Phase 2,Workout D: Agility/Total,Main,10,Deadlift ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,1,DB Goblet Squat ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,2,RDL (Dumbbells) ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,3,DB Bench Press ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,4,DB Incline Press ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,5,Weighted Deadbug ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,6,Pallof Press ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,7,Dips/Band Flyes ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,8,Inchworm Push-Up ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,9,Calf Raises ,P3-A,
+P3-A,Phase 3,Workout A: Chest/Push,Main,10,Weighted Sit-up ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,1,DB Split Squat ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,2,Leg Press + Leg Machines ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,3,Lat Pulldown ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,4,Seated Cable Row ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,5,Cable Woodchops ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,6,Plank with Row ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,7,Cable Face Pulls ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,8,Bicep Curls ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,9,Single-Leg Bridge ,P3-B,
+P3-B,Phase 3,Workout B: Back/Pull,Main,10,Reverse Crunch ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,1,KB Deadlift ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,2,Hamstring Curl ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,3,DB Overhead Press ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,4,Cable/Band Lateral Raise ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,5,Hanging Leg Raises ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,6,Landmine Rotation ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,7,Burpee DB Press ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,8,Diamond + Wide Pushups ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,9,Wall Sits (Weighted) ,P3-C,
+P3-C,Phase 3,Workout C: Shoulders,Main,10,Windshields/Alternate Knee Raises ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,1,DB Step-ups ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,2,Goblet Lateral Lunge ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,3,DB Renegade Row ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,4,Push-up (Weighted) ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,5,Medicine Ball Rotational Toss ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,6,Suitcase Carry (L/R) ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,7,DB Hammer Curls ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,8,Box Dips (Assist) ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,9,Lunge with Twist ,P3-D,
+P3-D,Phase 3,Workout D: Total Body,Main,10,Farmer's Walk ,,
+Abs-A,N/A,Abs: Variation A,Abs,1,Center Decline,,
+Abs-A,N/A,Abs: Variation A,Abs,2,Teapots,,
+Abs-A,N/A,Abs: Variation A,Abs,3,Single Leg Decline,,
+Abs-A,N/A,Abs: Variation A,Abs,4,Knee/Leg Raises,,
+Abs-A,N/A,Abs: Variation A,Abs,5,Plank,,
+Abs-A,N/A,Abs: Variation A,Abs,6,Plank Shoulder Taps,,
+Abs-A,N/A,Abs: Variation A,Abs,7,Deadbugs,,
+Abs-A,N/A,Abs: Variation A,Abs,8,Plank In and Outs,,
+Abs-A,N/A,Abs: Variation A,Abs,9,Decline Russian Twists,,
+Abs-A,N/A,Abs: Variation A,Abs,10,Knee to Elbows,,
+Abs-A,N/A,Abs: Variation A,Abs,11,Toe Taps,,
+Abs-A,N/A,Abs: Variation A,Abs,12,V-Ups,,
+Abs-B,N/A,Abs: Variation B,Abs,1,V-Ups,,
+Abs-B,N/A,Abs: Variation B,Abs,2,Toe Taps,,
+Abs-B,N/A,Abs: Variation B,Abs,3,Knee to Elbows,,
+Abs-B,N/A,Abs: Variation B,Abs,4,Decline Russian Twists,,
+Abs-B,N/A,Abs: Variation B,Abs,5,Plank In and Outs,,
+Abs-B,N/A,Abs: Variation B,Abs,6,Deadbugs,,
+Abs-B,N/A,Abs: Variation B,Abs,7,Plank Shoulder Taps,,
+Abs-B,N/A,Abs: Variation B,Abs,8,Plank,,
+Abs-B,N/A,Abs: Variation B,Abs,9,Knee/Leg Raises,,
+Abs-B,N/A,Abs: Variation B,Abs,10,Single Leg Decline,,
+Abs-B,N/A,Abs: Variation B,Abs,11,Teapots,,
+Abs-B,N/A,Abs: Variation B,Abs,12,Center Decline,,
+Abs-C,N/A,Abs: Variation C,Abs,1,Plank,,
+Abs-C,N/A,Abs: Variation C,Abs,2,Deadbugs,,
+Abs-C,N/A,Abs: Variation C,Abs,3,V-Ups,,
+Abs-C,N/A,Abs: Variation C,Abs,4,Center Decline,,
+Abs-C,N/A,Abs: Variation C,Abs,5,Teapots,,
+Abs-C,N/A,Abs: Variation C,Abs,6,Single Leg Decline,,
+Abs-C,N/A,Abs: Variation C,Abs,7,Knee/Leg Raises,,
+Abs-C,N/A,Abs: Variation C,Abs,8,Plank Shoulder Taps,,
+Abs-C,N/A,Abs: Variation C,Abs,9,Plank In and Outs,,
+Abs-C,N/A,Abs: Variation C,Abs,10,Decline Russian Twists,,
+Abs-C,N/A,Abs: Variation C,Abs,11,Knee to Elbows,,
+Abs-C,N/A,Abs: Variation C,Abs,12,Toe Taps,,
+Abs-D,N/A,Abs: Variation D,Abs,1,Decline Russian Twists,,
+Abs-D,N/A,Abs: Variation D,Abs,2,Knee to Elbows,,
+Abs-D,N/A,Abs: Variation D,Abs,3,Toe Taps,,
+Abs-D,N/A,Abs: Variation D,Abs,4,V-Ups,,
+Abs-D,N/A,Abs: Variation D,Abs,5,Center Decline,,
+Abs-D,N/A,Abs: Variation D,Abs,6,Teapots,,
+Abs-D,N/A,Abs: Variation D,Abs,7,Single Leg Decline,,
+Abs-D,N/A,Abs: Variation D,Abs,8,Knee/Leg Raises,,
+Abs-D,N/A,Abs: Variation D,Abs,9,Plank,,
+Abs-D,N/A,Abs: Variation D,Abs,10,Plank Shoulder Taps,,
+Abs-D,N/A,Abs: Variation D,Abs,11,Deadbugs,,
+Abs-D,N/A,Abs: Variation D,Abs,12,Plank In and Outs,,

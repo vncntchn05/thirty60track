@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, FlatList,
+  View, Text, TextInput, TouchableOpacity,
   ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useExercises } from '@/hooks/useExercises';
+import { ExercisePicker } from '@/components/workout/ExercisePicker';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { createWorkoutWithSets } from '@/hooks/useWorkouts';
 import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
@@ -15,10 +16,11 @@ type SetRow = { reps: string; weight_kg: string; notes: string };
 type ExerciseBlock = { exercise: Exercise; sets: SetRow[] };
 
 const EMPTY_SET: SetRow = { reps: '', weight_kg: '', notes: '' };
-const today = new Date().toISOString().split('T')[0];
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
+  // Avoid timezone shift by parsing as local date
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
 }
@@ -28,23 +30,15 @@ export default function NewWorkoutScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const t = useTheme();
-  const { exercises, loading: exercisesLoading } = useExercises();
-
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [blocks, setBlocks] = useState<ExerciseBlock[]>([]);
   const [workoutNotes, setWorkoutNotes] = useState('');
   const [showPicker, setShowPicker] = useState(false);
-  const [query, setQuery] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const filtered = exercises.filter((e) =>
-    e.name.toLowerCase().includes(query.toLowerCase())
-  );
-
-  function openPicker() { setQuery(''); setShowPicker(true); }
 
   function addExercise(exercise: Exercise) {
     setBlocks((prev) => [...prev, { exercise, sets: [{ ...EMPTY_SET }] }]);
-    setShowPicker(false); setQuery('');
   }
 
   function removeBlock(bi: number) {
@@ -91,7 +85,7 @@ export default function NewWorkoutScreen() {
 
     setSaving(true);
     const { error } = await createWorkoutWithSets(
-      { client_id: clientId, trainer_id: user.id, performed_at: today, notes: workoutNotes.trim() || null },
+      { client_id: clientId, trainer_id: user.id, performed_at: date, notes: workoutNotes.trim() || null },
       allSets
     );
     setSaving(false);
@@ -102,54 +96,51 @@ export default function NewWorkoutScreen() {
   // ── Exercise picker ───────────────────────────────────────────────
   if (showPicker) {
     return (
-      <View style={[styles.container, { backgroundColor: t.background }]}>
-        <View style={[styles.pickerHeader, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-          <TouchableOpacity onPress={() => setShowPicker(false)} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="arrow-back" size={24} color={t.textPrimary} />
-          </TouchableOpacity>
-          <TextInput
-            style={[styles.searchInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-            placeholder="Search exercises…"
-            placeholderTextColor={t.textSecondary}
-            value={query}
-            onChangeText={setQuery}
-            autoFocus
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-        </View>
-        {exercisesLoading ? (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-        ) : (
-          <FlatList
-            data={filtered}
-            keyExtractor={(e) => e.id}
-            contentContainerStyle={styles.exerciseList}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.exerciseRow, { backgroundColor: t.surface, borderColor: t.border }]}
-                onPress={() => addExercise(item)}
-              >
-                <View style={styles.exerciseInfo}>
-                  <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{item.name}</Text>
-                  {item.muscle_group ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.muscle_group}</Text> : null}
-                </View>
-                <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={<Text style={[styles.emptyText, { color: t.textSecondary }]}>No exercises found.</Text>}
-          />
-        )}
-      </View>
+      <ExercisePicker
+        onSelect={(exercise) => { addExercise(exercise); setShowPicker(false); }}
+        onClose={() => setShowPicker(false)}
+      />
     );
   }
 
   // ── Workout builder ───────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
+      <Stack.Screen
+        options={{
+          title: 'Log Workout',
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+              <Ionicons name="chevron-back" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          ),
+          headerRight: () => (
+            <TouchableOpacity onPress={() => router.replace('/(tabs)/' as never)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="home-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={[styles.header, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-          <Text style={[styles.dateLabel, { color: t.textSecondary }]}>{formatDate(today)}</Text>
+          <TouchableOpacity
+            style={styles.dateTouchable}
+            onPress={() => setShowCalendar((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.dateLabel, { color: t.textPrimary }]}>{formatDate(date)}</Text>
+            <Ionicons
+              name={showCalendar ? 'calendar' : 'calendar-outline'}
+              size={18}
+              color={colors.primary}
+            />
+          </TouchableOpacity>
+          {showCalendar && (
+            <DatePicker
+              value={date}
+              onChange={(d) => { setDate(d); setShowCalendar(false); }}
+            />
+          )}
           <TextInput
             style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
             placeholder="Workout notes (optional)"
@@ -225,7 +216,7 @@ export default function NewWorkoutScreen() {
           </View>
         ))}
 
-        <TouchableOpacity style={[styles.addExerciseBtn, { borderColor: colors.primary }]} onPress={openPicker}>
+        <TouchableOpacity style={[styles.addExerciseBtn, { borderColor: colors.primary }]} onPress={() => setShowPicker(true)}>
           <Ionicons name="add" size={20} color={colors.primary} />
           <Text style={styles.addExerciseBtnText}>Add Exercise</Text>
         </TouchableOpacity>
@@ -244,6 +235,7 @@ export default function NewWorkoutScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerBtn: { marginRight: spacing.sm },
   loader: { marginTop: spacing.xl },
   pickerHeader: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
@@ -265,7 +257,8 @@ const styles = StyleSheet.create({
   emptyText: { ...typography.body, textAlign: 'center', marginTop: spacing.xl },
   scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
   header: { padding: spacing.md, gap: spacing.sm, borderBottomWidth: 1 },
-  dateLabel: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
+  dateTouchable: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dateLabel: { ...typography.body, fontWeight: '600' },
   notesInput: {
     ...typography.body, borderWidth: 1, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minHeight: 40,

@@ -1,5 +1,6 @@
+import { useCallback } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClients } from '@/hooks/useClients';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
@@ -8,7 +9,9 @@ import type { ClientWithStats } from '@/types';
 export default function ClientsScreen() {
   const router = useRouter();
   const t = useTheme();
-  const { clients, loading, error } = useClients();
+  const { clients, loading, error, refetch } = useClients();
+
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   if (loading) {
     return (
@@ -44,7 +47,8 @@ export default function ClientsScreen() {
         onPress={() => router.push('/client/new' as never)}
         accessibilityLabel="Add client"
       >
-        <Ionicons name="add" size={28} color={colors.textInverse} />
+        <Ionicons name="add" size={20} color={colors.textInverse} />
+        <Text style={styles.fabLabel}>Add Client</Text>
       </TouchableOpacity>
     </View>
   );
@@ -122,15 +126,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: spacing.xl,
     right: spacing.lg,
-    width: 56, height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
   },
+  fabLabel: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
 });

@@ -1,17 +1,16 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import {
   StyleSheet, Text, View, FlatList, ScrollView,
-  TouchableOpacity, ActivityIndicator, TextInput, Alert,
+  TouchableOpacity, ActivityIndicator, TextInput, Alert, Pressable,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClient } from '@/hooks/useClients';
 import { useWorkouts } from '@/hooks/useWorkouts';
-import { useClientProgress } from '@/hooks/useClientProgress';
-import { VolumeChart } from '@/components/charts/VolumeChart';
-import { ExerciseProgressChart } from '@/components/charts/ExerciseProgressChart';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Client, Workout, UpdateClient } from '@/types';
+
+const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
@@ -24,6 +23,7 @@ function fmt(v: number | null, unit: string): string {
   return v != null ? `${v}${unit}` : '—';
 }
 
+type Tab = 'progress' | 'workouts';
 type Theme = ReturnType<typeof useTheme>;
 
 // ─── Screen ───────────────────────────────────────────────────────
@@ -32,9 +32,29 @@ export default function ClientDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useTheme();
+  const [activeTab, setActiveTab] = useState<Tab>('progress');
 
-  const { client, loading: clientLoading, error: clientError, updateClient } = useClient(id);
+  const { client, loading: clientLoading, error: clientError, updateClient, deleteClient } = useClient(id);
   const { workouts, loading: workoutsLoading, error: workoutsError } = useWorkouts(id);
+
+  function handleDelete() {
+    Alert.alert(
+      'Delete Client',
+      `Remove ${client?.full_name ?? 'this client'} and all their workout history? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await deleteClient();
+            if (error) Alert.alert('Error', error);
+            else router.replace('/(tabs)/' as never);
+          },
+        },
+      ],
+    );
+  }
 
   if (clientLoading) {
     return <View style={[styles.centered, { backgroundColor: t.background }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
@@ -45,36 +65,78 @@ export default function ClientDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
-      <FlatList
-        data={workouts}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        ListHeaderComponent={
-          <>
-            <ClientInfoCard client={client} onUpdate={updateClient} t={t} />
-            <MetricsCard client={client} onUpdate={updateClient} t={t} />
-            <ProgressSection clientId={id} t={t} />
-            <View style={styles.workoutsSection}>
-              {workoutsLoading
-                ? <ActivityIndicator size="small" color={colors.primary} />
-                : <Text style={[styles.sectionTitle, { color: t.textPrimary }]}>{workouts.length} Workout{workouts.length !== 1 ? 's' : ''}</Text>}
-              {workoutsError ? <Text style={styles.errorText}>{workoutsError}</Text> : null}
-            </View>
-          </>
-        }
-        renderItem={({ item }) => <WorkoutRow workout={item} t={t} />}
-        ListEmptyComponent={
-          !workoutsLoading
-            ? <Text style={[styles.emptyText, { color: t.textSecondary }]}>No workouts logged yet.</Text>
-            : null
-        }
+      <Stack.Screen
+        options={{
+          title: client.full_name,
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+              <Ionicons name="chevron-back" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          ),
+          headerRight: () => (
+            <TouchableOpacity onPress={handleDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="trash-outline" size={22} color={colors.error} />
+            </TouchableOpacity>
+          ),
+        }}
       />
+
+      {/* ── Tab bar ── */}
+      <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+        {(['progress', 'workouts'] as Tab[]).map((tab) => {
+          const active = activeTab === tab;
+          return (
+            <Pressable key={tab} style={styles.tabItem} onPress={() => setActiveTab(tab)}>
+              <Text style={[styles.tabLabel, { color: active ? colors.primary : t.textSecondary }]}>
+                {tab === 'progress' ? 'Progress' : `Workouts${workouts.length ? ` (${workouts.length})` : ''}`}
+              </Text>
+              {active && <View style={styles.tabIndicator} />}
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* ── Progress tab ── */}
+      {activeTab === 'progress' && (
+        <ScrollView contentContainerStyle={styles.tabContent}>
+          <ClientInfoCard client={client} onUpdate={updateClient} t={t} />
+          <MetricsCard client={client} onUpdate={updateClient} t={t} />
+          <Suspense fallback={<ActivityIndicator size="small" color={colors.primary} style={styles.progressLoader} />}>
+            <ProgressSection clientId={id} />
+          </Suspense>
+        </ScrollView>
+      )}
+
+      {/* ── Workouts tab ── */}
+      {activeTab === 'workouts' && (
+        <FlatList
+          data={workouts}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.tabContent}
+          renderItem={({ item }) => <WorkoutRow workout={item} t={t} />}
+          ListHeaderComponent={
+            workoutsLoading
+              ? <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: spacing.sm }} />
+              : workoutsError
+                ? <Text style={styles.errorText}>{workoutsError}</Text>
+                : null
+          }
+          ListEmptyComponent={
+            !workoutsLoading
+              ? <Text style={[styles.emptyText, { color: t.textSecondary }]}>No workouts logged yet.</Text>
+              : null
+          }
+        />
+      )}
+
+      {/* ── FAB ── */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => router.push({ pathname: '/workout/new', params: { clientId: id } } as never)}
         accessibilityLabel="Log workout"
       >
-        <Ionicons name="add" size={28} color={colors.textInverse} />
+        <Ionicons name="add" size={20} color={colors.textInverse} />
+        <Text style={styles.fabLabel}>Log Workout</Text>
       </TouchableOpacity>
     </View>
   );
@@ -294,50 +356,6 @@ function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: Up
   );
 }
 
-// ─── Progress section ─────────────────────────────────────────────
-
-function ProgressSection({ clientId, t }: { clientId: string; t: Theme }) {
-  const { volumeData, exercises, getExerciseProgress, loading, error } = useClientProgress(clientId);
-  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
-
-  if (loading) return <ActivityIndicator size="small" color={colors.primary} style={styles.progressLoader} />;
-  if (error || volumeData.length === 0) return null;
-
-  const activeId = selectedExerciseId ?? exercises[0]?.id ?? null;
-  const progressData = activeId ? getExerciseProgress(activeId) : [];
-
-  return (
-    <>
-      <View style={[styles.chartCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-        <Text style={[styles.cardLabel, { color: t.textSecondary }]}>Volume Over Time</Text>
-        <VolumeChart data={volumeData} />
-      </View>
-      {exercises.length > 0 && (
-        <View style={[styles.chartCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-          <Text style={[styles.cardLabel, { color: t.textSecondary }]}>Exercise Progress</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
-            {exercises.map((e) => {
-              const active = e.id === activeId;
-              return (
-                <TouchableOpacity
-                  key={e.id}
-                  style={[styles.pill, { borderColor: t.border }, active && styles.pillActive]}
-                  onPress={() => setSelectedExerciseId(e.id)}
-                >
-                  <Text style={[styles.pillText, { color: t.textSecondary }, active && styles.pillTextActive]}>
-                    {e.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          <ExerciseProgressChart data={progressData} />
-        </View>
-      )}
-    </>
-  );
-}
-
 // ─── Workout row ──────────────────────────────────────────────────
 
 function WorkoutRow({ workout, t }: { workout: Workout; t: Theme }) {
@@ -364,7 +382,24 @@ function WorkoutRow({ workout, t }: { workout: Workout; t: Theme }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { padding: spacing.md, gap: spacing.sm },
+
+  // ── Tab bar ──
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+  },
+  tabItem: {
+    flex: 1, alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+  },
+  tabLabel: { ...typography.body, fontWeight: '600' },
+  tabIndicator: {
+    position: 'absolute', bottom: 0, left: spacing.lg, right: spacing.lg,
+    height: 2, borderRadius: 1, backgroundColor: colors.primary,
+  },
+
+  // ── Shared tab content ──
+  tabContent: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xxl + 56 },
 
   // ── Info card ──
   infoCard: {
@@ -408,28 +443,26 @@ const styles = StyleSheet.create({
 
   // ── Progress ──
   progressLoader: { marginVertical: spacing.md },
-  chartCard: { borderRadius: radius.md, padding: spacing.md, borderWidth: 1, gap: spacing.sm },
-  pillRow: { gap: spacing.xs, paddingVertical: spacing.xs },
-  pill: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.full, borderWidth: 1 },
-  pillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  pillText: { ...typography.bodySmall },
-  pillTextActive: { color: colors.textInverse, fontWeight: '600' },
 
-  // ── Workouts section ──
-  workoutsSection: { marginTop: spacing.xs },
-  sectionTitle: { ...typography.heading3 },
+  // ── Workouts tab ──
   row: { borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1 },
   dateChip: { flex: 1 },
   dateText: { ...typography.body, fontWeight: '600' },
   notesText: { ...typography.bodySmall, flex: 1 },
+
+  // ── Header buttons ──
+  headerBtn: { marginRight: spacing.sm },
+  headerBtns: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
 
   // ── Misc ──
   emptyText: { ...typography.body, textAlign: 'center', marginTop: spacing.xl },
   errorText: { ...typography.body, color: colors.error, textAlign: 'center', paddingHorizontal: spacing.lg },
   fab: {
     position: 'absolute', bottom: spacing.xl, right: spacing.lg,
-    width: 56, height: 56, borderRadius: radius.full,
-    backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+    paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md,
+    borderRadius: radius.full, backgroundColor: colors.primary,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
   },
+  fabLabel: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
 });

@@ -3,7 +3,8 @@ import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useClients } from '@/hooks/useClients';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
@@ -56,6 +57,16 @@ export default function NewClientScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
+      <Stack.Screen
+        options={{
+          title: 'New Client',
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+              <Ionicons name="chevron-back" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
         <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>Basic Info</Text>
@@ -158,6 +169,7 @@ function Divider({ t }: { t: Theme }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerBtn: { marginRight: spacing.sm },
   scroll: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xxl },
   sectionLabel: {
     ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5,

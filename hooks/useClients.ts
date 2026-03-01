@@ -91,6 +91,7 @@ type UseClientResult = {
   loading: boolean;
   error: string | null;
   updateClient: (payload: UpdateClient) => Promise<{ error: string | null }>;
+  deleteClient: () => Promise<{ error: string | null }>;
   refetch: () => void;
 };
 
@@ -125,5 +126,13 @@ export function useClient(id: string): UseClientResult {
     return { error: err?.message ?? null };
   }
 
-  return { client, loading, error, updateClient, refetch: fetch };
+  async function deleteClient() {
+    const { error: err } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id);
+    return { error: err?.message ?? null };
+  }
+
+  return { client, loading, error, updateClient, deleteClient, refetch: fetch };
 }
