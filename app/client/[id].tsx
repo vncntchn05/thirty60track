@@ -1,9 +1,9 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, useCallback } from 'react';
 import {
   StyleSheet, Text, View, FlatList, ScrollView,
   TouchableOpacity, ActivityIndicator, TextInput, Alert, Pressable,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClient } from '@/hooks/useClients';
 import { useWorkouts } from '@/hooks/useWorkouts';
@@ -35,25 +35,20 @@ export default function ClientDetailScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('progress');
 
   const { client, loading: clientLoading, error: clientError, updateClient, deleteClient } = useClient(id);
-  const { workouts, loading: workoutsLoading, error: workoutsError } = useWorkouts(id);
+  const { workouts, loading: workoutsLoading, error: workoutsError, refetch: refetchWorkouts } = useWorkouts(id);
 
-  function handleDelete() {
-    Alert.alert(
-      'Delete Client',
-      `Remove ${client?.full_name ?? 'this client'} and all their workout history? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await deleteClient();
-            if (error) Alert.alert('Error', error);
-            else router.replace('/(tabs)/' as never);
-          },
-        },
-      ],
-    );
+  useFocusEffect(useCallback(() => { refetchWorkouts(); }, [refetchWorkouts]));
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function performDelete() {
+    setIsDeleting(true);
+    const { error } = await deleteClient();
+    setIsDeleting(false);
+    if (error) { setDeleteError(error); return; }
+    router.back();
   }
 
   if (clientLoading) {
@@ -74,7 +69,7 @@ export default function ClientDetailScreen() {
             </TouchableOpacity>
           ),
           headerRight: () => (
-            <TouchableOpacity onPress={handleDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={() => { setConfirmingDelete(true); setDeleteError(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="trash-outline" size={22} color={colors.error} />
             </TouchableOpacity>
           ),
@@ -129,15 +124,37 @@ export default function ClientDetailScreen() {
         />
       )}
 
+      {/* ── Delete confirmation bar ── */}
+      {confirmingDelete && (
+        <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
+          <Text style={[styles.deleteBarText, { color: t.textPrimary }]} numberOfLines={2}>
+            Delete {client.full_name} and all workout history?
+          </Text>
+          {deleteError ? <Text style={styles.deleteBarError}>{deleteError}</Text> : null}
+          <View style={styles.deleteBarButtons}>
+            <TouchableOpacity onPress={() => { setConfirmingDelete(false); setDeleteError(null); }} style={styles.deleteCancelBtn}>
+              <Text style={[styles.deleteCancelText, { color: t.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={performDelete} disabled={isDeleting} style={[styles.deleteConfirmBtn, isDeleting && styles.disabledBtn]}>
+              {isDeleting
+                ? <ActivityIndicator size="small" color={colors.textInverse} />
+                : <Text style={styles.deleteConfirmText}>Delete</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* ── FAB ── */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push({ pathname: '/workout/new', params: { clientId: id } } as never)}
-        accessibilityLabel="Log workout"
-      >
-        <Ionicons name="add" size={20} color={colors.textInverse} />
-        <Text style={styles.fabLabel}>Log Workout</Text>
-      </TouchableOpacity>
+      {!confirmingDelete && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push({ pathname: '/workout/new', params: { clientId: id } } as never)}
+          accessibilityLabel="Log workout"
+        >
+          <Ionicons name="add" size={20} color={colors.textInverse} />
+          <Text style={styles.fabLabel}>Log Workout</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -465,4 +482,18 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
   },
   fabLabel: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+
+  // ── Delete confirmation bar ──
+  deleteBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    borderTopWidth: 1, padding: spacing.md, gap: spacing.sm,
+  },
+  deleteBarText: { ...typography.body },
+  deleteBarError: { ...typography.bodySmall, color: colors.error },
+  deleteBarButtons: { flexDirection: 'row', gap: spacing.sm },
+  deleteCancelBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary },
+  deleteCancelText: { ...typography.body },
+  deleteConfirmBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.error },
+  deleteConfirmText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+  disabledBtn: { opacity: 0.6 },
 });

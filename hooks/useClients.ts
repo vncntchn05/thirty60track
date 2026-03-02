@@ -73,12 +73,14 @@ export function useClients(): UseClientsResult {
   }
 
   async function deleteClient(id: string) {
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from('clients')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('id', id);
-    if (!err) fetch();
-    return { error: err?.message ?? null };
+    if (err) return { error: err.message };
+    if (count === 0) return { error: 'Delete failed — you may not have permission.' };
+    fetch();
+    return { error: null };
   }
 
   return { clients, loading, error, refetch: fetch, addClient, updateClient, deleteClient };
@@ -127,11 +129,13 @@ export function useClient(id: string): UseClientResult {
   }
 
   async function deleteClient() {
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from('clients')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('id', id);
-    return { error: err?.message ?? null };
+    if (err) return { error: err.message };
+    if (count === 0) return { error: 'Delete failed — you may not have permission.' };
+    return { error: null };
   }
 
   return { client, loading, error, updateClient, deleteClient, refetch: fetch };

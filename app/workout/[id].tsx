@@ -75,23 +75,27 @@ export default function WorkoutDetailScreen() {
     else setPendingExercise(null);
   }
 
-  function handleDeleteWorkout() {
-    Alert.alert(
-      'Delete Workout',
-      'Remove this workout and all its sets? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const { error: err } = await deleteWorkout();
-            if (err) Alert.alert('Error', err);
-            else router.back();
-          },
-        },
-      ],
-    );
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteSetId, setDeleteSetId] = useState<string | null>(null);
+
+  async function performDeleteWorkout() {
+    setIsDeleting(true);
+    const { error: err } = await deleteWorkout();
+    setIsDeleting(false);
+    if (err) { setDeleteError(err); return; }
+    router.back();
+  }
+
+  async function performDeleteSet() {
+    if (!deleteSetId) return;
+    setIsDeleting(true);
+    const { error: err } = await deleteSet(deleteSetId);
+    setIsDeleting(false);
+    if (err) { setDeleteError(err); return; }
+    setDeleteSetId(null);
+    setDeleteError(null);
   }
 
   // ── Exercise picker overlay ────────────────────────────────────────
@@ -151,7 +155,7 @@ export default function WorkoutDetailScreen() {
               <TouchableOpacity onPress={() => router.replace('/(tabs)/' as never)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="home-outline" size={22} color={colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleDeleteWorkout} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={() => { setConfirmingDelete(true); setDeleteError(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="trash-outline" size={22} color={colors.error} />
               </TouchableOpacity>
             </View>
@@ -178,19 +182,7 @@ export default function WorkoutDetailScreen() {
         renderItem={({ item }) => (
           <SetRow
             set={item}
-            onDelete={() =>
-              Alert.alert('Delete Set', `Remove Set ${item.set_number}?`, [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: async () => {
-                    const { error: err } = await deleteSet(item.id);
-                    if (err) Alert.alert('Error', err);
-                  },
-                },
-              ])
-            }
+            onDelete={() => { setDeleteSetId(item.id); setDeleteError(null); }}
             onSave={(payload) => updateSet(item.id, payload)}
             t={t}
           />
@@ -238,15 +230,46 @@ export default function WorkoutDetailScreen() {
         }
       />
 
+      {/* ── Delete confirmation bar (workout or set) ── */}
+      {(confirmingDelete || deleteSetId) && (
+        <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
+          <Text style={[styles.deleteBarText, { color: t.textPrimary }]}>
+            {confirmingDelete
+              ? 'Delete this workout and all its sets?'
+              : `Delete Set ${workout.workout_sets.find((s) => s.id === deleteSetId)?.set_number ?? ''}?`}
+          </Text>
+          {deleteError ? <Text style={styles.deleteBarError}>{deleteError}</Text> : null}
+          <View style={styles.deleteBarButtons}>
+            <TouchableOpacity
+              onPress={() => { setConfirmingDelete(false); setDeleteSetId(null); setDeleteError(null); }}
+              style={styles.deleteCancelBtn}
+            >
+              <Text style={[styles.deleteCancelText, { color: t.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={confirmingDelete ? performDeleteWorkout : performDeleteSet}
+              disabled={isDeleting}
+              style={[styles.deleteConfirmBtn, isDeleting && styles.disabledBtn]}
+            >
+              {isDeleting
+                ? <ActivityIndicator size="small" color={colors.textInverse} />
+                : <Text style={styles.deleteConfirmText}>Delete</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* FAB — add a new exercise to this workout */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={openPickerForNewExercise}
-        accessibilityLabel="Add exercise"
-      >
-        <Ionicons name="add" size={20} color={colors.textInverse} />
-        <Text style={styles.fabLabel}>Add Exercise</Text>
-      </TouchableOpacity>
+      {!confirmingDelete && !deleteSetId && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={openPickerForNewExercise}
+          accessibilityLabel="Add exercise"
+        >
+          <Ionicons name="add" size={20} color={colors.textInverse} />
+          <Text style={styles.fabLabel}>Add Exercise</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -616,6 +639,20 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
   },
   fabLabel: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+
+  // ── Delete confirmation bar ──
+  deleteBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    borderTopWidth: 1, padding: spacing.md, gap: spacing.sm,
+  },
+  deleteBarText: { ...typography.body },
+  deleteBarError: { ...typography.bodySmall, color: colors.error },
+  deleteBarButtons: { flexDirection: 'row', gap: spacing.sm },
+  deleteCancelBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary },
+  deleteCancelText: { ...typography.body },
+  deleteConfirmBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.error },
+  deleteConfirmText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+  disabledBtn: { opacity: 0.6 },
 
   // ── Misc ──
   errorText: { ...typography.body, color: colors.error, textAlign: 'center', paddingHorizontal: spacing.lg },

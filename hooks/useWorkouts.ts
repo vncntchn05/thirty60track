@@ -76,20 +76,24 @@ export function useWorkoutDetail(workoutId: string) {
   }
 
   async function deleteWorkout() {
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from('workouts')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('id', workoutId);
-    return { error: err?.message ?? null };
+    if (err) return { error: err.message };
+    if (count === 0) return { error: 'Delete failed — you may not have permission.' };
+    return { error: null };
   }
 
   async function deleteSet(setId: string) {
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from('workout_sets')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('id', setId);
-    if (!err) fetch();
-    return { error: err?.message ?? null };
+    if (err) return { error: err.message };
+    if (count === 0) return { error: 'Delete failed — you may not have permission.' };
+    fetch();
+    return { error: null };
   }
 
   async function updateSet(setId: string, payload: import('@/types').UpdateWorkoutSet) {
