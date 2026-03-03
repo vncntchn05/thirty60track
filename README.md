@@ -1,6 +1,6 @@
-# Thirty60 Track
+# thirty60track
 
-A mobile-first app for personal trainers to track client workouts, monitor progress, and load structured workout programs. Built with Expo (iOS, Android, Web) and Supabase.
+An app for personal trainers to track client workouts, monitor progress, and load structured workout programs. Built with Expo (iOS, Android, Web) and Supabase.
 
 ## Tech Stack
 
