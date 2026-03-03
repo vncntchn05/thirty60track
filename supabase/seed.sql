@@ -38,10 +38,10 @@ INSERT INTO exercises (name, muscle_group, category) VALUES
   ('Crunch',                 'Core',      'strength'),
   ('Cable Crunch',           'Core',      'strength'),
   -- Cardio
-  ('Treadmill Run',          NULL,        'cardio'),
-  ('Rowing Machine',         NULL,        'cardio'),
-  ('Cycling',                NULL,        'cardio'),
-  ('Jump Rope',              NULL,        'cardio')
+  ('Treadmill Run',          'Legs',      'cardio'),
+  ('Rowing Machine',         'Back',      'cardio'),
+  ('Cycling',                'Legs',      'cardio'),
+  ('Jump Rope',              'Full Body', 'cardio')
 ON CONFLICT (name) DO NOTHING;
 
 -- ─── Extended Exercise Library ────────────────────────────────
@@ -149,31 +149,128 @@ INSERT INTO exercises (name, muscle_group, category) VALUES
   ('Knee to Elbows',                      'Core',      'strength'),
   ('Toe Taps',                            'Core',      'strength'),
   -- Full Body / Compound
-  ('Landmine',                            NULL,        'strength'),
-  ('Bear Crawl',                          NULL,        'strength'),
-  ('Inchworm Push-Up',                   NULL,        'strength'),
-  ('Ball Squat Toss',                     NULL,        'strength'),
-  ('Med Ball Slams',                      NULL,        'strength'),
-  ('Med Ball Overhead Hold',             NULL,        'strength'),
-  ('Wall Balls',                          NULL,        'strength'),
-  ('Burpee DB Press',                     NULL,        'strength'),
-  ('Suitcase Carry (L/R)',               NULL,        'strength'),
-  ('Farmer''s Walk',                      NULL,        'strength'),
-  ('Squat Thrusts',                       NULL,        'cardio'),
+  ('Landmine',                            'Full Body', 'strength'),
+  ('Bear Crawl',                          'Full Body', 'strength'),
+  ('Inchworm Push-Up',                   'Full Body', 'strength'),
+  ('Ball Squat Toss',                     'Full Body', 'strength'),
+  ('Med Ball Slams',                      'Full Body', 'strength'),
+  ('Med Ball Overhead Hold',             'Full Body', 'strength'),
+  ('Wall Balls',                          'Full Body', 'strength'),
+  ('Burpee DB Press',                     'Full Body', 'strength'),
+  ('Suitcase Carry (L/R)',               'Core',      'strength'),
+  ('Farmer''s Walk',                      'Full Body', 'strength'),
+  ('Squat Thrusts',                       'Full Body', 'cardio'),
   -- Cardio
-  ('Mountain Climbers + Air Squats',     NULL,        'cardio'),
-  ('Mountain Climbers',                   NULL,        'cardio'),
-  ('Mountain Climber Burpee',            NULL,        'cardio'),
-  ('In-Out Jumping Jacks',               NULL,        'cardio'),
-  ('High Knees (s)',                      NULL,        'cardio'),
-  ('Butt Kicks (s)',                      NULL,        'cardio'),
-  ('Rope Ladder Broad Jumps',            NULL,        'cardio'),
-  ('Jumping Jacks (s)',                   NULL,        'cardio'),
-  ('Shuttle Runs (yd)',                   NULL,        'cardio'),
-  ('Speed Skaters',                       NULL,        'cardio'),
-  ('Burpees',                             NULL,        'cardio'),
-  ('Ice Skater Steps',                    NULL,        'cardio'),
+  ('Mountain Climbers + Air Squats',     'Full Body', 'cardio'),
+  ('Mountain Climbers',                   'Full Body', 'cardio'),
+  ('Mountain Climber Burpee',            'Full Body', 'cardio'),
+  ('In-Out Jumping Jacks',               'Full Body', 'cardio'),
+  ('High Knees (s)',                      'Legs',      'cardio'),
+  ('Butt Kicks (s)',                      'Legs',      'cardio'),
+  ('Rope Ladder Broad Jumps',            'Legs',      'cardio'),
+  ('Jumping Jacks (s)',                   'Full Body', 'cardio'),
+  ('Shuttle Runs (yd)',                   'Legs',      'cardio'),
+  ('Speed Skaters',                       'Legs',      'cardio'),
+  ('Burpees',                             'Full Body', 'cardio'),
+  ('Ice Skater Steps',                    'Legs',      'cardio'),
   -- Flexibility / Mobility
-  ('Cobra Stretch',                       NULL,        'flexibility'),
-  ('Hip Circles',                         NULL,        'flexibility')
+  ('Cobra Stretch',                       'Back',      'flexibility'),
+  ('Hip Circles',                         'Hips',      'flexibility')
 ON CONFLICT (name) DO NOTHING;
+
+-- ─── Workout Templates ────────────────────────────────────────────
+-- Run AFTER Migration 004 (workout_templates table) has been applied.
+INSERT INTO workout_templates (name, phase, category, exercise_names) VALUES
+  -- Phase 1
+  ('Workout A: Push Focus', 'Phase 1', 'Main', ARRAY[
+    'Air Squat', 'Glute Bridge', 'Incline Push-up', 'Floor Press + Mod Push-up',
+    'Dips', 'Plank (Variations)', 'Mountain Climbers + Air Squats', 'Cobra Stretch',
+    'Bear Crawl', 'Glute Bridge Hold'
+  ]),
+  ('Workout B: Pull Focus', 'Phase 1', 'Main', ARRAY[
+    'Reverse Lunge', 'Single-Leg Reach (Bulg Squat)', 'Pull up/Lat Pulldown',
+    'Mid Row', 'RDL', 'Cable Pullover', 'Towel Curls', 'Hammer Curl',
+    'Bear Crawl', 'Glute Bridge (Pulsing)'
+  ]),
+  ('Workout C: Stability', 'Phase 1', 'Main', ARRAY[
+    'Box Squat', 'Step-ups/Weighted', 'Landmine', 'Squat Press (DB/Bar)',
+    'Cable Squat Row', 'Cable Torso Rotations', 'Scapular Push-ups',
+    'Scapular Pull-up', 'Plank Taps', 'BW Back Extensions'
+  ]),
+  ('Workout D: Lateral/Total', 'Phase 1', 'Main', ARRAY[
+    'Lateral Lunge', 'Wall Sit', 'Plank-to-Pushup', 'Box Jump',
+    'Side Planks', 'Ball Squat Toss', 'Single-Leg Step-Up', 'Hip Circles',
+    'Mountain Climbers', 'In-Out Jumping Jacks'
+  ]),
+  -- Phase 2
+  ('Workout A: Push Focus', 'Phase 2', 'Main', ARRAY[
+    'Skater Jumps', 'Jump Squats', 'Tempo Push-ups', 'Chest Pass (Med Ball)',
+    'Plank Jacks', 'Flutter Kicks', 'T-Pushups', 'High Knees (s)',
+    'Box Jump', 'Deadbug (Weighted)'
+  ]),
+  ('Workout B: Pull Focus', 'Phase 2', 'Main', ARRAY[
+    'Box Step-ups', 'Walking Lunges', 'Chin-up Negatives', 'Med Ball Slams',
+    'Mountain Climbers', 'Bicycle Crunches', 'Cable Face Pulls', 'Butt Kicks (s)',
+    'Single-Leg Hops', 'Plank (Weighted)'
+  ]),
+  ('Workout C: Shoulder Focus', 'Phase 2', 'Main', ARRAY[
+    'Rope Ladder Broad Jumps', 'Lateral Bounds', 'Med Ball Overhead Hold',
+    'Wall Balls', 'Russian Twists', 'Static Squat Cable Torso Rotations',
+    'Pike Push-ups', 'Jumping Jacks (s)', 'Pilates Squat + Squat', 'Side Plank Dips'
+  ]),
+  ('Workout D: Agility/Total', 'Phase 2', 'Main', ARRAY[
+    'Shuttle Runs (yd)', 'Speed Skaters', 'V-Ups/Knee Raises', 'Burpees',
+    'Spiderman Push-ups', 'Plank with Knee-to-Elbow', 'Mountain Climber Burpee',
+    'Ice Skater Steps', 'Squat Thrusts', 'Deadlift'
+  ]),
+  -- Phase 3
+  ('Workout A: Chest/Push', 'Phase 3', 'Main', ARRAY[
+    'DB Goblet Squat', 'RDL (Dumbbells)', 'DB Bench Press', 'DB Incline Press',
+    'Deadbug (Weighted)', 'Pallof Press', 'Dips/Band Flyes', 'Inchworm Push-Up',
+    'Calf Raise', 'Weighted Sit-up'
+  ]),
+  ('Workout B: Back/Pull', 'Phase 3', 'Main', ARRAY[
+    'DB Split Squat', 'Leg Press + Leg Machines', 'Lat Pulldown', 'Seated Cable Row',
+    'Cable Woodchops', 'Plank with Row', 'Cable Face Pulls', 'Bicep Curls',
+    'Single-Leg Bridge', 'Reverse Crunch'
+  ]),
+  ('Workout C: Shoulders', 'Phase 3', 'Main', ARRAY[
+    'KB Deadlift', 'Hamstring Curl', 'DB Overhead Press', 'Cable/Band Lateral Raise',
+    'Hanging Leg Raises', 'Landmine Rotation', 'Burpee DB Press',
+    'Diamond + Wide Pushups', 'Wall Sits (Weighted)', 'Windshields/Alternate Knee Raises'
+  ]),
+  ('Workout D: Total Body', 'Phase 3', 'Main', ARRAY[
+    'DB Step-ups', 'Goblet Lateral Lunge', 'DB Renegade Row', 'Push-up (Weighted)',
+    'Medicine Ball Rotational Toss', 'Suitcase Carry (L/R)', 'Hammer Curl',
+    'Box Dips (Assist)', 'Lunge with Twist', 'Farmer''s Walk'
+  ]),
+  -- Abs
+  ('Abs: Variation A', 'Abs', 'Abs', ARRAY[
+    'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises',
+    'Plank', 'Plank Shoulder Taps', 'Deadbugs', 'Plank In and Outs',
+    'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps', 'V-Ups'
+  ]),
+  ('Abs: Variation B', 'Abs', 'Abs', ARRAY[
+    'V-Ups', 'Toe Taps', 'Knee to Elbows', 'Decline Russian Twists',
+    'Plank In and Outs', 'Deadbugs', 'Plank Shoulder Taps', 'Plank',
+    'Knee/Leg Raises', 'Single Leg Decline', 'Teapots', 'Center Decline'
+  ]),
+  ('Abs: Variation C', 'Abs', 'Abs', ARRAY[
+    'Plank', 'Deadbugs', 'V-Ups', 'Center Decline', 'Teapots',
+    'Single Leg Decline', 'Knee/Leg Raises', 'Plank Shoulder Taps',
+    'Plank In and Outs', 'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps'
+  ]),
+  ('Abs: Variation D', 'Abs', 'Abs', ARRAY[
+    'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps', 'V-Ups',
+    'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises',
+    'Plank', 'Plank Shoulder Taps', 'Deadbugs', 'Plank In and Outs'
+  ])
+ON CONFLICT (name, phase) DO NOTHING;
+
+-- ─── Migration: backfill missing muscle_group values ──────────────
+-- Run this in the Supabase SQL editor to fix existing rows.
+UPDATE exercises SET muscle_group = 'Legs'      WHERE name IN ('Treadmill Run', 'Cycling', 'High Knees (s)', 'Butt Kicks (s)', 'Rope Ladder Broad Jumps', 'Shuttle Runs (yd)', 'Speed Skaters', 'Ice Skater Steps') AND muscle_group IS NULL;
+UPDATE exercises SET muscle_group = 'Back'      WHERE name IN ('Rowing Machine', 'Cobra Stretch') AND muscle_group IS NULL;
+UPDATE exercises SET muscle_group = 'Core'      WHERE name IN ('Suitcase Carry (L/R)') AND muscle_group IS NULL;
+UPDATE exercises SET muscle_group = 'Hips'      WHERE name IN ('Hip Circles') AND muscle_group IS NULL;
+UPDATE exercises SET muscle_group = 'Full Body' WHERE muscle_group IS NULL;

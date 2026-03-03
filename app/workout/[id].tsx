@@ -11,9 +11,14 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { WorkoutSet, Exercise, UpdateWorkout, UpdateWorkoutSet } from '@/types';
 
+const SUPERSET_COLORS = ['#8B5CF6', '#3B82F6', '#F59E0B', '#EC4899', '#14B8A6'];
+function getSupersetColor(group: number): string {
+  return SUPERSET_COLORS[(group - 1) % SUPERSET_COLORS.length];
+}
+
 type SetWithExercise = WorkoutSet & { exercise: Exercise };
 type Theme = ReturnType<typeof useTheme>;
-type Section = { title: string; exerciseId: string; data: SetWithExercise[] };
+type Section = { title: string; exerciseId: string; supersetGroup: number | null; data: SetWithExercise[] };
 type SetForm = { reps: string; weight_kg: string; duration_seconds: string; notes: string };
 
 const EMPTY_FORM: SetForm = { reps: '', weight_kg: '', duration_seconds: '', notes: '' };
@@ -34,7 +39,7 @@ export default function WorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useTheme();
-  const { workout, loading, error, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet } = useWorkoutDetail(id);
+  const { workout, loading, error, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet, updateExerciseSupersetGroup } = useWorkoutDetail(id);
 
   // Add-set state — tracks which exercise the pending form targets
   const [pendingExercise, setPendingExercise] = useState<{ id: string; name: string } | null>(null);
@@ -130,16 +135,47 @@ export default function WorkoutDetailScreen() {
   const exerciseIdsInWorkout = new Set(workout.workout_sets.map((s) => s.exercise_id));
   const isNewExercise = pendingExercise != null && !exerciseIdsInWorkout.has(pendingExercise.id);
 
-  const grouped: Record<string, SetWithExercise[]> = {};
+  // Build sections preserving insertion order
+  const groupedMap = new Map<string, { id: string; supersetGroup: number | null; sets: SetWithExercise[] }>();
   for (const set of workout.workout_sets) {
-    if (!grouped[set.exercise.name]) grouped[set.exercise.name] = [];
-    grouped[set.exercise.name].push(set);
+    if (!groupedMap.has(set.exercise.name)) {
+      groupedMap.set(set.exercise.name, {
+        id: set.exercise_id,
+        supersetGroup: set.superset_group ?? null,
+        sets: [],
+      });
+    }
+    groupedMap.get(set.exercise.name)!.sets.push(set);
   }
-  const sections: Section[] = Object.entries(grouped).map(([title, data]) => ({
-    title,
-    exerciseId: data[0].exercise_id,
-    data,
+  const sections: Section[] = [...groupedMap.entries()].map(([title, { id: exId, supersetGroup, sets }]) => ({
+    title, exerciseId: exId, supersetGroup, data: sets,
   }));
+
+  async function handleToggleSupersetLink(idx: number) {
+    if (idx === 0) return;
+    const curr = sections[idx];
+    const prev = sections[idx - 1];
+    const alreadyLinked =
+      curr.supersetGroup !== null && curr.supersetGroup === prev.supersetGroup;
+
+    if (alreadyLinked) {
+      await updateExerciseSupersetGroup(curr.exerciseId, null);
+      const othersInGroup = sections.filter(
+        (s, i) => i !== idx && s.supersetGroup === curr.supersetGroup
+      );
+      if (othersInGroup.length === 1 && othersInGroup[0].exerciseId === prev.exerciseId) {
+        await updateExerciseSupersetGroup(prev.exerciseId, null);
+      }
+    } else {
+      const newGroup =
+        prev.supersetGroup ??
+        (Math.max(0, ...sections.map((s) => s.supersetGroup ?? 0)) + 1);
+      if (prev.supersetGroup === null) {
+        await updateExerciseSupersetGroup(prev.exerciseId, newGroup);
+      }
+      await updateExerciseSupersetGroup(curr.exerciseId, newGroup);
+    }
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
@@ -174,16 +210,62 @@ export default function WorkoutDetailScreen() {
             notes={workout.notes}
             bodyWeightKg={workout.body_weight_kg}
             bodyFatPercent={workout.body_fat_percent}
+            trainerName={workout.trainer?.full_name ?? null}
             onSave={updateWorkout}
             t={t}
           />
         }
-        renderSectionHeader={({ section }) => (
-          <Text style={styles.exerciseTitle}>{section.title}</Text>
-        )}
-        renderItem={({ item }) => (
+        renderSectionHeader={({ section }) => {
+          const sectionIdx = sections.indexOf(section);
+          const prev = sectionIdx > 0 ? sections[sectionIdx - 1] : null;
+          const isLinkedToPrev =
+            section.supersetGroup !== null &&
+            prev !== null &&
+            prev.supersetGroup === section.supersetGroup;
+          const supersetColor = section.supersetGroup !== null
+            ? getSupersetColor(section.supersetGroup)
+            : null;
+
+          return (
+            <View>
+              {/* Superset connector pill between consecutive same-group sections */}
+              {isLinkedToPrev && supersetColor && (
+                <View style={styles.supersetConnector}>
+                  <View style={[styles.supersetLine, { backgroundColor: supersetColor }]} />
+                  <Text style={[styles.supersetBadgeText, { color: supersetColor }]}>SUPERSET</Text>
+                  <View style={[styles.supersetLine, { backgroundColor: supersetColor }]} />
+                </View>
+              )}
+
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[
+                  styles.exerciseTitle,
+                  supersetColor !== null && { color: supersetColor },
+                ]}>
+                  {section.title}
+                </Text>
+                {/* Chain icon — available on all sections except the first */}
+                {sectionIdx > 0 && (
+                  <TouchableOpacity
+                    onPress={() => handleToggleSupersetLink(sectionIdx)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.chainBtn}
+                  >
+                    <Ionicons
+                      name={isLinkedToPrev ? 'link' : 'link-outline'}
+                      size={16}
+                      color={isLinkedToPrev && supersetColor ? supersetColor : t.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          );
+        }}
+        renderItem={({ item, section }) => (
           <SetRow
             set={item}
+            supersetColor={section.supersetGroup !== null ? getSupersetColor(section.supersetGroup) : null}
             onDelete={() => { setDeleteSetId(item.id); setDeleteError(null); }}
             onSave={(payload) => updateSet(item.id, payload)}
             t={t}
@@ -347,11 +429,12 @@ type WorkoutHeaderProps = {
   notes: string | null;
   bodyWeightKg: number | null;
   bodyFatPercent: number | null;
+  trainerName: string | null;
   onSave: (p: UpdateWorkout) => Promise<{ error: string | null }>;
   t: Theme;
 };
 
-function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, onSave, t }: WorkoutHeaderProps) {
+function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, trainerName, onSave, t }: WorkoutHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dateVal, setDateVal] = useState(performedAt);
@@ -453,6 +536,7 @@ function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, onSav
           <Ionicons name="pencil" size={16} color={colors.primary} />
         </TouchableOpacity>
       </View>
+      {trainerName ? <Text style={[styles.trainerText, { color: t.textSecondary }]}>Logged by {trainerName}</Text> : null}
       {hasMetrics && (
         <View style={styles.metricsRow}>
           {bodyWeightKg != null && (
@@ -480,12 +564,13 @@ function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, onSav
 
 type SetRowProps = {
   set: SetWithExercise;
+  supersetColor: string | null;
   onDelete: () => void;
   onSave: (p: UpdateWorkoutSet) => Promise<{ error: string | null }>;
   t: Theme;
 };
 
-function SetRow({ set, onDelete, onSave, t }: SetRowProps) {
+function SetRow({ set, supersetColor, onDelete, onSave, t }: SetRowProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [repsVal, setRepsVal] = useState(set.reps != null ? String(set.reps) : '');
@@ -521,7 +606,11 @@ function SetRow({ set, onDelete, onSave, t }: SetRowProps) {
 
   if (editing) {
     return (
-      <View style={[styles.setCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+      <View style={[
+        styles.setCard,
+        { backgroundColor: t.surface, borderColor: t.border },
+        supersetColor !== null && { borderLeftWidth: 3, borderLeftColor: supersetColor },
+      ]}>
         <View style={styles.setEditHeader}>
           <Text style={[styles.setNumber, { color: t.textSecondary }]}>Set {set.set_number}</Text>
           <View style={styles.editActions}>
@@ -570,7 +659,11 @@ function SetRow({ set, onDelete, onSave, t }: SetRowProps) {
   }
 
   return (
-    <View style={[styles.setRow, { backgroundColor: t.surface, borderColor: t.border }]}>
+    <View style={[
+      styles.setRow,
+      { backgroundColor: t.surface, borderColor: t.border },
+      supersetColor !== null && { borderLeftWidth: 3, borderLeftColor: supersetColor },
+    ]}>
       <Text style={[styles.setNumber, { color: t.textSecondary }]}>Set {set.set_number}</Text>
       <View style={styles.setMainContent}>
         <Text style={[styles.setDetail, { color: t.textPrimary }]}>{parts.join(' · ') || '—'}</Text>
@@ -601,6 +694,7 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dateText: { ...typography.heading3, flex: 1 },
+  trainerText: { ...typography.bodySmall, fontStyle: 'italic' },
   notesText: { ...typography.body },
   notesEmpty: { ...typography.bodySmall, fontStyle: 'italic' },
   headerInput: {
@@ -631,10 +725,25 @@ const styles = StyleSheet.create({
   saveSmallBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '600' },
 
   // ── Section header ──
+  sectionHeaderRow: {
+    flexDirection: 'row', alignItems: 'center',
+    marginTop: spacing.md, marginBottom: spacing.xs,
+  },
   exerciseTitle: {
     ...typography.label, color: colors.primary,
     textTransform: 'uppercase', letterSpacing: 1,
-    marginTop: spacing.md, marginBottom: spacing.xs,
+    flex: 1,
+  },
+  chainBtn: { paddingLeft: spacing.sm },
+
+  // ── Superset connector ──
+  supersetConnector: {
+    flexDirection: 'row', alignItems: 'center',
+    marginVertical: 2, gap: spacing.xs,
+  },
+  supersetLine: { flex: 1, height: 1 },
+  supersetBadgeText: {
+    ...typography.label, fontWeight: '700', letterSpacing: 1,
   },
 
   // ── "Add set" in section footer ──
@@ -712,7 +821,6 @@ const styles = StyleSheet.create({
   deleteCancelText: { ...typography.body },
   deleteConfirmBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.error },
   deleteConfirmText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
-  disabledBtn: { opacity: 0.6 },
 
   // ── Misc ──
   errorText: { ...typography.body, color: colors.error, textAlign: 'center', paddingHorizontal: spacing.lg },

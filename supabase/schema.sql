@@ -160,16 +160,49 @@ ALTER TABLE workouts
   ADD COLUMN IF NOT EXISTS body_weight_kg   NUMERIC(5,2) CHECK (body_weight_kg > 0),
   ADD COLUMN IF NOT EXISTS body_fat_percent NUMERIC(4,2) CHECK (body_fat_percent BETWEEN 0 AND 100);
 
--- Workouts: trainer sees workouts they logged for their clients.
-CREATE POLICY "workouts: own trainer" ON workouts
-  FOR ALL USING (auth.uid() = trainer_id);
+-- ─── Migration 003: shared trainer access to workouts ─────────────
+-- Allow all authenticated trainers to view and edit any client's workouts.
+-- Run this in the Supabase SQL editor if the above policies already exist.
+DROP POLICY IF EXISTS "workouts: own trainer" ON workouts;
+DROP POLICY IF EXISTS "workout_sets: via workout trainer" ON workout_sets;
 
--- Workout sets: accessible via workout ownership (join check).
-CREATE POLICY "workout_sets: via workout trainer" ON workout_sets
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM workouts w
-      WHERE w.id = workout_sets.workout_id
-        AND w.trainer_id = auth.uid()
-    )
-  );
+CREATE POLICY "workouts: authenticated" ON workouts
+  FOR ALL USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "workout_sets: authenticated" ON workout_sets
+  FOR ALL USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
+-- ─── Migration 004: workout_templates table ───────────────────────
+-- Stores editable workout templates (replaces the static TS constant).
+CREATE TABLE IF NOT EXISTS workout_templates (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name           TEXT        NOT NULL,
+  phase          TEXT        NOT NULL,
+  category       TEXT        NOT NULL DEFAULT 'Main',
+  exercise_names TEXT[]      NOT NULL DEFAULT '{}',
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (name, phase)
+);
+
+CREATE TRIGGER workout_templates_updated_at
+  BEFORE UPDATE ON workout_templates
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE workout_templates ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "workout_templates: authenticated" ON workout_templates
+  FOR ALL USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
+-- ─── Migration 005: fix workout_templates unique constraint ────────
+-- Run this if you already ran Migration 004.
+-- The old UNIQUE(name) prevented same-named workouts across phases.
+ALTER TABLE workout_templates DROP CONSTRAINT IF EXISTS workout_templates_name_key;
+ALTER TABLE workout_templates ADD CONSTRAINT workout_templates_name_phase_key UNIQUE (name, phase);
+
+-- ─── Migration 006: superset grouping on workout_sets ──────────────
+-- Group numbers are app-assigned integers, scoped to a workout.
+ALTER TABLE workout_sets ADD COLUMN IF NOT EXISTS superset_group SMALLINT;

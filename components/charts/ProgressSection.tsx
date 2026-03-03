@@ -199,8 +199,8 @@ const styles = StyleSheet.create({
   },
   emptyStateText: { ...typography.bodySmall, textAlign: 'center' },
   card: { borderRadius: radius.md, padding: spacing.md, borderWidth: 1, gap: spacing.sm },
-  sideRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
-  sideCard: { flex: 1 },
+  sideRow: { flexDirection: 'column', gap: spacing.sm },
+  sideCard: {},
   label: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   // Dropdown button

@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
@@ -21,6 +22,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [signUpConfirmed, setSignUpConfirmed] = useState(false);
 
   async function handleSubmit() {
     setError(null);
@@ -32,7 +34,15 @@ export default function LoginScreen() {
       if (authError) setError(authError);
     } else {
       const { error: authError } = await signUp(email.trim(), password, fullName.trim());
-      if (authError) setError(authError);
+      if (authError) {
+        setError(authError);
+      } else {
+        setMode('signin');
+        setSignUpConfirmed(true);
+        setFullName('');
+        setPassword('');
+        // email stays pre-filled
+      }
     }
     setLoading(false);
   }
@@ -40,6 +50,7 @@ export default function LoginScreen() {
   function toggleMode() {
     setMode((m) => (m === 'signin' ? 'signup' : 'signin'));
     setError(null);
+    setSignUpConfirmed(false);
   }
 
   return (
@@ -48,10 +59,23 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: t.background }]}
     >
       <View style={styles.inner}>
+        <Image
+          source={require('../../assets/Thirty60_logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.appName}>thirty60track</Text>
         <Text style={[styles.subtitle, { color: t.textSecondary }]}>
           {mode === 'signin' ? 'Trainer Login' : 'Create Account'}
         </Text>
+
+        {signUpConfirmed && (
+          <View style={styles.confirmBanner}>
+            <Text style={styles.confirmText}>
+              Account created! Check your email to confirm your account, then sign in below.
+            </Text>
+          </View>
+        )}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -115,6 +139,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   inner: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.lg, gap: spacing.md },
+  logo: { width: 96, height: 96, alignSelf: 'center', marginBottom: spacing.sm },
   appName: { ...typography.heading1, color: colors.primary, textAlign: 'center' },
   subtitle: { ...typography.body, textAlign: 'center', marginBottom: spacing.md },
   input: {
@@ -133,6 +158,12 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { ...typography.body, fontWeight: '600', color: colors.textInverse },
+  confirmBanner: {
+    backgroundColor: '#d1fae5',
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  confirmText: { ...typography.bodySmall, color: '#065f46', textAlign: 'center' },
   errorText: { ...typography.bodySmall, color: colors.error, textAlign: 'center' },
   toggleRow: { alignItems: 'center', marginTop: spacing.xs },
   toggleText: { ...typography.bodySmall, textAlign: 'center' },

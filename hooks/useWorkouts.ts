@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import type { Workout, WorkoutWithSets, InsertWorkout, InsertWorkoutSet, UpdateWorkout, UpdateClient } from '@/types';
+import type { WorkoutWithTrainer, WorkoutWithSets, InsertWorkout, InsertWorkoutSet, UpdateWorkout, UpdateClient } from '@/types';
 
 type UseWorkoutsResult = {
-  workouts: Workout[];
+  workouts: WorkoutWithTrainer[];
   loading: boolean;
   error: string | null;
   refetch: () => void;
@@ -13,7 +13,7 @@ type UseWorkoutsResult = {
 /** List workouts for a single client, newest first. */
 export function useWorkouts(clientId: string): UseWorkoutsResult {
   const { user } = useAuth();
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutWithTrainer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,13 +23,12 @@ export function useWorkouts(clientId: string): UseWorkoutsResult {
     setError(null);
     const { data, error: err } = await supabase
       .from('workouts')
-      .select('id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, created_at, updated_at')
+      .select('id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, created_at, updated_at, trainer:trainers(full_name)')
       .eq('client_id', clientId)
-      .eq('trainer_id', user.id)
       .order('performed_at', { ascending: false });
 
     if (err) setError(err.message);
-    else setWorkouts(data ?? []);
+    else setWorkouts((data ?? []) as WorkoutWithTrainer[]);
     setLoading(false);
   }, [user, clientId]);
 
@@ -51,8 +50,9 @@ export function useWorkoutDetail(workoutId: string) {
       .from('workouts')
       .select(`
         id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, created_at, updated_at,
+        trainer:trainers(full_name),
         workout_sets (
-          id, workout_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes, created_at,
+          id, workout_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes, superset_group, created_at,
           exercise:exercises ( id, name, muscle_group, category, created_at )
         )
       `)
@@ -134,7 +134,17 @@ export function useWorkoutDetail(workoutId: string) {
     return { error: err?.message ?? null };
   }
 
-  return { workout, loading, error, refetch: fetch, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet };
+  async function updateExerciseSupersetGroup(exerciseId: string, group: number | null) {
+    const { error: err } = await supabase
+      .from('workout_sets')
+      .update({ superset_group: group })
+      .eq('workout_id', workoutId)
+      .eq('exercise_id', exerciseId);
+    if (!err) fetch();
+    return { error: err?.message ?? null };
+  }
+
+  return { workout, loading, error, refetch: fetch, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet, updateExerciseSupersetGroup };
 }
 
 /** Create a workout with sets in a single operation.

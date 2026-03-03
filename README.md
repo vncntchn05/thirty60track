@@ -36,7 +36,7 @@ A mobile-first app for personal trainers to track client workouts, monitor progr
 ### Workout Logging
 - [x] Log a new workout session with date picker
 - [x] Multi-exercise workout builder — add multiple exercises per session
-- [x] **Workout templates** — load any of 16 structured program templates (Phase 1–3 + Abs A–D) to pre-populate all exercises instantly
+- [x] **Workout templates** — load a template to pre-populate all exercises instantly
 - [x] Shared exercise picker with search
 - [x] Log sets per exercise (reps, weight, duration)
 - [x] Optional body weight and body fat % per workout session
@@ -46,11 +46,12 @@ A mobile-first app for personal trainers to track client workouts, monitor progr
 - [x] Delete workout (confirmation alert)
 - [x] Delete individual sets
 - [x] Body metrics on past workouts sync back to the client profile
+- [x] **Superset support** — chain exercises together with a link icon; each superset group gets a distinct color (violet, blue, amber, pink, teal); works in both the new workout logger and the edit screen
 - [ ] Rest timer
 - [ ] Workout notes per set
 
 ### Workout Templates
-16 pre-built program templates sourced from the Thirty60 program library:
+Templates are stored in the database and fully editable from within the app (via the Exercise Library tab → Edit Templates). The app ships with 16 pre-built templates sourced from the Thirty60 program library:
 
 | Phase | Templates |
 |---|---|
@@ -59,14 +60,15 @@ A mobile-first app for personal trainers to track client workouts, monitor progr
 | Phase 3 | Workout A: Chest/Push, B: Back/Pull, C: Shoulders, D: Total Body |
 | Abs | Variation A, B, C, D |
 
-Templates are matched to live exercises in the database. Any unmatched exercises are listed so they can be added manually.
+Templates are matched to live exercises in the database when loading a workout. Any unmatched exercises are listed so they can be added manually. Trainers can create, rename, reorder exercises in, and delete templates at any time.
 
 ### Exercise Library
 - [x] Shared exercise library (150+ exercises seeded across all muscle groups)
+- [x] Dedicated **Exercises tab** — browse, search, and manage the full library
+- [x] Group exercises by muscle group or category (collapsible sections)
+- [x] **Add custom exercises** — name, muscle group, and category (strength / cardio / flexibility / other)
 - [x] Exercise search when logging a workout
 - [x] Exercises auto-inserted by workout templates when missing from the library
-- [ ] Add custom exercises
-- [ ] Muscle group filter
 - [ ] Exercise detail page
 
 ### Progress & Charts
@@ -113,12 +115,15 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All** applied simu
 ## Database Schema
 
 ```
-trainers       — one row per auth user (auto-created on signup via trigger)
-clients        — belong to one trainer; RLS enforces data isolation
-workouts       — one session per client per date; stores optional body metrics
-workout_sets   — one row per set (reps, weight_kg, duration_seconds, notes)
-exercises      — shared library; authenticated read + insert
+trainers           — one row per auth user (auto-created on signup via trigger)
+clients            — belong to one trainer; RLS enforces data isolation
+workouts           — one session per client per date; stores optional body metrics
+workout_sets       — one row per set (reps, weight_kg, duration_seconds, notes, superset_group)
+exercises          — shared library; authenticated read + insert
+workout_templates  — editable program templates stored in DB; authenticated CRUD
 ```
+
+`workout_sets.superset_group` is a nullable integer that groups exercises into supersets within a workout. Sets for exercises in the same superset share the same group number, scoped to the workout.
 
 Row-Level Security is enabled on all tables. Trainers can only read and write their own clients and workout data.
 
@@ -131,11 +136,12 @@ app/
   _layout.tsx          # Root layout — auth gate, Skia web init, dark status bar
   (auth)/login.tsx     # Public login screen
   (tabs)/index.tsx     # Client list + search bar
+  (tabs)/exercises.tsx # Exercise library — browse, group, add; Edit Templates FAB
   (tabs)/profile.tsx   # Trainer profile + sign out
   client/[id].tsx      # Client detail — metrics, progress charts, workout history
   client/new.tsx       # Add client form
-  workout/[id].tsx     # Workout detail — view, edit sets, body metrics, delete
-  workout/new.tsx      # Log new workout + template loader
+  workout/[id].tsx     # Workout detail — view/edit sets, body metrics, supersets, delete
+  workout/new.tsx      # Log new workout + template loader + superset linking
 
 components/
   charts/
@@ -146,19 +152,20 @@ components/
   workout/
     ExercisePicker.tsx        # Searchable exercise picker
     TemplatePicker.tsx        # Phase-grouped template browser
+    TemplateEditor.tsx        # Create / edit / delete workout templates
   ui/
     DatePicker.tsx            # Date selection component
 
 hooks/
-  useClients.ts        # Client CRUD + stats (workout count, last session)
-  useWorkouts.ts       # List and create workouts; syncs body metrics to client
-  useWorkoutDetail.ts  # Single workout + sets + exercises
-  useExercises.ts      # Exercise library (read + create)
-  useClientProgress.ts # Derives all chart data from workouts; supports date range
+  useClients.ts           # Client CRUD + stats (workout count, last session)
+  useWorkouts.ts          # List workouts; single workout detail + sets + superset mutations
+  useExercises.ts         # Exercise library (read + create)
+  useWorkoutTemplates.ts  # Template CRUD against the workout_templates table
+  useClientProgress.ts    # Derives all chart data from workouts; supports date range
 
 constants/
   theme.ts              # Color/spacing/typography tokens + useTheme (always dark)
-  workoutTemplates.ts   # 16 structured workout templates (Phase 1–3 + Abs)
+  workoutTemplates.ts   # Seed data shape for the 16 built-in templates
 
 lib/
   supabase.ts          # Supabase client singleton
@@ -173,7 +180,7 @@ assets/
   Thirty60_logo.png     # Brand logo used in header and favicon
 
 supabase/
-  schema.sql                # Source-of-truth DDL (includes body metrics migration)
+  schema.sql                # Source-of-truth DDL (migrations 001–006)
   seed.sql                  # 150+ exercises across all muscle groups
   seed_test_client.sql      # Full year of realistic test data (youth hockey player)
 ```
@@ -200,9 +207,17 @@ cp .env.example .env.local
 Run these in order in the **Supabase SQL Editor**:
 
 ```
-1. supabase/schema.sql          — creates all tables, triggers, RLS policies
+1. supabase/schema.sql          — creates all tables, triggers, RLS policies, and migrations 001–006
 2. supabase/seed.sql            — populates the exercise library (150+ exercises)
 ```
+
+`schema.sql` is the single source of truth and includes all incremental migrations inline:
+- **001** — base schema (trainers, clients, workouts, workout_sets, exercises)
+- **002** — body metrics columns on workouts
+- **003** — shared trainer access (RLS policies for workouts and workout_sets)
+- **004** — `workout_templates` table
+- **005** — unique constraint fix on workout_templates
+- **006** — `superset_group` column on workout_sets
 
 Optionally, to load a full year of test client data:
 ```

@@ -89,7 +89,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <Head>
-        <title>Thirty60 Track</title>
+        <title>thirty60track</title>
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="shortcut icon" href="/favicon.png" type="image/png" />
         <meta name="description" content="Thirty60 fitness tracking app" />

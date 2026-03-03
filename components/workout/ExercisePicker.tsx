@@ -30,7 +30,7 @@ type Props = {
  */
 export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
   const t = useTheme();
-  const { exercises, loading, createExercise } = useExercises();
+  const { exercises, loading, error: loadError, createExercise } = useExercises();
 
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
@@ -173,6 +173,8 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
 
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+      ) : loadError ? (
+        <Text style={[styles.emptyText, { color: colors.error }]}>{loadError}</Text>
       ) : (
         <FlatList
           data={filtered}

@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useClient } from '@/hooks/useClients';
 import { useWorkouts } from '@/hooks/useWorkouts';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { Client, Workout, UpdateClient } from '@/types';
+import type { Client, WorkoutWithTrainer, UpdateClient } from '@/types';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
@@ -108,7 +108,7 @@ export default function ClientDetailScreen() {
           data={workouts}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.tabContent}
-          renderItem={({ item }) => <WorkoutRow workout={item} t={t} />}
+          renderItem={({ item }) => <WorkoutRow workout={item as WorkoutWithTrainer} t={t} />}
           ListHeaderComponent={
             workoutsLoading
               ? <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: spacing.sm }} />
@@ -375,7 +375,7 @@ function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: Up
 
 // ─── Workout row ──────────────────────────────────────────────────
 
-function WorkoutRow({ workout, t }: { workout: Workout; t: Theme }) {
+function WorkoutRow({ workout, t }: { workout: WorkoutWithTrainer; t: Theme }) {
   const router = useRouter();
   const date = new Date(workout.performed_at).toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
@@ -392,6 +392,7 @@ function WorkoutRow({ workout, t }: { workout: Workout; t: Theme }) {
     >
       <View style={styles.rowMain}>
         <Text style={[styles.dateText, { color: t.textPrimary }]}>{date}</Text>
+        {workout.trainer?.full_name ? <Text style={[styles.trainerText, { color: t.textSecondary }]}>Logged by {workout.trainer.full_name}</Text> : null}
         {workout.notes ? <Text style={[styles.notesText, { color: t.textSecondary }]} numberOfLines={1}>{workout.notes}</Text> : null}
         {metricParts ? <Text style={[styles.rowMetricText, { color: t.textSecondary }]}>{metricParts}</Text> : null}
       </View>
@@ -471,6 +472,7 @@ const styles = StyleSheet.create({
   row: { borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1 },
   rowMain: { flex: 1, gap: 2 },
   dateText: { ...typography.body, fontWeight: '600' },
+  trainerText: { ...typography.bodySmall, fontStyle: 'italic' },
   notesText: { ...typography.bodySmall },
   rowMetricText: { ...typography.bodySmall },
 

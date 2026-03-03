@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  WORKOUT_TEMPLATES, TEMPLATE_PHASES,
-  type WorkoutTemplate, type TemplatePhase,
-} from '@/constants/workoutTemplates';
+import { useWorkoutTemplates } from '@/hooks/useWorkoutTemplates';
+import { type WorkoutTemplate } from '@/constants/workoutTemplates';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+
+const PHASE_ORDER = ['Phase 1', 'Phase 2', 'Phase 3', 'Abs'];
 
 type Props = {
   onSelect: (template: WorkoutTemplate) => void;
@@ -16,7 +16,20 @@ type Props = {
 
 export function TemplatePicker({ onSelect, onClose }: Props) {
   const t = useTheme();
-  const [expandedPhase, setExpandedPhase] = useState<TemplatePhase | null>('Phase 1');
+  const { templates, loading, error } = useWorkoutTemplates();
+  const [expandedPhase, setExpandedPhase] = useState<string | null>('Phase 1');
+
+  const phases = useMemo(() => {
+    const unique = [...new Set(templates.map((tp) => tp.phase))];
+    return unique.sort((a, b) => {
+      const ai = PHASE_ORDER.indexOf(a);
+      const bi = PHASE_ORDER.indexOf(b);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [templates]);
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
@@ -29,10 +42,15 @@ export function TemplatePicker({ onSelect, onClose }: Props) {
         <View style={styles.closeBtn} />
       </View>
 
+      {loading ? (
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
+      ) : error ? (
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+      ) : (
       <ScrollView contentContainerStyle={styles.scroll}>
-        {TEMPLATE_PHASES.map((phase) => {
+        {phases.map((phase) => {
           const isOpen = expandedPhase === phase;
-          const templates = WORKOUT_TEMPLATES.filter((tp) => tp.phase === phase);
+          const phaseTemplates = templates.filter((tp) => tp.phase === phase);
 
           return (
             <View key={phase}>
@@ -46,7 +64,7 @@ export function TemplatePicker({ onSelect, onClose }: Props) {
                   <View style={[styles.phaseDot, { backgroundColor: phaseColor(phase) }]} />
                   <Text style={[styles.phaseLabel, { color: t.textPrimary }]}>{phase}</Text>
                   <Text style={[styles.phaseCount, { color: t.textSecondary }]}>
-                    {templates.length} workout{templates.length !== 1 ? 's' : ''}
+                    {phaseTemplates.length} workout{phaseTemplates.length !== 1 ? 's' : ''}
                   </Text>
                 </View>
                 <Ionicons
@@ -57,7 +75,7 @@ export function TemplatePicker({ onSelect, onClose }: Props) {
               </TouchableOpacity>
 
               {/* Template cards */}
-              {isOpen && templates.map((tmpl) => (
+              {isOpen && phaseTemplates.map((tmpl) => (
                 <TouchableOpacity
                   key={tmpl.id}
                   style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}
@@ -99,6 +117,7 @@ export function TemplatePicker({ onSelect, onClose }: Props) {
           );
         })}
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -126,6 +145,7 @@ const styles = StyleSheet.create({
   title: { ...typography.heading3, fontWeight: '700' },
 
   scroll: { gap: spacing.xs, paddingBottom: spacing.xxl },
+  errorText: { ...typography.body, textAlign: 'center', margin: spacing.xl },
 
   // Phase accordion header
   phaseHeader: {

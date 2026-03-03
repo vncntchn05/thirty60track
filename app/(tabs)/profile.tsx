@@ -12,11 +12,8 @@ export default function ProfileScreen() {
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
             {trainer?.full_name
-              .split(' ')
-              .map((n) => n[0])
-              .join('')
-              .slice(0, 2)
-              .toUpperCase() ?? '?'}
+              ? trainer.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+              : '?'}
           </Text>
         </View>
         <Text style={[styles.name, { color: t.textPrimary }]}>{trainer?.full_name ?? '—'}</Text>

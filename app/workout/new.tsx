@@ -15,10 +15,18 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 import type { Exercise } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 
+const SUPERSET_COLORS = ['#8B5CF6', '#3B82F6', '#F59E0B', '#EC4899', '#14B8A6'];
+function getSupersetColor(group: number): string {
+  return SUPERSET_COLORS[(group - 1) % SUPERSET_COLORS.length];
+}
+
 type SetRow = { reps: string; weight_kg: string; notes: string };
-type ExerciseBlock = { exercise: Exercise; sets: SetRow[] };
+type ExerciseBlock = { exercise: Exercise; sets: SetRow[]; linkedToNext: boolean };
 
 const EMPTY_SET: SetRow = { reps: '', weight_kg: '', notes: '' };
+
+const EMPTY_BLOCK = (exercise: Exercise): ExerciseBlock =>
+  ({ exercise, sets: [{ ...EMPTY_SET }], linkedToNext: false });
 
 function formatDate(iso: string) {
   // Avoid timezone shift by parsing as local date
@@ -45,11 +53,18 @@ export default function NewWorkoutScreen() {
   const [bodyFat, setBodyFat] = useState('');
 
   function addExercise(exercise: Exercise) {
-    setBlocks((prev) => [...prev, { exercise, sets: [{ ...EMPTY_SET }] }]);
+    setBlocks((prev) => [...prev, EMPTY_BLOCK(exercise)]);
   }
 
   function removeBlock(bi: number) {
-    setBlocks((prev) => prev.filter((_, i) => i !== bi));
+    setBlocks((prev) => {
+      const next = prev.filter((_, i) => i !== bi);
+      // If the removed block was linked to next, unlink the previous block
+      if (bi > 0 && prev[bi - 1].linkedToNext && bi === prev.length - 1) {
+        return next.map((b, i) => i === bi - 1 ? { ...b, linkedToNext: false } : b);
+      }
+      return next;
+    });
   }
 
   function addSet(bi: number) {
@@ -72,6 +87,14 @@ export default function NewWorkoutScreen() {
     );
   }
 
+  function toggleLink(bi: number) {
+    setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, linkedToNext: !b.linkedToNext } : b));
+  }
+
+  function isInSuperset(bi: number): boolean {
+    return blocks[bi].linkedToNext || (bi > 0 && blocks[bi - 1].linkedToNext);
+  }
+
   function handleSelectTemplate(template: WorkoutTemplate) {
     const matched: ExerciseBlock[] = [];
     const skipped: string[] = [];
@@ -81,7 +104,7 @@ export default function NewWorkoutScreen() {
         (e) => e.name.trim().toLowerCase() === name.trim().toLowerCase()
       );
       if (exercise) {
-        matched.push({ exercise, sets: [{ ...EMPTY_SET }] });
+        matched.push(EMPTY_BLOCK(exercise));
       } else {
         skipped.push(name);
       }
@@ -117,12 +140,23 @@ export default function NewWorkoutScreen() {
     if (!user || !clientId) return;
     if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before saving.'); return; }
 
-    const allSets = blocks.flatMap((b) =>
+    // Compute superset_group per block using linkedToNext chain
+    let groupCounter = 0;
+    const blockGroups: (number | null)[] = new Array(blocks.length).fill(null);
+    for (let i = 0; i < blocks.length - 1; i++) {
+      if (blocks[i].linkedToNext) {
+        if (blockGroups[i] === null) blockGroups[i] = ++groupCounter;
+        blockGroups[i + 1] = blockGroups[i];
+      }
+    }
+
+    const allSets = blocks.flatMap((b, bi) =>
       b.sets
         .filter((s) => s.reps.trim() !== '' || s.weight_kg.trim() !== '')
-        .map((s, i) => ({
+        .map((s, si) => ({
           exercise_id: b.exercise.id,
-          set_number: i + 1,
+          set_number: si + 1,
+          superset_group: blockGroups[bi],
           reps: s.reps.trim() ? parseInt(s.reps, 10) : null,
           weight_kg: s.weight_kg.trim() ? parseFloat(s.weight_kg) : null,
           duration_seconds: null,
@@ -169,6 +203,16 @@ export default function NewWorkoutScreen() {
         onClose={() => setShowPicker(false)}
       />
     );
+  }
+
+  // Compute superset group numbers for display coloring
+  const displayGroups: (number | null)[] = new Array(blocks.length).fill(null);
+  let _gc = 0;
+  for (let i = 0; i < blocks.length - 1; i++) {
+    if (blocks[i].linkedToNext) {
+      if (displayGroups[i] === null) displayGroups[i] = ++_gc;
+      displayGroups[i + 1] = displayGroups[i];
+    }
   }
 
   // ── Workout builder ───────────────────────────────────────────────
@@ -253,62 +297,99 @@ export default function NewWorkoutScreen() {
           </View>
         )}
 
-        {blocks.map((block, bi) => (
-          <View key={bi} style={[styles.blockCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-            <View style={[styles.blockHeader, { backgroundColor: t.background, borderBottomColor: t.border }]}>
-              <View style={styles.exerciseInfo}>
-                <Text style={[styles.blockName, { color: t.textPrimary }]}>{block.exercise.name}</Text>
-                {block.exercise.muscle_group ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{block.exercise.muscle_group}</Text> : null}
-              </View>
-              <TouchableOpacity onPress={() => removeBlock(bi)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="trash-outline" size={18} color={colors.error} />
-              </TouchableOpacity>
-            </View>
+        {blocks.map((block, bi) => {
+          const isLinkedToNext = block.linkedToNext;
+          const isLinkedFromPrev = bi > 0 && blocks[bi - 1].linkedToNext;
+          const group = displayGroups[bi];
+          const supersetColor = group !== null ? getSupersetColor(group) : null;
 
-            <View style={styles.colHeader}>
-              <Text style={[styles.colLabel, styles.colSet, { color: t.textSecondary }]}>Set</Text>
-              <Text style={[styles.colLabel, styles.colReps, { color: t.textSecondary }]}>Reps</Text>
-              <Text style={[styles.colLabel, styles.colWeight, { color: t.textSecondary }]}>kg</Text>
-              <Text style={[styles.colLabel, styles.colNotes, { color: t.textSecondary }]}>Notes</Text>
-              <View style={styles.colRemove} />
-            </View>
+          return (
+            <View key={bi}>
+              {/* Superset connector pill between blocks */}
+              {isLinkedFromPrev && supersetColor && (
+                <View style={styles.supersetConnector}>
+                  <View style={[styles.supersetLine, { backgroundColor: supersetColor }]} />
+                  <Text style={[styles.supersetBadge, { color: supersetColor }]}>SUPERSET</Text>
+                  <View style={[styles.supersetLine, { backgroundColor: supersetColor }]} />
+                </View>
+              )}
 
-            {block.sets.map((s, si) => (
-              <View key={si} style={styles.setRow}>
-                <Text style={[styles.setNumber, styles.colSet, { color: t.textSecondary }]}>{si + 1}</Text>
-                <TextInput
-                  style={[styles.setInput, styles.colReps, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-                  placeholder="0" placeholderTextColor={t.textSecondary}
-                  keyboardType="number-pad" value={s.reps}
-                  onChangeText={(v) => updateSet(bi, si, 'reps', v)}
-                />
-                <TextInput
-                  style={[styles.setInput, styles.colWeight, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-                  placeholder="0.0" placeholderTextColor={t.textSecondary}
-                  keyboardType="decimal-pad" value={s.weight_kg}
-                  onChangeText={(v) => updateSet(bi, si, 'weight_kg', v)}
-                />
-                <TextInput
-                  style={[styles.setInput, styles.colNotes, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-                  placeholder="—" placeholderTextColor={t.textSecondary}
-                  value={s.notes} onChangeText={(v) => updateSet(bi, si, 'notes', v)}
-                />
-                <TouchableOpacity
-                  style={[styles.colRemove, block.sets.length === 1 && styles.invisible]}
-                  onPress={() => removeSet(bi, si)}
-                  disabled={block.sets.length === 1}
-                >
-                  <Ionicons name="close-circle" size={20} color={colors.error} />
+              <View style={[
+                styles.blockCard,
+                { backgroundColor: t.surface, borderColor: t.border },
+                supersetColor !== null && { borderLeftWidth: 3, borderLeftColor: supersetColor },
+              ]}>
+                <View style={[styles.blockHeader, { backgroundColor: t.background, borderBottomColor: t.border }]}>
+                  <View style={styles.exerciseInfo}>
+                    <Text style={[styles.blockName, { color: t.textPrimary }]}>{block.exercise.name}</Text>
+                    {block.exercise.muscle_group ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{block.exercise.muscle_group}</Text> : null}
+                  </View>
+                  <View style={styles.blockHeaderActions}>
+                    {/* Chain/link icon — available on all blocks except the last (linking "this to next") */}
+                    {bi < blocks.length - 1 && (
+                      <TouchableOpacity
+                        onPress={() => toggleLink(bi)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons
+                          name={isLinkedToNext ? 'link' : 'link-outline'}
+                          size={18}
+                          color={isLinkedToNext && supersetColor ? supersetColor : t.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity onPress={() => removeBlock(bi)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="trash-outline" size={18} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.colHeader}>
+                  <Text style={[styles.colLabel, styles.colSet, { color: t.textSecondary }]}>Set</Text>
+                  <Text style={[styles.colLabel, styles.colReps, { color: t.textSecondary }]}>Reps</Text>
+                  <Text style={[styles.colLabel, styles.colWeight, { color: t.textSecondary }]}>kg</Text>
+                  <Text style={[styles.colLabel, styles.colNotes, { color: t.textSecondary }]}>Notes</Text>
+                  <View style={styles.colRemove} />
+                </View>
+
+                {block.sets.map((s, si) => (
+                  <View key={si} style={styles.setRow}>
+                    <Text style={[styles.setNumber, styles.colSet, { color: t.textSecondary }]}>{si + 1}</Text>
+                    <TextInput
+                      style={[styles.setInput, styles.colReps, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+                      placeholder="0" placeholderTextColor={t.textSecondary}
+                      keyboardType="number-pad" value={s.reps}
+                      onChangeText={(v) => updateSet(bi, si, 'reps', v)}
+                    />
+                    <TextInput
+                      style={[styles.setInput, styles.colWeight, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+                      placeholder="0.0" placeholderTextColor={t.textSecondary}
+                      keyboardType="decimal-pad" value={s.weight_kg}
+                      onChangeText={(v) => updateSet(bi, si, 'weight_kg', v)}
+                    />
+                    <TextInput
+                      style={[styles.setInput, styles.colNotes, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+                      placeholder="—" placeholderTextColor={t.textSecondary}
+                      value={s.notes} onChangeText={(v) => updateSet(bi, si, 'notes', v)}
+                    />
+                    <TouchableOpacity
+                      style={[styles.colRemove, block.sets.length === 1 && styles.invisible]}
+                      onPress={() => removeSet(bi, si)}
+                      disabled={block.sets.length === 1}
+                    >
+                      <Ionicons name="close-circle" size={20} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                <TouchableOpacity style={styles.addSetBtn} onPress={() => addSet(bi)}>
+                  <Ionicons name="add" size={16} color={colors.primary} />
+                  <Text style={styles.addSetBtnText}>Add Set</Text>
                 </TouchableOpacity>
               </View>
-            ))}
-
-            <TouchableOpacity style={styles.addSetBtn} onPress={() => addSet(bi)}>
-              <Ionicons name="add" size={16} color={colors.primary} />
-              <Text style={styles.addSetBtnText}>Add Set</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+            </View>
+          );
+        })}
 
         <View style={styles.actionRow}>
           <TouchableOpacity style={[styles.addExerciseBtn, styles.actionFlex, { borderColor: colors.primary }]} onPress={() => setShowPicker(true)}>
@@ -389,6 +470,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     padding: spacing.md, paddingBottom: spacing.sm, borderBottomWidth: 1,
   },
+  blockHeaderActions: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+  },
   blockName: { ...typography.body, fontWeight: '600' },
   colHeader: {
     flexDirection: 'row', alignItems: 'center',
@@ -434,4 +518,14 @@ const styles = StyleSheet.create({
   saveBtn: { margin: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+  // Superset connector
+  supersetConnector: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: spacing.md + 3, // align with left border
+    marginVertical: 2, gap: spacing.xs,
+  },
+  supersetLine: { flex: 1, height: 1 },
+  supersetBadge: {
+    ...typography.label, fontWeight: '700', letterSpacing: 1,
+  },
 });

@@ -49,6 +49,7 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: t.surface },
         headerTintColor: t.textPrimary,
         headerTitleStyle: { fontWeight: '700' },
+        contentStyle: { backgroundColor: t.background },
         headerShown: true,
         headerLeft: () => <HeaderLogo />,
       }}
@@ -58,6 +59,13 @@ export default function TabsLayout() {
         options={{
           title: 'Clients',
           tabBarIcon: tabIcon('people-outline', 'people'),
+        }}
+      />
+      <Tabs.Screen
+        name="exercises"
+        options={{
+          title: 'Exercises',
+          tabBarIcon: tabIcon('barbell-outline', 'barbell'),
         }}
       />
       <Tabs.Screen

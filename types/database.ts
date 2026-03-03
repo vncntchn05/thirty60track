@@ -59,13 +59,19 @@ export type WorkoutSet = {
   weight_kg: number | null;
   duration_seconds: number | null;
   notes: string | null;
+  superset_group: number | null;
   created_at: string;
 };
 
 // ─── Join / View types ────────────────────────────────────────
 
+/** Workout with the trainer who logged it, used wherever workouts are listed. */
+export type WorkoutWithTrainer = Workout & {
+  trainer: { full_name: string } | null;
+};
+
 /** Workout with its sets and exercise details, used on the workout detail screen. */
-export type WorkoutWithSets = Workout & {
+export type WorkoutWithSets = WorkoutWithTrainer & {
   workout_sets: (WorkoutSet & { exercise: Exercise })[];
 };
 
