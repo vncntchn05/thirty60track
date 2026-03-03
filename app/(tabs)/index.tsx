@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useCallback, useState } from 'react';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClients } from '@/hooks/useClients';
@@ -10,8 +10,16 @@ export default function ClientsScreen() {
   const router = useRouter();
   const t = useTheme();
   const { clients, loading, error, refetch } = useClients();
+  const [query, setQuery] = useState('');
 
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+
+  const filtered = query.trim()
+    ? clients.filter((c) =>
+        c.full_name.toLowerCase().includes(query.toLowerCase()) ||
+        (c.email ?? '').toLowerCase().includes(query.toLowerCase())
+      )
+    : clients;
 
   if (loading) {
     return (
@@ -31,14 +39,32 @@ export default function ClientsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
+      <View style={[styles.searchBar, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <Ionicons name="search" size={16} color={t.textSecondary as string} />
+        <TextInput
+          style={[styles.searchInput, { color: t.textPrimary }]}
+          placeholder="Search clients…"
+          placeholderTextColor={t.textSecondary as string}
+          value={query}
+          onChangeText={setQuery}
+          clearButtonMode="while-editing"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {query.length > 0 && (
+          <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close-circle" size={16} color={t.textSecondary as string} />
+          </TouchableOpacity>
+        )}
+      </View>
       <FlatList
-        data={clients}
+        data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => <ClientRow client={item} />}
         ListEmptyComponent={
           <Text style={[styles.emptyText, { color: t.textSecondary }]}>
-            No clients yet. Add your first client.
+            {query.trim() ? 'No clients match your search.' : 'No clients yet. Add your first client.'}
           </Text>
         }
       />
@@ -98,6 +124,18 @@ function ClientRow({ client }: { client: ClientWithStats }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    margin: spacing.md,
+    marginBottom: 0,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  searchInput: { ...typography.body, flex: 1 },
   list: { padding: spacing.md, gap: spacing.sm },
   row: {
     borderRadius: radius.md,

@@ -146,7 +146,7 @@ export default function WorkoutDetailScreen() {
       <Stack.Screen
         options={{
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+            <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
               <Ionicons name="chevron-back" size={24} color={colors.primary} />
             </TouchableOpacity>
           ),
@@ -172,6 +172,8 @@ export default function WorkoutDetailScreen() {
           <WorkoutHeader
             performedAt={workout.performed_at}
             notes={workout.notes}
+            bodyWeightKg={workout.body_weight_kg}
+            bodyFatPercent={workout.body_fat_percent}
             onSave={updateWorkout}
             t={t}
           />
@@ -338,20 +340,24 @@ function AddSetForm({ label, form, onChange, onSave, onCancel, saving, t }: AddS
   );
 }
 
-// ─── Workout header (date + notes, inline edit) ───────────────────
+// ─── Workout header (date + body metrics + notes, inline edit) ───
 
 type WorkoutHeaderProps = {
   performedAt: string;
   notes: string | null;
+  bodyWeightKg: number | null;
+  bodyFatPercent: number | null;
   onSave: (p: UpdateWorkout) => Promise<{ error: string | null }>;
   t: Theme;
 };
 
-function WorkoutHeader({ performedAt, notes, onSave, t }: WorkoutHeaderProps) {
+function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, onSave, t }: WorkoutHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dateVal, setDateVal] = useState(performedAt);
   const [notesVal, setNotesVal] = useState(notes ?? '');
+  const [weightVal, setWeightVal] = useState(bodyWeightKg != null ? String(bodyWeightKg) : '');
+  const [bfVal, setBfVal] = useState(bodyFatPercent != null ? String(bodyFatPercent) : '');
 
   const [y, m, d] = performedAt.split('-').map(Number);
   const displayDate = new Date(y, m - 1, d).toLocaleDateString('en-US', {
@@ -361,6 +367,8 @@ function WorkoutHeader({ performedAt, notes, onSave, t }: WorkoutHeaderProps) {
   function startEdit() {
     setDateVal(performedAt);
     setNotesVal(notes ?? '');
+    setWeightVal(bodyWeightKg != null ? String(bodyWeightKg) : '');
+    setBfVal(bodyFatPercent != null ? String(bodyFatPercent) : '');
     setEditing(true);
   }
 
@@ -369,11 +377,15 @@ function WorkoutHeader({ performedAt, notes, onSave, t }: WorkoutHeaderProps) {
     const { error } = await onSave({
       performed_at: dateVal.trim() || performedAt,
       notes: notesVal.trim() || null,
+      body_weight_kg: parseOptionalFloat(weightVal),
+      body_fat_percent: parseOptionalFloat(bfVal),
     });
     setSaving(false);
     if (error) Alert.alert('Error', error);
     else setEditing(false);
   }
+
+  const hasMetrics = bodyWeightKg != null || bodyFatPercent != null;
 
   if (editing) {
     return (
@@ -396,7 +408,31 @@ function WorkoutHeader({ performedAt, notes, onSave, t }: WorkoutHeaderProps) {
           </View>
         </View>
         <DatePicker value={dateVal} onChange={setDateVal} />
-        <Text style={[styles.cardLabel, { color: t.textSecondary, marginTop: spacing.sm }]}>Notes</Text>
+        <View style={styles.metricsRow}>
+          <View style={styles.metricCol}>
+            <Text style={[styles.cardLabel, { color: t.textSecondary }]}>Body weight (kg)</Text>
+            <TextInput
+              style={[styles.headerInput, styles.metricInput, { color: t.textPrimary, borderColor: t.border }]}
+              value={weightVal}
+              onChangeText={setWeightVal}
+              keyboardType="decimal-pad"
+              placeholder="Optional"
+              placeholderTextColor={t.textSecondary}
+            />
+          </View>
+          <View style={styles.metricCol}>
+            <Text style={[styles.cardLabel, { color: t.textSecondary }]}>Body fat (%)</Text>
+            <TextInput
+              style={[styles.headerInput, styles.metricInput, { color: t.textPrimary, borderColor: t.border }]}
+              value={bfVal}
+              onChangeText={setBfVal}
+              keyboardType="decimal-pad"
+              placeholder="Optional"
+              placeholderTextColor={t.textSecondary}
+            />
+          </View>
+        </View>
+        <Text style={[styles.cardLabel, { color: t.textSecondary }]}>Notes</Text>
         <TextInput
           style={[styles.headerInput, styles.notesTextarea, { color: t.textPrimary, borderColor: t.border }]}
           value={notesVal}
@@ -417,9 +453,25 @@ function WorkoutHeader({ performedAt, notes, onSave, t }: WorkoutHeaderProps) {
           <Ionicons name="pencil" size={16} color={colors.primary} />
         </TouchableOpacity>
       </View>
+      {hasMetrics && (
+        <View style={styles.metricsRow}>
+          {bodyWeightKg != null && (
+            <View style={styles.metricBadge}>
+              <Text style={[styles.metricBadgeLabel, { color: t.textSecondary }]}>Weight</Text>
+              <Text style={[styles.metricBadgeValue, { color: t.textPrimary }]}>{bodyWeightKg} kg</Text>
+            </View>
+          )}
+          {bodyFatPercent != null && (
+            <View style={styles.metricBadge}>
+              <Text style={[styles.metricBadgeLabel, { color: t.textSecondary }]}>Body fat</Text>
+              <Text style={[styles.metricBadgeValue, { color: t.textPrimary }]}>{bodyFatPercent}%</Text>
+            </View>
+          )}
+        </View>
+      )}
       {notes
         ? <Text style={[styles.notesText, { color: t.textSecondary }]}>{notes}</Text>
-        : <Text style={[styles.notesEmpty, { color: t.textSecondary }]}>Tap pencil to add notes</Text>}
+        : <Text style={[styles.notesEmpty, { color: t.textSecondary }]}>Tap pencil to add notes or body metrics</Text>}
     </View>
   );
 }
@@ -556,6 +608,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm, paddingVertical: spacing.xs,
   },
   notesTextarea: { minHeight: 64, textAlignVertical: 'top' },
+
+  // ── Body metrics (view + edit) ──
+  metricsRow: { flexDirection: 'row', gap: spacing.sm },
+  metricCol: { flex: 1, gap: 4 },
+  metricInput: { height: 40, textAlign: 'center' },
+  metricBadge: { flex: 1, gap: 2 },
+  metricBadgeLabel: { ...typography.label },
+  metricBadgeValue: { ...typography.body, fontWeight: '600' },
 
   // ── Shared edit controls ──
   cardLabel: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },

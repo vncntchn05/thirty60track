@@ -64,7 +64,7 @@ export default function ClientDetailScreen() {
         options={{
           title: client.full_name,
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+            <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
               <Ionicons name="chevron-back" size={24} color={colors.primary} />
             </TouchableOpacity>
           ),
@@ -380,15 +380,21 @@ function WorkoutRow({ workout, t }: { workout: Workout; t: Theme }) {
   const date = new Date(workout.performed_at).toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
   });
+  const metricParts = [
+    workout.body_weight_kg != null ? `${workout.body_weight_kg} kg` : null,
+    workout.body_fat_percent != null ? `${workout.body_fat_percent}% BF` : null,
+  ].filter(Boolean).join(' · ');
+
   return (
     <TouchableOpacity
       style={[styles.row, { backgroundColor: t.surface, borderColor: t.border }]}
       onPress={() => router.push(`/workout/${workout.id}` as never)}
     >
-      <View style={styles.dateChip}>
+      <View style={styles.rowMain}>
         <Text style={[styles.dateText, { color: t.textPrimary }]}>{date}</Text>
+        {workout.notes ? <Text style={[styles.notesText, { color: t.textSecondary }]} numberOfLines={1}>{workout.notes}</Text> : null}
+        {metricParts ? <Text style={[styles.rowMetricText, { color: t.textSecondary }]}>{metricParts}</Text> : null}
       </View>
-      {workout.notes ? <Text style={[styles.notesText, { color: t.textSecondary }]} numberOfLines={1}>{workout.notes}</Text> : null}
       <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
     </TouchableOpacity>
   );
@@ -463,9 +469,10 @@ const styles = StyleSheet.create({
 
   // ── Workouts tab ──
   row: { borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1 },
-  dateChip: { flex: 1 },
+  rowMain: { flex: 1, gap: 2 },
   dateText: { ...typography.body, fontWeight: '600' },
-  notesText: { ...typography.bodySmall, flex: 1 },
+  notesText: { ...typography.bodySmall },
+  rowMetricText: { ...typography.bodySmall },
 
   // ── Header buttons ──
   headerBtn: { marginRight: spacing.sm },

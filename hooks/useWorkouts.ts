@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import type { Workout, WorkoutWithSets, InsertWorkout, InsertWorkoutSet } from '@/types';
+import type { Workout, WorkoutWithSets, InsertWorkout, InsertWorkoutSet, UpdateWorkout, UpdateClient } from '@/types';
 
 type UseWorkoutsResult = {
   workouts: Workout[];
@@ -23,7 +23,7 @@ export function useWorkouts(clientId: string): UseWorkoutsResult {
     setError(null);
     const { data, error: err } = await supabase
       .from('workouts')
-      .select('id, client_id, trainer_id, performed_at, notes, created_at, updated_at')
+      .select('id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, created_at, updated_at')
       .eq('client_id', clientId)
       .eq('trainer_id', user.id)
       .order('performed_at', { ascending: false });
@@ -50,7 +50,7 @@ export function useWorkoutDetail(workoutId: string) {
     const { data, error: err } = await supabase
       .from('workouts')
       .select(`
-        id, client_id, trainer_id, performed_at, notes, created_at, updated_at,
+        id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, created_at, updated_at,
         workout_sets (
           id, workout_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes, created_at,
           exercise:exercises ( id, name, muscle_group, category, created_at )
@@ -66,13 +66,30 @@ export function useWorkoutDetail(workoutId: string) {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  async function updateWorkout(payload: import('@/types').UpdateWorkout) {
+  async function updateWorkout(payload: UpdateWorkout) {
     const { error: err } = await supabase
       .from('workouts')
       .update(payload)
       .eq('id', workoutId);
-    if (!err) fetch();
-    return { error: err?.message ?? null };
+    if (err) return { error: err.message };
+
+    // Sync client body metrics (best-effort) when either metric changes
+    const newWeight = payload.body_weight_kg !== undefined ? payload.body_weight_kg : workout?.body_weight_kg;
+    const newBf = payload.body_fat_percent !== undefined ? payload.body_fat_percent : workout?.body_fat_percent;
+    if ((payload.body_weight_kg !== undefined || payload.body_fat_percent !== undefined) && workout) {
+      const clientUpdate: UpdateClient = {};
+      if (payload.body_weight_kg != null) clientUpdate.weight_kg = payload.body_weight_kg;
+      if (payload.body_fat_percent != null) clientUpdate.bf_percent = payload.body_fat_percent;
+      if (newWeight != null && newBf != null) {
+        clientUpdate.lean_body_mass = parseFloat((newWeight * (1 - newBf / 100)).toFixed(2));
+      }
+      if (Object.keys(clientUpdate).length > 0) {
+        await supabase.from('clients').update(clientUpdate).eq('id', workout.client_id);
+      }
+    }
+
+    fetch();
+    return { error: null };
   }
 
   async function deleteWorkout() {
@@ -120,10 +137,11 @@ export function useWorkoutDetail(workoutId: string) {
   return { workout, loading, error, refetch: fetch, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet };
 }
 
-/** Create a workout with sets in a single operation. */
+/** Create a workout with sets in a single operation.
+ *  If body_weight_kg / body_fat_percent are set on the workout, the client record is also updated. */
 export async function createWorkoutWithSets(
   workout: InsertWorkout,
-  sets: Omit<InsertWorkoutSet, 'workout_id'>[]
+  sets: Omit<InsertWorkoutSet, 'workout_id'>[],
 ): Promise<{ workoutId: string | null; error: string | null }> {
   const { data: newWorkout, error: workoutErr } = await supabase
     .from('workouts')
@@ -143,6 +161,18 @@ export async function createWorkoutWithSets(
     if (setsErr) {
       return { workoutId: newWorkout.id, error: setsErr.message };
     }
+  }
+
+  // Sync client body metrics (best-effort)
+  const { body_weight_kg, body_fat_percent } = workout;
+  if (body_weight_kg != null || body_fat_percent != null) {
+    const clientUpdate: UpdateClient = {};
+    if (body_weight_kg != null) clientUpdate.weight_kg = body_weight_kg;
+    if (body_fat_percent != null) clientUpdate.bf_percent = body_fat_percent;
+    if (body_weight_kg != null && body_fat_percent != null) {
+      clientUpdate.lean_body_mass = parseFloat((body_weight_kg * (1 - body_fat_percent / 100)).toFixed(2));
+    }
+    await supabase.from('clients').update(clientUpdate).eq('id', workout.client_id);
   }
 
   return { workoutId: newWorkout.id, error: null };

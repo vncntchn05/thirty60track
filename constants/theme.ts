@@ -16,10 +16,10 @@ export const colors = {
   surface:    '#FFFFFF',
   border:     '#E5D9C0',
 
-  // Surfaces (dark mode — site aesthetic: pure black + dark cards)
-  backgroundDark: '#000000',
-  surfaceDark:    '#111111',
-  borderDark:     '#333333',
+  // Surfaces (dark mode — deep charcoal base, not pure black)
+  backgroundDark: '#111111',
+  surfaceDark:    '#1C1C1C',
+  borderDark:     '#2E2E2E',
 
   // Text
   textPrimary:       '#000000',
@@ -69,19 +69,20 @@ export type Theme = {
   isDark:        boolean;
 };
 
+// Theme is locked to dark to match the Thirty60 brand aesthetic (black + gold).
 export function useTheme(): Theme {
-  const scheme = useColorScheme();
-  const dark = scheme === 'dark';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _ = useColorScheme(); // kept so the hook rules are satisfied
   return useMemo(() => ({
-    background:    dark ? colors.backgroundDark    : colors.background,
-    surface:       dark ? colors.surfaceDark       : colors.surface,
-    border:        dark ? colors.borderDark        : colors.border,
-    textPrimary:   dark ? colors.textPrimaryDark   : colors.textPrimary,
-    textSecondary: dark ? colors.textSecondaryDark : colors.textSecondary,
+    background:    colors.backgroundDark,
+    surface:       colors.surfaceDark,
+    border:        colors.borderDark,
+    textPrimary:   colors.textPrimaryDark,
+    textSecondary: colors.textSecondaryDark,
     primary:       colors.primary,
     primaryLight:  colors.primaryLight,
-    isDark:        dark,
-  }), [dark]);
+    isDark:        true,
+  }), []);
 }
 
 export const typography = {

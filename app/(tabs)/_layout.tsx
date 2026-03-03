@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image, View, StyleSheet } from 'react-native';
 import { colors, useTheme } from '@/constants/theme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -9,6 +10,30 @@ function tabIcon(name: IoniconsName, focusedName: IoniconsName) {
     <Ionicons name={focused ? focusedName : name} size={24} color={color} />
   );
 }
+
+function HeaderLogo() {
+  return (
+    <View style={styles.logoContainer}>
+      <Image
+        source={require('../../assets/Thirty60_logo.png')}
+        style={styles.logo}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  logoContainer: {
+    marginLeft: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+  },
+});
 
 export default function TabsLayout() {
   const t = useTheme();
@@ -25,6 +50,7 @@ export default function TabsLayout() {
         headerTintColor: t.textPrimary,
         headerTitleStyle: { fontWeight: '700' },
         headerShown: true,
+        headerLeft: () => <HeaderLogo />,
       }}
     >
       <Tabs.Screen

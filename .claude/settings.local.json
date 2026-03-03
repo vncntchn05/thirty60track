@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__ide__getDiagnostics",
-      "WebFetch(domain:thirty60fitness.com)"
-    ]
-  }
-}

@@ -44,6 +44,8 @@ export type Workout = {
   trainer_id: string;
   performed_at: string; // ISO date string 'YYYY-MM-DD'
   notes: string | null;
+  body_weight_kg: number | null;
+  body_fat_percent: number | null;
   created_at: string;
   updated_at: string;
 };

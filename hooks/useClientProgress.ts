@@ -24,6 +24,8 @@ type RawSet = {
 type RawWorkout = {
   id: string;
   performed_at: string;
+  body_weight_kg: number | null;
+  body_fat_percent: number | null;
   workout_sets: RawSet[];
 };
 
@@ -31,6 +33,8 @@ type UseClientProgressResult = {
   frequencyData: ChartPoint[];
   frequencyStats: FrequencyStats;
   volumeData: ChartPoint[];
+  bodyWeightData: ChartPoint[];
+  bodyFatData: ChartPoint[];
   exercises: ProgressExercise[];
   getExerciseProgress: (exerciseId: string) => ChartPoint[];
   getExerciseRepsProgress: (exerciseId: string) => ChartPoint[];
@@ -56,6 +60,8 @@ export function useClientProgress(clientId: string, daysBack?: number): UseClien
       .select(`
         id,
         performed_at,
+        body_weight_kg,
+        body_fat_percent,
         workout_sets (
           exercise_id,
           reps,
@@ -155,6 +161,16 @@ export function useClientProgress(clientId: string, daysBack?: number): UseClien
     label: shortDate(w.performed_at),
   }));
 
+  // ── Derived: body weight over time ────────────────────────────────
+  const bodyWeightData: ChartPoint[] = workouts
+    .filter((w) => w.body_weight_kg != null)
+    .map((w, i) => ({ x: i, y: w.body_weight_kg as number, label: shortDate(w.performed_at) }));
+
+  // ── Derived: body fat % over time ─────────────────────────────────
+  const bodyFatData: ChartPoint[] = workouts
+    .filter((w) => w.body_fat_percent != null)
+    .map((w, i) => ({ x: i, y: w.body_fat_percent as number, label: shortDate(w.performed_at) }));
+
   // ── Derived: unique exercises this client has done ─────────────────
   const exerciseMap = new Map<string, string>();
   workouts.forEach((w) => {
@@ -198,5 +214,5 @@ export function useClientProgress(clientId: string, daysBack?: number): UseClien
     return points;
   }
 
-  return { frequencyData, frequencyStats, volumeData, exercises, getExerciseProgress, getExerciseRepsProgress, loading, error };
+  return { frequencyData, frequencyStats, volumeData, bodyWeightData, bodyFatData, exercises, getExerciseProgress, getExerciseRepsProgress, loading, error };
 }

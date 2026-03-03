@@ -6,11 +6,14 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
+import { TemplatePicker } from '@/components/workout/TemplatePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { createWorkoutWithSets } from '@/hooks/useWorkouts';
+import { useExercises } from '@/hooks/useExercises';
 import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Exercise } from '@/types';
+import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 
 type SetRow = { reps: string; weight_kg: string; notes: string };
 type ExerciseBlock = { exercise: Exercise; sets: SetRow[] };
@@ -30,12 +33,16 @@ export default function NewWorkoutScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const t = useTheme();
+  const { exercises: allExercises } = useExercises();
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showCalendar, setShowCalendar] = useState(false);
   const [blocks, setBlocks] = useState<ExerciseBlock[]>([]);
   const [workoutNotes, setWorkoutNotes] = useState('');
   const [showPicker, setShowPicker] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [bodyWeight, setBodyWeight] = useState('');
+  const [bodyFat, setBodyFat] = useState('');
 
   function addExercise(exercise: Exercise) {
     setBlocks((prev) => [...prev, { exercise, sets: [{ ...EMPTY_SET }] }]);
@@ -65,6 +72,47 @@ export default function NewWorkoutScreen() {
     );
   }
 
+  function handleSelectTemplate(template: WorkoutTemplate) {
+    const matched: ExerciseBlock[] = [];
+    const skipped: string[] = [];
+
+    for (const name of template.exerciseNames) {
+      const exercise = allExercises.find(
+        (e) => e.name.trim().toLowerCase() === name.trim().toLowerCase()
+      );
+      if (exercise) {
+        matched.push({ exercise, sets: [{ ...EMPTY_SET }] });
+      } else {
+        skipped.push(name);
+      }
+    }
+
+    const apply = () => {
+      setBlocks(matched);
+      setShowTemplatePicker(false);
+      if (skipped.length > 0) {
+        Alert.alert(
+          'Some exercises not found',
+          `The following exercises aren't in your library yet and were skipped:\n\n${skipped.join('\n')}\n\nYou can add them manually.`,
+          [{ text: 'OK' }],
+        );
+      }
+    };
+
+    if (blocks.length > 0) {
+      Alert.alert(
+        'Replace current workout?',
+        `Loading "${template.name}" will replace the ${blocks.length} exercise${blocks.length !== 1 ? 's' : ''} you've already added.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Replace', style: 'destructive', onPress: apply },
+        ],
+      );
+    } else {
+      apply();
+    }
+  }
+
   async function handleSave() {
     if (!user || !clientId) return;
     if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before saving.'); return; }
@@ -83,14 +131,34 @@ export default function NewWorkoutScreen() {
     );
     if (allSets.length === 0) { Alert.alert('No sets entered', 'Add at least one set with reps or weight.'); return; }
 
+    const wVal = bodyWeight.trim() ? parseFloat(bodyWeight) : NaN;
+    const bfVal = bodyFat.trim() ? parseFloat(bodyFat) : NaN;
+
     setSaving(true);
     const { error } = await createWorkoutWithSets(
-      { client_id: clientId, trainer_id: user.id, performed_at: date, notes: workoutNotes.trim() || null },
-      allSets
+      {
+        client_id: clientId,
+        trainer_id: user.id,
+        performed_at: date,
+        notes: workoutNotes.trim() || null,
+        body_weight_kg: !isNaN(wVal) && wVal > 0 ? wVal : null,
+        body_fat_percent: !isNaN(bfVal) && bfVal >= 0 && bfVal < 100 ? bfVal : null,
+      },
+      allSets,
     );
     setSaving(false);
     if (error) Alert.alert('Error', error);
     else router.back();
+  }
+
+  // ── Template picker ───────────────────────────────────────────────
+  if (showTemplatePicker) {
+    return (
+      <TemplatePicker
+        onSelect={handleSelectTemplate}
+        onClose={() => setShowTemplatePicker(false)}
+      />
+    );
   }
 
   // ── Exercise picker ───────────────────────────────────────────────
@@ -141,6 +209,30 @@ export default function NewWorkoutScreen() {
               onChange={(d) => { setDate(d); setShowCalendar(false); }}
             />
           )}
+          <View style={styles.metricsRow}>
+            <View style={styles.metricCol}>
+              <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Body weight (kg)</Text>
+              <TextInput
+                style={[styles.metricInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+                placeholder="Optional"
+                placeholderTextColor={t.textSecondary}
+                keyboardType="decimal-pad"
+                value={bodyWeight}
+                onChangeText={setBodyWeight}
+              />
+            </View>
+            <View style={styles.metricCol}>
+              <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Body fat (%)</Text>
+              <TextInput
+                style={[styles.metricInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+                placeholder="Optional"
+                placeholderTextColor={t.textSecondary}
+                keyboardType="decimal-pad"
+                value={bodyFat}
+                onChangeText={setBodyFat}
+              />
+            </View>
+          </View>
           <TextInput
             style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
             placeholder="Workout notes (optional)"
@@ -155,7 +247,9 @@ export default function NewWorkoutScreen() {
           <View style={styles.emptyState}>
             <Ionicons name="barbell-outline" size={44} color={t.textSecondary} />
             <Text style={[styles.emptyStateText, { color: t.textSecondary }]}>No exercises added yet</Text>
-            <Text style={[styles.emptyStateHint, { color: t.textSecondary }]}>Tap "Add Exercise" below to get started</Text>
+            <Text style={[styles.emptyStateHint, { color: t.textSecondary }]}>
+              Load a template or add exercises manually below
+            </Text>
           </View>
         )}
 
@@ -216,10 +310,16 @@ export default function NewWorkoutScreen() {
           </View>
         ))}
 
-        <TouchableOpacity style={[styles.addExerciseBtn, { borderColor: colors.primary }]} onPress={() => setShowPicker(true)}>
-          <Ionicons name="add" size={20} color={colors.primary} />
-          <Text style={styles.addExerciseBtnText}>Add Exercise</Text>
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={[styles.addExerciseBtn, styles.actionFlex, { borderColor: colors.primary }]} onPress={() => setShowPicker(true)}>
+            <Ionicons name="add" size={20} color={colors.primary} />
+            <Text style={styles.addExerciseBtnText}>Add Exercise</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.templateBtn, styles.actionFlex]} onPress={() => setShowTemplatePicker(true)}>
+            <Ionicons name="list-outline" size={20} color={colors.primary} />
+            <Text style={styles.addExerciseBtnText}>Use Template</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <TouchableOpacity
@@ -259,6 +359,21 @@ const styles = StyleSheet.create({
   header: { padding: spacing.md, gap: spacing.sm, borderBottomWidth: 1 },
   dateTouchable: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dateLabel: { ...typography.body, fontWeight: '600' },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  metricCol: {
+    flex: 1,
+    gap: 4,
+  },
+  metricLabel: {
+    ...typography.label,
+  },
+  metricInput: {
+    ...typography.body, borderWidth: 1, borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, height: 40,
+  },
   notesInput: {
     ...typography.body, borderWidth: 1, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minHeight: 40,
@@ -300,10 +415,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary, gap: spacing.xs,
   },
   addSetBtnText: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
+  actionRow: {
+    flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.md,
+  },
+  actionFlex: { flex: 1, marginHorizontal: 0 },
   addExerciseBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     marginHorizontal: spacing.md, paddingVertical: spacing.md,
     borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed', gap: spacing.xs,
+  },
+  templateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed',
+    borderColor: colors.primary, gap: spacing.xs,
   },
   addExerciseBtnText: { ...typography.body, color: colors.primary, fontWeight: '600' },
   saveBtn: { margin: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },

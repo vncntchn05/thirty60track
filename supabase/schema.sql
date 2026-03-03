@@ -71,13 +71,15 @@ CREATE TABLE exercises (
 -- ─── Workouts ─────────────────────────────────────────────────
 -- A single training session for one client on one date.
 CREATE TABLE workouts (
-  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id      UUID        NOT NULL REFERENCES clients (id) ON DELETE CASCADE,
-  trainer_id     UUID        NOT NULL REFERENCES trainers (id),
-  performed_at   DATE        NOT NULL DEFAULT CURRENT_DATE,
-  notes          TEXT,
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id         UUID        NOT NULL REFERENCES clients (id) ON DELETE CASCADE,
+  trainer_id        UUID        NOT NULL REFERENCES trainers (id),
+  performed_at      DATE        NOT NULL DEFAULT CURRENT_DATE,
+  notes             TEXT,
+  body_weight_kg    NUMERIC(5,2) CHECK (body_weight_kg > 0),
+  body_fat_percent  NUMERIC(4,2) CHECK (body_fat_percent BETWEEN 0 AND 100),
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX workouts_client_id_idx    ON workouts (client_id);
@@ -151,6 +153,12 @@ CREATE POLICY "exercises: authenticated insert" ON exercises
   FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- No DELETE/UPDATE on exercises from the client — manage via Supabase dashboard.
+
+-- ─── Migration 002: body metrics on workouts ──────────────────────
+-- Run this in the Supabase SQL editor if the workouts table already exists.
+ALTER TABLE workouts
+  ADD COLUMN IF NOT EXISTS body_weight_kg   NUMERIC(5,2) CHECK (body_weight_kg > 0),
+  ADD COLUMN IF NOT EXISTS body_fat_percent NUMERIC(4,2) CHECK (body_fat_percent BETWEEN 0 AND 100);
 
 -- Workouts: trainer sees workouts they logged for their clients.
 CREATE POLICY "workouts: own trainer" ON workouts

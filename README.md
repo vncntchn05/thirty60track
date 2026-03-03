@@ -1,6 +1,6 @@
-# thirty60track
+# Thirty60 Track
 
-A mobile app for personal trainers to track client workouts and progress. Built with Expo (iOS, Android, Web) and Supabase.
+A mobile-first app for personal trainers to track client workouts, monitor progress, and load structured workout programs. Built with Expo (iOS, Android, Web) and Supabase.
 
 ## Tech Stack
 
@@ -12,6 +12,8 @@ A mobile app for personal trainers to track client workouts and progress. Built 
 | Charts | Victory Native XL + React Native Skia |
 | Styling | React Native StyleSheet |
 
+---
+
 ## Features
 
 ### Authentication
@@ -22,9 +24,10 @@ A mobile app for personal trainers to track client workouts and progress. Built 
 
 ### Client Management
 - [x] Client list dashboard with workout count and last session date
-- [x] Auto-refresh client list when navigating back (useFocusEffect)
-- [x] Add new client (name, email, phone, date of birth, notes)
-- [x] Client body metrics (height, weight, body fat %)
+- [x] **Client search bar** — filter by name or email in real time
+- [x] Auto-refresh client list on screen focus
+- [x] Add new client (name, email, phone, date of birth, height, notes)
+- [x] Client body metrics (weight, height, body fat %, BMI, lean body mass)
 - [x] Inline edit client info and metrics on client detail screen
 - [x] Delete client (confirmation alert before deletion)
 - [ ] Archive/deactivate client
@@ -33,112 +36,129 @@ A mobile app for personal trainers to track client workouts and progress. Built 
 ### Workout Logging
 - [x] Log a new workout session with date picker
 - [x] Multi-exercise workout builder — add multiple exercises per session
-- [x] Shared exercise picker with search (reused across screens)
+- [x] **Workout templates** — load any of 16 structured program templates (Phase 1–3 + Abs A–D) to pre-populate all exercises instantly
+- [x] Shared exercise picker with search
 - [x] Log sets per exercise (reps, weight, duration)
-- [x] Notes per workout and per set
+- [x] Optional body weight and body fat % per workout session
+- [x] Notes per workout
 - [x] View workout detail (sets grouped by exercise)
-- [x] Edit existing workout — add exercises, edit sets, update notes
+- [x] Edit existing workout — add exercises, edit sets, update notes, edit body metrics
 - [x] Delete workout (confirmation alert)
 - [x] Delete individual sets
+- [x] Body metrics on past workouts sync back to the client profile
 - [ ] Rest timer
-- [ ] Workout templates / saved routines
+- [ ] Workout notes per set
+
+### Workout Templates
+16 pre-built program templates sourced from the Thirty60 program library:
+
+| Phase | Templates |
+|---|---|
+| Phase 1 | Workout A: Push Focus, B: Pull Focus, C: Stability, D: Lateral/Total |
+| Phase 2 | Workout A: Push Focus, B: Pull Focus, C: Shoulder Focus, D: Agility/Total |
+| Phase 3 | Workout A: Chest/Push, B: Back/Pull, C: Shoulders, D: Total Body |
+| Abs | Variation A, B, C, D |
+
+Templates are matched to live exercises in the database. Any unmatched exercises are listed so they can be added manually.
 
 ### Exercise Library
-- [x] Shared exercise library (30 exercises seeded)
+- [x] Shared exercise library (150+ exercises seeded across all muscle groups)
 - [x] Exercise search when logging a workout
+- [x] Exercises auto-inserted by workout templates when missing from the library
 - [ ] Add custom exercises
-- [ ] Exercise categories / muscle group filter
-- [ ] Exercise detail page with instructions or video
+- [ ] Muscle group filter
+- [ ] Exercise detail page
 
 ### Progress & Charts
 
-All charts feature:
-- Y-axis unit labels (↑ kg, ↑ reps, ↑ sessions, ↑ kg·reps)
-- Numerical tick marks on both axes (bundled Roboto font, works on web + native)
-- Light grid lines for readability
-- Time range filter: **1M / 3M / 6M / 1Y / All** applied across all charts simultaneously
+All charts support a **time range filter: 1M / 3M / 6M / 1Y / All** applied simultaneously. Selecting a range with no data shows a "No workouts in this period" placeholder instead of hiding the selector.
 
 #### Workout Frequency
-- [x] Workouts-per-week bar chart (up to 16 most recent weeks)
-- [x] Stat chips: This week · Avg/week · Current streak · Best streak
-- [x] Footer showing date range and active weeks count
+- [x] Workouts-per-week bar chart
+- [x] Stat chips: This week · Avg/week · Current streak · Best streak · Active weeks
 
 #### Volume Over Time
-- [x] Total volume (kg·reps) per session bar chart
-- [x] Footer showing first session, latest volume value, and latest date
+- [x] Total volume (kg × reps) per session bar chart
+
+#### Body Composition
+- [x] Body weight trend line chart (logged per workout)
+- [x] Body fat % trend line chart (logged per workout)
+- [x] Charts shown side-by-side with exercise progress
 
 #### Exercise Progress
-- [x] Searchable dropdown to select any exercise the client has logged
-- [x] Weight progress line chart (best set per session) with hover tooltip
-- [x] Reps progress line chart (max reps per session) with hover tooltip
+- [x] Searchable dropdown — any exercise the client has logged
+- [x] Weight progress line chart (best set per session) with press-to-inspect tooltip
+- [x] Reps progress line chart (max reps per session) with tooltip
 - [x] Footer showing first date, total gain/loss, and latest value
 
-- [ ] Body weight trend chart
-- [ ] Personal records (PRs) tracking and display
+- [ ] Personal records (PRs) tracking
 - [ ] Export progress data (CSV or PDF)
 
-### UI & UX
-- [x] Dark mode support (system-aware via `useColorScheme`)
-- [x] Gold accent color theme (`#B88C32`)
-- [x] Design token system (`constants/theme.ts`)
-- [x] Tab navigation (Dashboard, Profile)
-- [x] FAB (floating action button) with action label text
-- [x] Back button on all nested screens (returns to previous screen)
-- [x] Home button on deep screens (returns directly to client list)
-- [x] Two-tab layout on client detail screen (Progress / History)
+### UI & Theme
+- [x] **Forced dark theme** — deep charcoal (`#111111`) background, `#1C1C1C` surfaces, gold (`#B88C32`) accents across iOS, Android, and Web
+- [x] Design token system (`constants/theme.ts`) — colors, spacing, typography, radius
+- [x] Thirty60 logo in app header and browser favicon
+- [x] Tab navigation (Clients, Profile)
+- [x] FAB (floating action button) with label
+- [x] Safe back navigation — falls back to home if no navigation history (works on web direct links)
+- [x] Two-tab layout on client detail screen (Progress / Workouts)
 - [x] Skia web initialization with CanvasKit CDN (charts work on web)
-- [x] Lazy-loaded chart section (no Skia module evaluated until CanvasKit ready)
-- [ ] Shared UI primitives library (`components/ui/` — Button, Card, Input)
-- [ ] Loading skeletons / placeholder states
-- [ ] Pull-to-refresh on list screens
-- [ ] Empty states with helpful prompts
+- [x] Lazy-loaded chart section (CanvasKit loads before charts render)
+- [ ] Shared UI primitives library (Button, Card, Input)
+- [ ] Pull-to-refresh
+- [ ] Loading skeletons
+
+---
 
 ## Database Schema
 
 ```
-trainers       — one row per auth user (auto-created on signup)
-clients        — belong to one trainer; RLS enforces visibility
-workouts       — one session per client per date
+trainers       — one row per auth user (auto-created on signup via trigger)
+clients        — belong to one trainer; RLS enforces data isolation
+workouts       — one session per client per date; stores optional body metrics
 workout_sets   — one row per set (reps, weight_kg, duration_seconds, notes)
 exercises      — shared library; authenticated read + insert
 ```
 
-Row-Level Security is enabled on all tables. Trainers can only read and write their own data.
+Row-Level Security is enabled on all tables. Trainers can only read and write their own clients and workout data.
+
+---
 
 ## Project Structure
 
 ```
 app/
-  _layout.tsx          # Root layout — auth gate, Skia web init, providers
+  _layout.tsx          # Root layout — auth gate, Skia web init, dark status bar
   (auth)/login.tsx     # Public login screen
-  (tabs)/index.tsx     # Client list dashboard
+  (tabs)/index.tsx     # Client list + search bar
   (tabs)/profile.tsx   # Trainer profile + sign out
   client/[id].tsx      # Client detail — metrics, progress charts, workout history
   client/new.tsx       # Add client form
-  workout/[id].tsx     # Workout detail — view, edit sets, add exercises, delete
-  workout/new.tsx      # Log new workout
+  workout/[id].tsx     # Workout detail — view, edit sets, body metrics, delete
+  workout/new.tsx      # Log new workout + template loader
 
 components/
   charts/
-    ProgressSection.tsx       # Lazy-loaded container — time range selector + all charts
-    FrequencyChart.tsx        # Bar chart — workouts per week + streak stat chips
+    ProgressSection.tsx       # Time range selector + all chart sections
+    FrequencyChart.tsx        # Bar chart — workouts per week + streak chips
     VolumeChart.tsx           # Bar chart — total volume per session
-    ExerciseProgressChart.tsx # Line chart — weight or reps over time + hover tooltip
+    ExerciseProgressChart.tsx # Line chart — weight or reps over time + tooltip
   workout/
-    ExercisePicker.tsx        # Searchable exercise picker (shared between screens)
+    ExercisePicker.tsx        # Searchable exercise picker
+    TemplatePicker.tsx        # Phase-grouped template browser
   ui/
     DatePicker.tsx            # Date selection component
 
 hooks/
   useClients.ts        # Client CRUD + stats (workout count, last session)
-  useWorkouts.ts       # List workouts for a client
+  useWorkouts.ts       # List and create workouts; syncs body metrics to client
   useWorkoutDetail.ts  # Single workout + sets + exercises
-  useExercises.ts      # Exercise library (read-only)
-  useClientProgress.ts # Derives all chart data; supports daysBack range filter
+  useExercises.ts      # Exercise library (read + create)
+  useClientProgress.ts # Derives all chart data from workouts; supports date range
 
-assets/
-  fonts/
-    Roboto-Regular.ttf  # Bundled font for Skia chart axis labels
+constants/
+  theme.ts              # Color/spacing/typography tokens + useTheme (always dark)
+  workoutTemplates.ts   # 16 structured workout templates (Phase 1–3 + Abs)
 
 lib/
   supabase.ts          # Supabase client singleton
@@ -147,41 +167,56 @@ lib/
 types/
   database.ts          # Manual TS types mirroring the DB schema
 
-constants/
-  theme.ts             # Color, spacing, typography tokens + useTheme hook
+assets/
+  fonts/
+    Roboto-Regular.ttf  # Bundled font for Skia chart axis labels
+  Thirty60_logo.png     # Brand logo used in header and favicon
 
 supabase/
-  schema.sql           # Source-of-truth DDL
-  seed.sql             # 30 exercises
-  migrations/
-    001_body_metrics_and_rls.sql
+  schema.sql                # Source-of-truth DDL (includes body metrics migration)
+  seed.sql                  # 150+ exercises across all muscle groups
+  seed_test_client.sql      # Full year of realistic test data (youth hockey player)
 ```
+
+---
 
 ## Getting Started
 
-1. **Clone and install**
-   ```bash
-   git clone <repo-url>
-   cd thirty60track
-   npm install
-   ```
+### 1. Clone and install
+```bash
+git clone <repo-url>
+cd thirty60track
+npm install
+```
 
-2. **Configure environment**
-   ```bash
-   cp .env.example .env.local
-   # Fill in your Supabase project URL and anon key
-   ```
+### 2. Configure environment
+```bash
+cp .env.example .env.local
+# Fill in your Supabase project URL and anon key
+```
 
-3. **Set up the database**
-   - Run `supabase/schema.sql` in the Supabase SQL editor
-   - Run `supabase/migrations/001_body_metrics_and_rls.sql`
-   - Run `supabase/seed.sql` to populate the exercise library
+### 3. Set up the database
 
-4. **Start the app**
-   ```bash
-   npx expo start
-   ```
-   Press `i` for iOS simulator, `a` for Android emulator, or `w` for web.
+Run these in order in the **Supabase SQL Editor**:
+
+```
+1. supabase/schema.sql          — creates all tables, triggers, RLS policies
+2. supabase/seed.sql            — populates the exercise library (150+ exercises)
+```
+
+Optionally, to load a full year of test client data:
+```
+3. supabase/seed_test_client.sql — creates "Test" client with 156 realistic workouts
+```
+> Requires at least one trainer account to exist in the app first.
+
+### 4. Start the app
+```bash
+npx expo start
+```
+Press `i` for iOS simulator, `a` for Android emulator, or `w` for web.
+
+---
 
 ## Environment Variables
 

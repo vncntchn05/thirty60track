@@ -25,7 +25,9 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
         if (pt) {
           const valueStr = unit === 'reps'
             ? `${Math.round(yVal)} reps`
-            : `${yVal.toFixed(1)} kg`;
+            : unit === '%'
+              ? `${yVal.toFixed(1)}%`
+              : `${yVal.toFixed(1)} kg`;
           setTooltip({ label: pt.label, value: valueStr });
         }
       } else {
@@ -63,7 +65,7 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
       <View style={[styles.empty, { backgroundColor: t.background }]}>
         <Text style={[styles.emptyText, { color: t.textSecondary }]}>
           {data.length === 0
-            ? `No ${unit === 'reps' ? 'rep' : 'weight'} data recorded for this exercise.`
+            ? `No ${unit === 'reps' ? 'rep' : unit === '%' ? 'body fat' : 'weight'} data recorded.`
             : 'Log at least 2 sessions to see progress.'}
         </Text>
       </View>
@@ -79,7 +81,9 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
 
   const footerStat = unit === 'reps'
     ? `${gain >= 0 ? '+' : '-'}${Math.abs(gain).toFixed(0)} reps · Latest: ${Math.round(latest.y)} reps`
-    : `${gain >= 0 ? '+' : ''}${gain.toFixed(1)} kg  ·  Latest: ${latest.y} kg`;
+    : unit === '%'
+      ? `${gain >= 0 ? '+' : ''}${gain.toFixed(1)}% · Latest: ${latest.y.toFixed(1)}%`
+      : `${gain >= 0 ? '+' : ''}${gain.toFixed(1)} kg  ·  Latest: ${latest.y} kg`;
 
   return (
     <View>
@@ -87,7 +91,7 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
       <View style={styles.chartMeta}>
         {title ? <Text style={[styles.chartTitle, { color: t.textPrimary }]}>{title}</Text> : null}
         <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>
-          {'↑ ' + (unit === 'reps' ? 'reps' : 'kg')}
+          {'↑ ' + (unit === 'reps' ? 'reps' : unit === '%' ? '%' : 'kg')}
         </Text>
       </View>
 
@@ -108,7 +112,7 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
             formatXLabel: (v) => String(Math.round(Number(v)) + 1),
             formatYLabel: (v) => unit === 'reps'
               ? String(Math.round(Number(v)))
-              : String(Number(v)),
+              : Number(v).toFixed(1),
           }}
         >
           {({ points, chartBounds, yScale }) => (
