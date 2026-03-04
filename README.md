@@ -26,12 +26,23 @@ A mobile-first app for personal trainers to track client workouts, monitor progr
 - [x] Client list dashboard with workout count and last session date
 - [x] **Client search bar** — filter by name or email in real time
 - [x] Auto-refresh client list on screen focus
-- [x] Add new client (name, email, phone, date of birth, height, notes)
+- [x] Add new client (name, email, phone, date of birth, gender, height, notes)
 - [x] Client body metrics (weight, height, body fat %, BMI, lean body mass)
-- [x] Inline edit client info and metrics on client detail screen
+- [x] Inline edit client info (including gender) and metrics on client detail screen
 - [x] Delete client (confirmation alert before deletion)
 - [ ] Archive/deactivate client
 - [ ] Client profile photo
+
+### Media Gallery
+- [x] Per-client photo and video gallery (Media tab on client detail screen)
+- [x] Upload images and videos from device library with date and optional notes
+- [x] 3-column thumbnail grid — images show preview, videos show play-icon placeholder
+- [x] Hover/press thumbnails to preview date and caption overlaid on the media
+- [x] Fullscreen detail view — tap any thumbnail to open image viewer or inline video player
+- [x] Left/right arrow navigation between media items in the detail view
+- [x] Edit date and notes on any existing media item
+- [x] Delete media (confirmation prompt; removes file from storage and DB row)
+- [x] Files stored in Supabase Storage (`client-media` bucket); metadata in `client_media` table
 
 ### Workout Logging
 - [x] Log a new workout session with date picker
@@ -100,10 +111,11 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All** applied simu
 - [x] **Forced dark theme** — deep charcoal (`#111111`) background, `#1C1C1C` surfaces, gold (`#B88C32`) accents across iOS, Android, and Web
 - [x] Design token system (`constants/theme.ts`) — colors, spacing, typography, radius
 - [x] Thirty60 logo in app header and browser favicon
-- [x] Tab navigation (Clients, Profile)
+- [x] Tab navigation (Clients, Exercises, Profile)
+- [x] Profile screen shows list of all other trainers on the platform
 - [x] FAB (floating action button) with label
 - [x] Safe back navigation — falls back to home if no navigation history (works on web direct links)
-- [x] Two-tab layout on client detail screen (Progress / Workouts)
+- [x] Three-tab layout on client detail screen (Progress / Workouts / Media)
 - [x] Skia web initialization with CanvasKit CDN (charts work on web)
 - [x] Lazy-loaded chart section (CanvasKit loads before charts render)
 - [ ] Shared UI primitives library (Button, Card, Input)
@@ -116,16 +128,19 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All** applied simu
 
 ```
 trainers           — one row per auth user (auto-created on signup via trigger)
-clients            — belong to one trainer; RLS enforces data isolation
+clients            — belong to one trainer; includes gender, body metrics, DOB, notes
 workouts           — one session per client per date; stores optional body metrics
 workout_sets       — one row per set (reps, weight_kg, duration_seconds, notes, superset_group)
 exercises          — shared library; authenticated read + insert
 workout_templates  — editable program templates stored in DB; authenticated CRUD
+client_media       — image/video metadata per client (storage_path, media_type, taken_at, notes)
 ```
 
 `workout_sets.superset_group` is a nullable integer that groups exercises into supersets within a workout. Sets for exercises in the same superset share the same group number, scoped to the workout.
 
 Row-Level Security is enabled on all tables. Trainers can only read and write their own clients and workout data.
+
+Media files are stored in the `client-media` Supabase Storage bucket (public read, authenticated write/delete). The `client_media` table records the storage path, type, date taken, and optional notes.
 
 ---
 
@@ -153,6 +168,8 @@ components/
     ExercisePicker.tsx        # Searchable exercise picker
     TemplatePicker.tsx        # Phase-grouped template browser
     TemplateEditor.tsx        # Create / edit / delete workout templates
+  client/
+    MediaGallery.tsx          # Photo/video gallery — grid, upload modal, detail/edit modal
   ui/
     DatePicker.tsx            # Date selection component
 
@@ -162,6 +179,8 @@ hooks/
   useExercises.ts         # Exercise library (read + create)
   useWorkoutTemplates.ts  # Template CRUD against the workout_templates table
   useClientProgress.ts    # Derives all chart data from workouts; supports date range
+  useClientMedia.ts       # Media CRUD — upload (blob → Storage → DB), update, delete
+  useTrainers.ts          # Fetch all trainers except the current user
 
 constants/
   theme.ts              # Color/spacing/typography tokens + useTheme (always dark)
@@ -180,7 +199,7 @@ assets/
   Thirty60_logo.png     # Brand logo used in header and favicon
 
 supabase/
-  schema.sql                # Source-of-truth DDL (migrations 001–006)
+  schema.sql                # Source-of-truth DDL (migrations 001–007)
   seed.sql                  # 150+ exercises across all muscle groups
   seed_test_client.sql      # Full year of realistic test data (youth hockey player)
 ```
@@ -194,6 +213,7 @@ supabase/
 git clone <repo-url>
 cd thirty60track
 npm install
+npx expo install expo-image-picker expo-av
 ```
 
 ### 2. Configure environment
@@ -207,7 +227,7 @@ cp .env.example .env.local
 Run these in order in the **Supabase SQL Editor**:
 
 ```
-1. supabase/schema.sql          — creates all tables, triggers, RLS policies, and migrations 001–006
+1. supabase/schema.sql          — creates all tables, triggers, RLS policies, and migrations 001–007
 2. supabase/seed.sql            — populates the exercise library (150+ exercises)
 ```
 
@@ -218,6 +238,10 @@ Run these in order in the **Supabase SQL Editor**:
 - **004** — `workout_templates` table
 - **005** — unique constraint fix on workout_templates
 - **006** — `superset_group` column on workout_sets
+- **007** — `client_media` table for the photo/video gallery
+- **008** — `gender` column on clients (`'male' | 'female' | 'other'`)
+
+**Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 
 Optionally, to load a full year of test client data:
 ```

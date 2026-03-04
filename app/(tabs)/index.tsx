@@ -6,6 +6,11 @@ import { useClients } from '@/hooks/useClients';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { ClientWithStats } from '@/types';
 
+function isoToLocal(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export default function ClientsScreen() {
   const router = useRouter();
   const t = useTheme();
@@ -91,7 +96,7 @@ function ClientRow({ client }: { client: ClientWithStats }) {
     .toUpperCase();
 
   const lastWorkout = client.last_workout_at
-    ? new Date(client.last_workout_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    ? isoToLocal(client.last_workout_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null;
 
   return (

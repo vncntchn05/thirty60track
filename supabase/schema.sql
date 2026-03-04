@@ -127,8 +127,11 @@ ALTER TABLE exercises    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workouts     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workout_sets ENABLE ROW LEVEL SECURITY;
 
--- Trainers: each trainer sees and edits only their own profile.
-CREATE POLICY "trainers: own row" ON trainers
+-- Trainers: any authenticated trainer can read all profiles; only own row for writes.
+CREATE POLICY "trainers: authenticated read" ON trainers
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "trainers: own row write" ON trainers
   FOR ALL USING (auth.uid() = id);
 
 -- Clients: any authenticated trainer can read; only the owning trainer can write.
@@ -206,3 +209,50 @@ ALTER TABLE workout_templates ADD CONSTRAINT workout_templates_name_phase_key UN
 -- ─── Migration 006: superset grouping on workout_sets ──────────────
 -- Group numbers are app-assigned integers, scoped to a workout.
 ALTER TABLE workout_sets ADD COLUMN IF NOT EXISTS superset_group SMALLINT;
+
+-- ─── Migration 008: gender on clients ─────────────────────────────
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS gender TEXT; -- 'male' | 'female' | 'other'
+
+-- ─── Migration 007: client media gallery ───────────────────────────
+-- Stores image/video metadata; actual files live in the 'client-media' Storage bucket.
+-- Before running: create a public bucket named 'client-media' in Supabase Dashboard → Storage.
+CREATE TABLE IF NOT EXISTS client_media (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id    UUID        NOT NULL REFERENCES clients (id) ON DELETE CASCADE,
+  trainer_id   UUID        NOT NULL REFERENCES trainers (id),
+  storage_path TEXT        NOT NULL,  -- path within the 'client-media' bucket
+  media_type   TEXT        NOT NULL DEFAULT 'image', -- 'image' | 'video'
+  taken_at     DATE        NOT NULL DEFAULT CURRENT_DATE,
+  notes        TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS client_media_client_id_idx ON client_media (client_id);
+
+DROP TRIGGER IF EXISTS client_media_updated_at ON client_media;
+CREATE TRIGGER client_media_updated_at
+  BEFORE UPDATE ON client_media
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE client_media ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "client_media: authenticated" ON client_media;
+CREATE POLICY "client_media: authenticated" ON client_media
+  FOR ALL USING (auth.uid() IS NOT NULL)
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Storage bucket policies for 'client-media' (run separately in SQL editor).
+-- The bucket itself must be created first in Dashboard → Storage → New bucket.
+-- CREATE POLICY "client-media: authenticated upload"
+--   ON storage.objects FOR INSERT TO authenticated
+--   WITH CHECK (bucket_id = 'client-media');
+-- CREATE POLICY "client-media: authenticated update"
+--   ON storage.objects FOR UPDATE TO authenticated
+--   USING (bucket_id = 'client-media');
+-- CREATE POLICY "client-media: authenticated delete"
+--   ON storage.objects FOR DELETE TO authenticated
+--   USING (bucket_id = 'client-media');
+-- CREATE POLICY "client-media: public read"
+--   ON storage.objects FOR SELECT TO public
+--   USING (bucket_id = 'client-media');

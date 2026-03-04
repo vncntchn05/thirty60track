@@ -9,10 +9,17 @@ import { useClient } from '@/hooks/useClients';
 import { useWorkouts } from '@/hooks/useWorkouts';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Client, WorkoutWithTrainer, UpdateClient } from '@/types';
+import { MediaGallery } from '@/components/client/MediaGallery';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
 // ─── Helpers ──────────────────────────────────────────────────────
+
+/** Parse a YYYY-MM-DD string as local midnight to avoid UTC offset shifting the day. */
+function isoToLocal(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 
 function parseOptionalFloat(v: string): number | null {
   const n = parseFloat(v);
@@ -23,7 +30,7 @@ function fmt(v: number | null, unit: string): string {
   return v != null ? `${v}${unit}` : '—';
 }
 
-type Tab = 'progress' | 'workouts';
+type Tab = 'progress' | 'workouts' | 'media';
 type Theme = ReturnType<typeof useTheme>;
 
 // ─── Screen ───────────────────────────────────────────────────────
@@ -78,12 +85,16 @@ export default function ClientDetailScreen() {
 
       {/* ── Tab bar ── */}
       <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-        {(['progress', 'workouts'] as Tab[]).map((tab) => {
+        {(['progress', 'workouts', 'media'] as Tab[]).map((tab) => {
           const active = activeTab === tab;
+          const label =
+            tab === 'progress' ? 'Progress'
+            : tab === 'workouts' ? `Workouts${workouts.length ? ` (${workouts.length})` : ''}`
+            : 'Media';
           return (
             <Pressable key={tab} style={styles.tabItem} onPress={() => setActiveTab(tab)}>
               <Text style={[styles.tabLabel, { color: active ? colors.primary : t.textSecondary }]}>
-                {tab === 'progress' ? 'Progress' : `Workouts${workouts.length ? ` (${workouts.length})` : ''}`}
+                {label}
               </Text>
               {active && <View style={styles.tabIndicator} />}
             </Pressable>
@@ -124,6 +135,9 @@ export default function ClientDetailScreen() {
         />
       )}
 
+      {/* ── Media tab ── */}
+      {activeTab === 'media' && <MediaGallery clientId={id} />}
+
       {/* ── Delete confirmation bar ── */}
       {confirmingDelete && (
         <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
@@ -144,8 +158,8 @@ export default function ClientDetailScreen() {
         </View>
       )}
 
-      {/* ── FAB ── */}
-      {!confirmingDelete && (
+      {/* ── FAB (Log Workout — hidden on media tab which has its own FAB) ── */}
+      {!confirmingDelete && activeTab !== 'media' && (
         <TouchableOpacity
           style={styles.fab}
           onPress={() => router.push({ pathname: '/workout/new', params: { clientId: id } } as never)}
@@ -161,7 +175,8 @@ export default function ClientDetailScreen() {
 
 // ─── Client info card (view + inline edit) ────────────────────────
 
-type InfoForm = { full_name: string; email: string; phone: string; date_of_birth: string; notes: string };
+type GenderValue = 'male' | 'female' | 'other' | '';
+type InfoForm = { full_name: string; email: string; phone: string; date_of_birth: string; gender: GenderValue; notes: string };
 
 function infoFormFromClient(c: Client): InfoForm {
   return {
@@ -169,6 +184,7 @@ function infoFormFromClient(c: Client): InfoForm {
     email: c.email ?? '',
     phone: c.phone ?? '',
     date_of_birth: c.date_of_birth ?? '',
+    gender: c.gender ?? '',
     notes: c.notes ?? '',
   };
 }
@@ -188,6 +204,7 @@ function ClientInfoCard({ client, onUpdate, t }: { client: Client; onUpdate: (p:
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       date_of_birth: form.date_of_birth.trim() || null,
+      gender: (form.gender || null) as Client['gender'],
       notes: form.notes.trim() || null,
     });
     setSaving(false);
@@ -199,7 +216,7 @@ function ClientInfoCard({ client, onUpdate, t }: { client: Client; onUpdate: (p:
 
   if (editing) {
     return (
-      <View style={[styles.infoCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+      <View style={[styles.infoCard, styles.infoCardEdit, { backgroundColor: t.surface, borderColor: t.border }]}>
         <View style={styles.cardHeader}>
           <Text style={[styles.cardLabel, { color: t.textSecondary }]}>Client Info</Text>
           <View style={styles.editActions}>
@@ -229,15 +246,35 @@ function ClientInfoCard({ client, onUpdate, t }: { client: Client; onUpdate: (p:
             />
           </View>
         ))}
-        <View style={styles.infoEditRow}>
+        <View style={[styles.infoEditRow, { borderBottomColor: t.border }]}>
+          <Text style={[styles.infoEditLabel, { color: t.textSecondary }]}>Gender</Text>
+          <View style={styles.genderPicker}>
+            {(['male', 'female', 'other'] as const).map((g) => {
+              const selected = form.gender === g;
+              return (
+                <Pressable
+                  key={g}
+                  style={[styles.genderOption, { borderColor: colors.primary }, selected && styles.genderOptionSelected]}
+                  onPress={() => setForm((f) => ({ ...f, gender: selected ? '' : g }))}
+                >
+                  <Text style={[styles.genderOptionText, { color: colors.primary }, selected && styles.genderOptionTextSelected]}>
+                    {g.charAt(0).toUpperCase() + g.slice(1)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        <View style={styles.infoEditNotesRow}>
           <Text style={[styles.infoEditLabel, { color: t.textSecondary }]}>Notes</Text>
           <TextInput
-            style={[styles.infoEditInput, { color: t.textPrimary }]}
+            style={[styles.infoEditNotesInput, { color: t.textPrimary }]}
             value={form.notes}
             onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))}
             placeholder="—"
             placeholderTextColor={t.textSecondary}
             multiline
+            textAlignVertical="top"
           />
         </View>
       </View>
@@ -255,7 +292,12 @@ function ClientInfoCard({ client, onUpdate, t }: { client: Client; onUpdate: (p:
         {client.phone ? <Text style={[styles.clientMeta, { color: t.textSecondary }]}>{client.phone}</Text> : null}
         {client.date_of_birth ? (
           <Text style={[styles.clientMeta, { color: t.textSecondary }]}>
-            Born {new Date(client.date_of_birth).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            Born {isoToLocal(client.date_of_birth).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          </Text>
+        ) : null}
+        {client.gender ? (
+          <Text style={[styles.clientMeta, { color: t.textSecondary }]}>
+            {client.gender.charAt(0).toUpperCase() + client.gender.slice(1)}
           </Text>
         ) : null}
         {client.notes ? <Text style={[styles.clientNotes, { color: t.textSecondary }]} numberOfLines={2}>{client.notes}</Text> : null}
@@ -377,7 +419,7 @@ function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: Up
 
 function WorkoutRow({ workout, t }: { workout: WorkoutWithTrainer; t: Theme }) {
   const router = useRouter();
-  const date = new Date(workout.performed_at).toLocaleDateString('en-US', {
+  const date = isoToLocal(workout.performed_at).toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
   });
   const metricParts = [
@@ -430,6 +472,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, padding: spacing.md, borderWidth: 1,
     flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md,
   },
+  infoCardEdit: { flexDirection: 'column', gap: 0 },
   avatar: { width: 52, height: 52, borderRadius: radius.full, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
   avatarText: { ...typography.heading3, color: colors.textInverse },
   infoDetails: { flex: 1, gap: 2 },
@@ -447,8 +490,15 @@ const styles = StyleSheet.create({
   disabledBtn: { opacity: 0.6 },
   saveSmallBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '600' },
   infoEditRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.xs, borderBottomWidth: 1, gap: spacing.md },
+  infoEditNotesRow: { flexDirection: 'column', paddingVertical: spacing.sm, gap: spacing.xs, alignSelf: 'stretch' },
   infoEditLabel: { ...typography.bodySmall, width: 110 },
   infoEditInput: { ...typography.body, flex: 1, paddingVertical: spacing.xs },
+  infoEditNotesInput: { ...typography.body, width: '100%', minHeight: 80, paddingVertical: spacing.xs },
+  genderPicker: { flexDirection: 'row', gap: spacing.xs, flex: 1, justifyContent: 'flex-end' },
+  genderOption: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full, borderWidth: 1 },
+  genderOptionSelected: { backgroundColor: colors.primary },
+  genderOptionText: { ...typography.bodySmall },
+  genderOptionTextSelected: { color: colors.textInverse, fontWeight: '600' },
 
   // ── Metrics card ──
   metricsCard: { borderRadius: radius.md, padding: spacing.md, borderWidth: 1, gap: spacing.sm },

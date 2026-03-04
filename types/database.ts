@@ -18,6 +18,7 @@ export type Client = {
   email: string | null;
   phone: string | null;
   date_of_birth: string | null; // ISO date string 'YYYY-MM-DD'
+  gender: 'male' | 'female' | 'other' | null;
   notes: string | null;
   weight_kg: number | null;
   height_cm: number | null;
@@ -80,6 +81,22 @@ export type ClientWithStats = Client & {
   workout_count: number;
   last_workout_at: string | null;
 };
+
+export type ClientMediaType = 'image' | 'video';
+
+export type ClientMedia = {
+  id: string;
+  client_id: string;
+  trainer_id: string;
+  storage_path: string;
+  media_type: ClientMediaType;
+  taken_at: string; // ISO date 'YYYY-MM-DD'
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UpdateClientMedia = Partial<Pick<ClientMedia, 'taken_at' | 'notes'>>;
 
 // ─── Insert / Update payloads ─────────────────────────────────
 

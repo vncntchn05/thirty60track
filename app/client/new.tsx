@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
+  View, Text, TextInput, TouchableOpacity, Pressable,
   ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
@@ -8,13 +8,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useClients } from '@/hooks/useClients';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
+type GenderValue = 'male' | 'female' | 'other' | '';
 type FormState = {
-  full_name: string; email: string; phone: string; date_of_birth: string;
+  full_name: string; email: string; phone: string; date_of_birth: string; gender: GenderValue;
   notes: string; weight_kg: string; height_cm: string; bf_percent: string; lean_body_mass: string;
 };
 
 const EMPTY: FormState = {
-  full_name: '', email: '', phone: '', date_of_birth: '',
+  full_name: '', email: '', phone: '', date_of_birth: '', gender: '',
   notes: '', weight_kg: '', height_cm: '', bf_percent: '', lean_body_mass: '',
 };
 
@@ -42,6 +43,7 @@ export default function NewClientScreen() {
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       date_of_birth: form.date_of_birth.trim() || null,
+      gender: (form.gender || null) as 'male' | 'female' | 'other' | null,
       notes: form.notes.trim() || null,
       weight_kg: parseFloat_(form.weight_kg),
       height_cm: parseFloat_(form.height_cm),
@@ -93,6 +95,25 @@ export default function NewClientScreen() {
             <TextInput style={[styles.input, { color: t.textPrimary }]} placeholder="YYYY-MM-DD"
               placeholderTextColor={t.textSecondary} value={form.date_of_birth}
               onChangeText={(v) => set('date_of_birth', v)} />
+          </Field>
+          <Divider t={t} />
+          <Field label="Gender" t={t}>
+            <View style={styles.genderPicker}>
+              {(['male', 'female', 'other'] as const).map((g) => {
+                const selected = form.gender === g;
+                return (
+                  <Pressable
+                    key={g}
+                    style={[styles.genderOption, { borderColor: colors.primary }, selected && styles.genderOptionSelected]}
+                    onPress={() => set('gender', selected ? '' : g)}
+                  >
+                    <Text style={[styles.genderOptionText, { color: colors.primary }, selected && styles.genderOptionTextSelected]}>
+                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </Field>
         </View>
 
@@ -179,6 +200,11 @@ const styles = StyleSheet.create({
   field: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, minHeight: 48, gap: spacing.md },
   fieldLabel: { ...typography.body, width: 148 },
   input: { ...typography.body, flex: 1, paddingVertical: spacing.sm },
+  genderPicker: { flexDirection: 'row', gap: spacing.xs, flex: 1, justifyContent: 'flex-end' },
+  genderOption: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full, borderWidth: 1 },
+  genderOptionSelected: { backgroundColor: colors.primary },
+  genderOptionText: { ...typography.bodySmall },
+  genderOptionTextSelected: { color: colors.textInverse, fontWeight: '600' },
   divider: { height: 1, marginLeft: spacing.md },
   bmiNote: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   bmiNoteText: { ...typography.bodySmall, fontStyle: 'italic' },

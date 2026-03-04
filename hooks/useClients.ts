@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import type { Client, ClientWithStats, InsertClient, UpdateClient } from '@/types';
 
 const CLIENT_FIELDS =
-  'id, trainer_id, full_name, email, phone, date_of_birth, notes, weight_kg, height_cm, bf_percent, bmi, lean_body_mass, created_at, updated_at';
+  'id, trainer_id, full_name, email, phone, date_of_birth, gender, notes, weight_kg, height_cm, bf_percent, bmi, lean_body_mass, created_at, updated_at';
 
 type UseClientsResult = {
   clients: ClientWithStats[];
