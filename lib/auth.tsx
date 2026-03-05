@@ -21,17 +21,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load existing session on mount.
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
-      if (s) fetchTrainer(s.user.id);
-      else setLoading(false);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      if (s) fetchTrainer(s.user.id);
-      else {
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && s) {
+        fetchTrainer(s.user.id);
+      } else if (!s) {
         setTrainer(null);
         setLoading(false);
       }
