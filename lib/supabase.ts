@@ -11,6 +11,21 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+async function fetchWithBackoff(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  attempt = 0
+): Promise<Response> {
+  const response = await fetch(input, init);
+  if (response.status === 429 && attempt < 3) {
+    const retryAfter = response.headers.get('Retry-After');
+    const delayMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1000 * 2 ** attempt;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return fetchWithBackoff(input, init, attempt + 1);
+  }
+  return response;
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
@@ -18,4 +33,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  global: { fetch: fetchWithBackoff },
 });
