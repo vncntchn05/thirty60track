@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -17,21 +18,22 @@ async function fetchWithBackoff(
   attempt = 0
 ): Promise<Response> {
   const response = await fetch(input, init);
-  if (response.status === 429 && attempt < 3) {
-    const retryAfter = response.headers.get('Retry-After');
-    const delayMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1000 * 2 ** attempt;
+  if (response.status === 503 && attempt < 3) {
+    const delayMs = 1000 * 2 ** attempt;
     await new Promise((resolve) => setTimeout(resolve, delayMs));
     return fetchWithBackoff(input, init, attempt + 1);
   }
   return response;
 }
 
+const isWeb = Platform.OS === 'web';
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: isWeb ? localStorage : AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: isWeb,
   },
   global: { fetch: fetchWithBackoff },
 });
