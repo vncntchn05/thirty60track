@@ -36,8 +36,12 @@ export type Exercise = {
   name: string;
   muscle_group: string | null;
   category: ExerciseCategory;
+  form_notes: string | null;
+  help_url: string | null;
   created_at: string;
 };
+
+export type UpdateExercise = Partial<Pick<Exercise, 'form_notes' | 'help_url'>>;
 
 export type Workout = {
   id: string;
@@ -47,8 +51,16 @@ export type Workout = {
   notes: string | null;
   body_weight_kg: number | null;
   body_fat_percent: number | null;
+  workout_group_id: string | null; // shared UUID across clients who trained together
   created_at: string;
   updated_at: string;
+};
+
+/** A peer workout in the same workout group, with the client's name. */
+export type WorkoutGroupPeer = {
+  id: string;           // workout ID
+  client_id: string;
+  client: { full_name: string } | null;
 };
 
 export type WorkoutSet = {

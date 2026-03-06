@@ -242,6 +242,22 @@ CREATE POLICY "client_media: authenticated" ON client_media
   FOR ALL USING (auth.uid() IS NOT NULL)
   WITH CHECK (auth.uid() IS NOT NULL);
 
+-- ─── Migration 010: workout groups ("worked out with") ────────────
+-- Groups workouts across clients that happened in the same session.
+-- All workouts sharing a workout_group_id are kept in sync (same sets).
+ALTER TABLE workouts ADD COLUMN IF NOT EXISTS workout_group_id UUID;
+CREATE INDEX IF NOT EXISTS workouts_group_id_idx ON workouts (workout_group_id);
+
+-- ─── Migration 009: exercise form notes + tutorial link ───────────
+ALTER TABLE exercises ADD COLUMN IF NOT EXISTS form_notes TEXT;
+ALTER TABLE exercises ADD COLUMN IF NOT EXISTS help_url   TEXT;
+
+-- Allow authenticated trainers to update exercises (form notes, help URL, etc.)
+DROP POLICY IF EXISTS "exercises: authenticated update" ON exercises;
+CREATE POLICY "exercises: authenticated update" ON exercises
+  FOR UPDATE USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
 -- Storage bucket policies for 'client-media' (run separately in SQL editor).
 -- The bucket itself must be created first in Dashboard → Storage → New bucket.
 -- CREATE POLICY "client-media: authenticated upload"

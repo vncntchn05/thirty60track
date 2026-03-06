@@ -27,6 +27,7 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] **Client search bar** — filter by name or email in real time
 - [x] Auto-refresh client list on screen focus
 - [x] Add new client (name, email, phone, date of birth, gender, height, notes)
+- [x] **Duplicate name guard** — blocks adding a client whose name matches an existing one (slug-normalized)
 - [x] Client body metrics (weight, height, body fat %, BMI, lean body mass)
 - [x] Inline edit client info (including gender) and metrics on client detail screen
 - [x] Delete client (confirmation alert before deletion)
@@ -58,8 +59,9 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] Delete individual sets
 - [x] Body metrics on past workouts sync back to the client profile
 - [x] **Superset support** — chain exercises together with a link icon; each superset group gets a distinct color (violet, blue, amber, pink, teal); works in both the new workout logger and the edit screen
+- [X] Workout notes per set
+- [x] **Worked out with** — select clients who trained in the same session; their workouts are created and kept in sync (add/edit/delete sets propagate to all group members automatically); exercise display order is preserved on all members' workout views; manage the group from the workout edit screen
 - [ ] Rest timer
-- [ ] Workout notes per set
 
 ### Workout Templates
 Templates are stored in the database and fully editable from within the app (via the Exercise Library tab → Edit Templates). The app ships with 16 pre-built templates sourced from the Thirty60 program library:
@@ -80,7 +82,9 @@ Templates are matched to live exercises in the database when loading a workout. 
 - [x] **Add custom exercises** — name, muscle group, and category (strength / cardio / flexibility / other)
 - [x] Exercise search when logging a workout
 - [x] Exercises auto-inserted by workout templates when missing from the library
-- [ ] Exercise detail page
+- [x] **Exercise detail page** — tap any exercise to open its detail screen
+- [x] **Form notes** — free-text step-by-step instructions per exercise (editable by any trainer)
+- [x] **Tutorial link** — YouTube URL per exercise with one-tap Watch button; 4 core lifts pre-seeded (Bench Press, Squat, Deadlift, Lat Pulldown)
 
 ### Progress & Charts
 
@@ -115,6 +119,8 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All** applied simu
 - [x] Profile screen shows list of all other trainers on the platform
 - [x] FAB (floating action button) with label
 - [x] Safe back navigation — falls back to home if no navigation history (works on web direct links)
+- [x] **Name-based client URLs** — web routes use `/client/john-doe` instead of UUIDs; slug lookup with UUID fallback for backward compatibility
+- [x] **404 redirect** — unmatched routes redirect to the home screen
 - [x] Three-tab layout on client detail screen (Progress / Workouts / Media)
 - [x] Skia web initialization with CanvasKit CDN (charts work on web)
 - [x] Lazy-loaded chart section (CanvasKit loads before charts render)
@@ -153,8 +159,10 @@ app/
   (tabs)/index.tsx     # Client list + search bar
   (tabs)/exercises.tsx # Exercise library — browse, group, add; Edit Templates FAB
   (tabs)/profile.tsx   # Trainer profile + sign out
-  client/[id].tsx      # Client detail — metrics, progress charts, workout history
-  client/new.tsx       # Add client form
+  exercise/[id].tsx    # Exercise detail — form notes + tutorial link (editable)
+  client/[id].tsx      # Client detail — metrics, progress charts, workout history (accepts name slug or UUID)
+  client/new.tsx       # Add client form (duplicate name guard)
+  +not-found.tsx       # 404 handler — redirects to home
   workout/[id].tsx     # Workout detail — view/edit sets, body metrics, supersets, delete
   workout/new.tsx      # Log new workout + template loader + superset linking
 
@@ -189,6 +197,7 @@ constants/
 lib/
   supabase.ts          # Supabase client singleton
   auth.tsx             # AuthContext + useAuth hook
+  slugify.ts           # Name → URL slug helpers (clientSlug, slugify)
 
 types/
   database.ts          # Manual TS types mirroring the DB schema
@@ -199,7 +208,7 @@ assets/
   Thirty60_logo.png     # Brand logo used in header and favicon
 
 supabase/
-  schema.sql                # Source-of-truth DDL (migrations 001–007)
+  schema.sql                # Source-of-truth DDL (migrations 001–010)
   seed.sql                  # 150+ exercises across all muscle groups
   seed_test_client.sql      # Full year of realistic test data (youth hockey player)
 ```
@@ -240,6 +249,8 @@ Run these in order in the **Supabase SQL Editor**:
 - **006** — `superset_group` column on workout_sets
 - **007** — `client_media` table for the photo/video gallery
 - **008** — `gender` column on clients (`'male' | 'female' | 'other'`)
+- **009** — `form_notes` and `help_url` columns on exercises; UPDATE RLS policy for authenticated trainers
+- **010** — `workout_group_id UUID` on workouts; index; enables "worked out with" group sync
 
 **Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 

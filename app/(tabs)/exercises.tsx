@@ -4,6 +4,7 @@ import {
   TextInput, ActivityIndicator, Alert, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useExercises } from '@/hooks/useExercises';
 import { TemplateEditor } from '@/components/workout/TemplateEditor';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
@@ -304,8 +305,12 @@ export default function ExercisesScreen() {
 type Theme = ReturnType<typeof useTheme>;
 
 function ExerciseRow({ exercise, groupBy, t }: { exercise: Exercise; groupBy: GroupBy; t: Theme }) {
+  const router = useRouter();
   return (
-    <View style={[styles.row, { backgroundColor: t.surface, borderColor: t.border }]}>
+    <TouchableOpacity
+      style={[styles.row, { backgroundColor: t.surface, borderColor: t.border }]}
+      onPress={() => router.push(`/exercise/${exercise.id}` as never)}
+    >
       <View style={styles.rowInfo}>
         <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{exercise.name}</Text>
         {groupBy === 'muscle' ? (
@@ -323,7 +328,8 @@ function ExerciseRow({ exercise, groupBy, t }: { exercise: Exercise; groupBy: Gr
           </Text>
         </View>
       )}
-    </View>
+      <Ionicons name="chevron-forward" size={16} color={t.textSecondary as string} />
+    </TouchableOpacity>
   );
 }
 

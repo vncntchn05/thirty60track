@@ -42,7 +42,7 @@ export default function ClientDetailScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('progress');
 
   const { client, loading: clientLoading, error: clientError, updateClient, deleteClient } = useClient(id);
-  const { workouts, loading: workoutsLoading, error: workoutsError, refetch: refetchWorkouts } = useWorkouts(id);
+  const { workouts, loading: workoutsLoading, error: workoutsError, refetch: refetchWorkouts } = useWorkouts(client?.id ?? '');
 
   useFocusEffect(useCallback(() => { refetchWorkouts(); }, [refetchWorkouts]));
 
@@ -108,7 +108,7 @@ export default function ClientDetailScreen() {
           <ClientInfoCard client={client} onUpdate={updateClient} t={t} />
           <MetricsCard client={client} onUpdate={updateClient} t={t} />
           <Suspense fallback={<ActivityIndicator size="small" color={colors.primary} style={styles.progressLoader} />}>
-            <ProgressSection clientId={id} />
+            <ProgressSection clientId={client.id} />
           </Suspense>
         </ScrollView>
       )}
@@ -136,7 +136,7 @@ export default function ClientDetailScreen() {
       )}
 
       {/* ── Media tab ── */}
-      {activeTab === 'media' && <MediaGallery clientId={id} />}
+      {activeTab === 'media' && <MediaGallery clientId={client.id} />}
 
       {/* ── Delete confirmation bar ── */}
       {confirmingDelete && (
@@ -162,7 +162,7 @@ export default function ClientDetailScreen() {
       {!confirmingDelete && activeTab !== 'media' && (
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => router.push({ pathname: '/workout/new', params: { clientId: id } } as never)}
+          onPress={() => router.push({ pathname: '/workout/new', params: { clientId: client.id } } as never)}
           accessibilityLabel="Log workout"
         >
           <Ionicons name="add" size={20} color={colors.textInverse} />

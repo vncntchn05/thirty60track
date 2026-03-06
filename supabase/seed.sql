@@ -274,3 +274,10 @@ UPDATE exercises SET muscle_group = 'Back'      WHERE name IN ('Rowing Machine',
 UPDATE exercises SET muscle_group = 'Core'      WHERE name IN ('Suitcase Carry (L/R)') AND muscle_group IS NULL;
 UPDATE exercises SET muscle_group = 'Hips'      WHERE name IN ('Hip Circles') AND muscle_group IS NULL;
 UPDATE exercises SET muscle_group = 'Full Body' WHERE muscle_group IS NULL;
+
+-- ─── Migration 009: exercise tutorial links ────────────────────────
+-- Verified YouTube tutorial links for core exercises.
+UPDATE exercises SET help_url = 'https://youtu.be/vcBig73ojpE' WHERE name = 'Bench Press';
+UPDATE exercises SET help_url = 'https://youtu.be/3PRwtVpyslo' WHERE name = 'Squat';
+UPDATE exercises SET help_url = 'https://youtu.be/VL5Ab0T07e4' WHERE name = 'Deadlift';
+UPDATE exercises SET help_url = 'https://youtu.be/CAwf7n6Luuc' WHERE name = 'Lat Pulldown';

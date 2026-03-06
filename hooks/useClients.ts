@@ -1,7 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { slugify } from '@/lib/slugify';
 import type { Client, ClientWithStats, InsertClient, UpdateClient } from '@/types';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const CLIENT_FIELDS =
   'id, trainer_id, full_name, email, phone, date_of_birth, gender, notes, weight_kg, height_cm, bf_percent, bmi, lean_body_mass, created_at, updated_at';
@@ -97,42 +100,59 @@ type UseClientResult = {
   refetch: () => void;
 };
 
-/** Fetch a single client by id. Refetches after every successful update. */
-export function useClient(id: string): UseClientResult {
+/** Fetch a single client by UUID or name slug. Refetches after every successful update. */
+export function useClient(idOrSlug: string): UseClientResult {
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const isUuid = UUID_RE.test(idOrSlug);
+
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from('clients')
-      .select(CLIENT_FIELDS)
-      .eq('id', id)
-      .single();
 
-    if (err) setError(err.message);
-    else setClient(data);
+    if (isUuid) {
+      const { data, error: err } = await supabase
+        .from('clients')
+        .select(CLIENT_FIELDS)
+        .eq('id', idOrSlug)
+        .single();
+      if (err) setError(err.message);
+      else setClient(data);
+    } else {
+      // Slug-based lookup: fetch all trainer's clients (RLS scoped) and match by slugified name
+      const { data, error: err } = await supabase
+        .from('clients')
+        .select(CLIENT_FIELDS)
+        .order('full_name');
+      if (err) { setError(err.message); setLoading(false); return; }
+      const match = (data ?? []).find((c) => slugify(c.full_name) === idOrSlug);
+      if (match) setClient(match);
+      else setError('Client not found.');
+    }
+
     setLoading(false);
-  }, [id]);
+  }, [idOrSlug, isUuid]);
 
   useEffect(() => { fetch(); }, [fetch]);
 
   async function updateClient(payload: UpdateClient) {
+    if (!client) return { error: 'Client not loaded' };
     const { error: err } = await supabase
       .from('clients')
       .update(payload)
-      .eq('id', id);
+      .eq('id', client.id);
     if (!err) fetch();
     return { error: err?.message ?? null };
   }
 
   async function deleteClient() {
+    if (!client) return { error: 'Client not loaded' };
     const { error: err, count } = await supabase
       .from('clients')
       .delete({ count: 'exact' })
-      .eq('id', id);
+      .eq('id', client.id);
     if (err) return { error: err.message };
     if (count === 0) return { error: 'Delete failed — you may not have permission.' };
     return { error: null };

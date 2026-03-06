@@ -10,6 +10,7 @@ import { TemplatePicker } from '@/components/workout/TemplatePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { createWorkoutWithSets } from '@/hooks/useWorkouts';
 import { useExercises } from '@/hooks/useExercises';
+import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Exercise } from '@/types';
@@ -42,6 +43,8 @@ export default function NewWorkoutScreen() {
   const { user } = useAuth();
   const t = useTheme();
   const { exercises: allExercises } = useExercises();
+  const { clients } = useClients();
+  const [workedOutWith, setWorkedOutWith] = useState<Set<string>>(new Set());
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showCalendar, setShowCalendar] = useState(false);
   const [blocks, setBlocks] = useState<ExerciseBlock[]>([]);
@@ -179,6 +182,7 @@ export default function NewWorkoutScreen() {
         body_fat_percent: !isNaN(bfVal) && bfVal >= 0 && bfVal < 100 ? bfVal : null,
       },
       allSets,
+      [...workedOutWith],
     );
     setSaving(false);
     if (error) Alert.alert('Error', error);
@@ -286,6 +290,34 @@ export default function NewWorkoutScreen() {
             multiline
           />
         </View>
+
+        {/* Worked out with */}
+        {clients.filter((c) => c.id !== clientId).length > 0 && (
+          <View style={[styles.groupSection, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <Text style={[styles.groupLabel, { color: t.textSecondary }]}>Worked out with</Text>
+            {clients.filter((c) => c.id !== clientId).map((c) => {
+              const selected = workedOutWith.has(c.id);
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  style={styles.groupRow}
+                  onPress={() => setWorkedOutWith((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                    return next;
+                  })}
+                >
+                  <Ionicons
+                    name={selected ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={selected ? colors.primary : t.textSecondary as string}
+                  />
+                  <Text style={[styles.groupClientName, { color: t.textPrimary }]}>{c.full_name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {blocks.length === 0 && (
           <View style={styles.emptyState}>
@@ -518,6 +550,13 @@ const styles = StyleSheet.create({
   saveBtn: { margin: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+  groupSection: {
+    marginHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1,
+    padding: spacing.md, gap: spacing.sm,
+  },
+  groupLabel: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
+  groupRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
+  groupClientName: { ...typography.body },
   // Superset connector
   supersetConnector: {
     flexDirection: 'row', alignItems: 'center',

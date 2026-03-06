@@ -7,6 +7,7 @@ import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClients } from '@/hooks/useClients';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { slugify } from '@/lib/slugify';
 
 type GenderValue = 'male' | 'female' | 'other' | '';
 type FormState = {
@@ -27,7 +28,7 @@ function parseFloat_(v: string): number | null {
 export default function NewClientScreen() {
   const router = useRouter();
   const t = useTheme();
-  const { addClient } = useClients();
+  const { clients, addClient } = useClients();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
 
@@ -36,10 +37,13 @@ export default function NewClientScreen() {
   }
 
   async function handleSave() {
-    if (!form.full_name.trim()) { Alert.alert('Name required', "Please enter the client's full name."); return; }
+    const name = form.full_name.trim();
+    if (!name) { Alert.alert('Name required', "Please enter the client's full name."); return; }
+    const duplicate = clients.find((c) => slugify(c.full_name) === slugify(name));
+    if (duplicate) { Alert.alert('Duplicate name', `A client named "${duplicate.full_name}" already exists.`); return; }
     setSaving(true);
     const { error } = await addClient({
-      full_name: form.full_name.trim(),
+      full_name: name,
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       date_of_birth: form.date_of_birth.trim() || null,

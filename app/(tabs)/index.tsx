@@ -4,6 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClients } from '@/hooks/useClients';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { clientSlug } from '@/lib/slugify';
 import type { ClientWithStats } from '@/types';
 
 function isoToLocal(iso: string): Date {
@@ -102,7 +103,7 @@ function ClientRow({ client }: { client: ClientWithStats }) {
   return (
     <TouchableOpacity
       style={[styles.row, { backgroundColor: t.surface, borderColor: t.border }]}
-      onPress={() => router.push(`/client/${client.id}` as never)}
+      onPress={() => router.push(`/client/${clientSlug(client.full_name)}` as never)}
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{initials}</Text>

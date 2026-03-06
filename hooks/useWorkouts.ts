@@ -1,7 +1,55 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import type { WorkoutWithTrainer, WorkoutWithSets, InsertWorkout, InsertWorkoutSet, UpdateWorkout, UpdateClient } from '@/types';
+import type { WorkoutWithTrainer, WorkoutWithSets, WorkoutGroupPeer, InsertWorkout, InsertWorkoutSet, UpdateWorkout, UpdateClient } from '@/types';
+
+function generateGroupId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+/**
+ * Insert sets one exercise at a time so each exercise group gets a distinct
+ * created_at timestamp. This makes created_at a reliable sort key for
+ * preserving exercise display order (earliest = first exercise added).
+ */
+async function insertSetsOrdered<T extends { exercise_id: string }>(
+  sets: T[],
+  workoutId: string,
+): Promise<string | null> {
+  const byExercise = new Map<string, T[]>();
+  for (const s of sets) {
+    if (!byExercise.has(s.exercise_id)) byExercise.set(s.exercise_id, []);
+    byExercise.get(s.exercise_id)!.push(s);
+  }
+  for (const group of byExercise.values()) {
+    const { error } = await supabase
+      .from('workout_sets')
+      .insert(group.map((s) => ({ ...s, workout_id: workoutId })));
+    if (error) return error.message;
+  }
+  return null;
+}
+
+/** Copy the primary workout's sets to all other workouts in the same group. */
+async function syncGroupWorkouts(primaryWorkoutId: string, groupId: string): Promise<void> {
+  const [{ data: peers }, { data: primarySets }] = await Promise.all([
+    supabase.from('workouts').select('id').eq('workout_group_id', groupId).neq('id', primaryWorkoutId),
+    supabase.from('workout_sets')
+      .select('exercise_id, set_number, reps, weight_kg, duration_seconds, notes, superset_group')
+      .eq('workout_id', primaryWorkoutId)
+      .order('created_at'),
+  ]);
+  if (!peers || peers.length === 0) return;
+  for (const peer of peers) {
+    await supabase.from('workout_sets').delete().eq('workout_id', peer.id);
+    if (primarySets && primarySets.length > 0) {
+      await insertSetsOrdered(primarySets, peer.id);
+    }
+  }
+}
 
 type UseWorkoutsResult = {
   workouts: WorkoutWithTrainer[];
@@ -18,7 +66,7 @@ export function useWorkouts(clientId: string): UseWorkoutsResult {
   const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!user) return;
+    if (!user || !clientId) return;
     setLoading(true);
     setError(null);
     const { data, error: err } = await supabase
@@ -40,6 +88,7 @@ export function useWorkouts(clientId: string): UseWorkoutsResult {
 /** Fetch a single workout with all its sets and exercise details. */
 export function useWorkoutDetail(workoutId: string) {
   const [workout, setWorkout] = useState<WorkoutWithSets | null>(null);
+  const [groupPeers, setGroupPeers] = useState<WorkoutGroupPeer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,22 +98,78 @@ export function useWorkoutDetail(workoutId: string) {
     const { data, error: err } = await supabase
       .from('workouts')
       .select(`
-        id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, created_at, updated_at,
+        id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, workout_group_id, created_at, updated_at,
         trainer:trainers(full_name),
         workout_sets (
           id, workout_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes, superset_group, created_at,
-          exercise:exercises ( id, name, muscle_group, category, created_at )
+          exercise:exercises ( id, name, muscle_group, category, form_notes, help_url, created_at )
         )
       `)
       .eq('id', workoutId)
       .single();
 
-    if (err) setError(err.message);
-    else setWorkout(data as WorkoutWithSets);
+    if (err) { setError(err.message); setLoading(false); return; }
+    const sorted = (data as WorkoutWithSets).workout_sets.slice().sort(
+      (a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0)
+    );
+    setWorkout({ ...(data as WorkoutWithSets), workout_sets: sorted });
+
+    // Fetch group peers if this workout belongs to a group
+    if (data?.workout_group_id) {
+      const { data: peers } = await supabase
+        .from('workouts')
+        .select('id, client_id, client:clients!client_id(full_name)')
+        .eq('workout_group_id', data.workout_group_id)
+        .neq('id', workoutId);
+      setGroupPeers((peers ?? []) as WorkoutGroupPeer[]);
+    } else {
+      setGroupPeers([]);
+    }
+
     setLoading(false);
   }, [workoutId]);
 
   useEffect(() => { fetch(); }, [fetch]);
+
+  async function addToGroup(clientId: string, trainerId: string) {
+    let groupId = workout?.workout_group_id;
+    if (!groupId) {
+      groupId = generateGroupId();
+      const { error: groupErr } = await supabase
+        .from('workouts').update({ workout_group_id: groupId }).eq('id', workoutId);
+      if (groupErr) return { error: groupErr.message };
+    }
+    const { data: newWorkout, error: createErr } = await supabase
+      .from('workouts')
+      .insert({
+        client_id: clientId,
+        trainer_id: trainerId,
+        performed_at: workout!.performed_at,
+        notes: workout!.notes,
+        body_weight_kg: workout!.body_weight_kg,
+        body_fat_percent: workout!.body_fat_percent,
+        workout_group_id: groupId,
+      })
+      .select('id')
+      .single();
+    if (createErr || !newWorkout) return { error: createErr?.message ?? 'Failed to create workout' };
+    const { data: currentSets } = await supabase
+      .from('workout_sets')
+      .select('exercise_id, set_number, reps, weight_kg, duration_seconds, notes, superset_group')
+      .eq('workout_id', workoutId);
+    if (currentSets && currentSets.length > 0) {
+      await supabase.from('workout_sets').insert(currentSets.map((s) => ({ ...s, workout_id: newWorkout.id })));
+    }
+    fetch();
+    return { error: null };
+  }
+
+  async function removeFromGroup(peerWorkoutId: string) {
+    const { error: err } = await supabase
+      .from('workouts').update({ workout_group_id: null }).eq('id', peerWorkoutId);
+    if (!err) fetch();
+    return { error: err?.message ?? null };
+  }
 
   async function updateWorkout(payload: UpdateWorkout) {
     const { error: err } = await supabase
@@ -109,7 +214,9 @@ export function useWorkoutDetail(workoutId: string) {
       .eq('id', setId);
     if (err) return { error: err.message };
     if (count === 0) return { error: 'Delete failed — you may not have permission.' };
-    fetch();
+    const groupId = workout?.workout_group_id;
+    await fetch();
+    if (groupId) syncGroupWorkouts(workoutId, groupId);
     return { error: null };
   }
 
@@ -118,7 +225,9 @@ export function useWorkoutDetail(workoutId: string) {
       .from('workout_sets')
       .update(payload)
       .eq('id', setId);
-    if (!err) fetch();
+    const groupId = workout?.workout_group_id;
+    await fetch();
+    if (!err && groupId) syncGroupWorkouts(workoutId, groupId);
     return { error: err?.message ?? null };
   }
 
@@ -130,7 +239,9 @@ export function useWorkoutDetail(workoutId: string) {
     const { error: err } = await supabase
       .from('workout_sets')
       .insert({ workout_id: workoutId, exercise_id: exerciseId, set_number: existingCount + 1, ...payload });
-    if (!err) fetch();
+    const groupId = workout?.workout_group_id;
+    await fetch();
+    if (!err && groupId) syncGroupWorkouts(workoutId, groupId);
     return { error: err?.message ?? null };
   }
 
@@ -140,22 +251,27 @@ export function useWorkoutDetail(workoutId: string) {
       .update({ superset_group: group })
       .eq('workout_id', workoutId)
       .eq('exercise_id', exerciseId);
-    if (!err) fetch();
+    const groupId = workout?.workout_group_id;
+    await fetch();
+    if (!err && groupId) syncGroupWorkouts(workoutId, groupId);
     return { error: err?.message ?? null };
   }
 
-  return { workout, loading, error, refetch: fetch, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet, updateExerciseSupersetGroup };
+  return { workout, groupPeers, loading, error, refetch: fetch, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet, updateExerciseSupersetGroup, addToGroup, removeFromGroup };
 }
 
 /** Create a workout with sets in a single operation.
- *  If body_weight_kg / body_fat_percent are set on the workout, the client record is also updated. */
+ *  Pass linkedClientIds to create the same workout for other clients in the same group session. */
 export async function createWorkoutWithSets(
   workout: InsertWorkout,
   sets: Omit<InsertWorkoutSet, 'workout_id'>[],
+  linkedClientIds: string[] = [],
 ): Promise<{ workoutId: string | null; error: string | null }> {
+  const groupId = linkedClientIds.length > 0 ? generateGroupId() : null;
+
   const { data: newWorkout, error: workoutErr } = await supabase
     .from('workouts')
-    .insert(workout)
+    .insert({ ...workout, workout_group_id: groupId })
     .select('id')
     .single();
 
@@ -164,13 +280,8 @@ export async function createWorkoutWithSets(
   }
 
   if (sets.length > 0) {
-    const { error: setsErr } = await supabase
-      .from('workout_sets')
-      .insert(sets.map((s) => ({ ...s, workout_id: newWorkout.id })));
-
-    if (setsErr) {
-      return { workoutId: newWorkout.id, error: setsErr.message };
-    }
+    const setsErr = await insertSetsOrdered(sets, newWorkout.id);
+    if (setsErr) return { workoutId: newWorkout.id, error: setsErr };
   }
 
   // Sync client body metrics (best-effort)
@@ -183,6 +294,20 @@ export async function createWorkoutWithSets(
       clientUpdate.lean_body_mass = parseFloat((body_weight_kg * (1 - body_fat_percent / 100)).toFixed(2));
     }
     await supabase.from('clients').update(clientUpdate).eq('id', workout.client_id);
+  }
+
+  // Create the same workout for all linked clients (worked out with)
+  if (groupId && linkedClientIds.length > 0) {
+    for (const clientId of linkedClientIds) {
+      const { data: linkedWorkout } = await supabase
+        .from('workouts')
+        .insert({ ...workout, client_id: clientId, workout_group_id: groupId })
+        .select('id')
+        .single();
+      if (linkedWorkout && sets.length > 0) {
+        await insertSetsOrdered(sets, linkedWorkout.id);
+      }
+    }
   }
 
   return { workoutId: newWorkout.id, error: null };

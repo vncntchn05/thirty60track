@@ -6,10 +6,12 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useWorkoutDetail } from '@/hooks/useWorkouts';
+import { useClients } from '@/hooks/useClients';
+import { useAuth } from '@/lib/auth';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { WorkoutSet, Exercise, UpdateWorkout, UpdateWorkoutSet } from '@/types';
+import type { WorkoutSet, Exercise, WorkoutGroupPeer, UpdateWorkout, UpdateWorkoutSet } from '@/types';
 
 const SUPERSET_COLORS = ['#8B5CF6', '#3B82F6', '#F59E0B', '#EC4899', '#14B8A6'];
 function getSupersetColor(group: number): string {
@@ -39,7 +41,9 @@ export default function WorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useTheme();
-  const { workout, loading, error, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet, updateExerciseSupersetGroup } = useWorkoutDetail(id);
+  const { user } = useAuth();
+  const { clients } = useClients();
+  const { workout, groupPeers, loading, error, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet, updateExerciseSupersetGroup, addToGroup, removeFromGroup } = useWorkoutDetail(id);
 
   // Add-set state — tracks which exercise the pending form targets
   const [pendingExercise, setPendingExercise] = useState<{ id: string; name: string } | null>(null);
@@ -205,15 +209,26 @@ export default function WorkoutDetailScreen() {
         keyExtractor={(item) => item.id}
         stickySectionHeadersEnabled={false}
         ListHeaderComponent={
-          <WorkoutHeader
-            performedAt={workout.performed_at}
-            notes={workout.notes}
-            bodyWeightKg={workout.body_weight_kg}
-            bodyFatPercent={workout.body_fat_percent}
-            trainerName={workout.trainer?.full_name ?? null}
-            onSave={updateWorkout}
-            t={t}
-          />
+          <>
+            <WorkoutHeader
+              performedAt={workout.performed_at}
+              notes={workout.notes}
+              bodyWeightKg={workout.body_weight_kg}
+              bodyFatPercent={workout.body_fat_percent}
+              trainerName={workout.trainer?.full_name ?? null}
+              onSave={updateWorkout}
+              t={t}
+            />
+            <GroupCard
+              peers={groupPeers}
+              allClients={clients}
+              currentClientId={workout.client_id}
+              trainerId={user?.id ?? ''}
+              onAdd={addToGroup}
+              onRemove={removeFromGroup}
+              t={t}
+            />
+          </>
         }
         renderSectionHeader={({ section }) => {
           const sectionIdx = sections.indexOf(section);
@@ -353,6 +368,100 @@ export default function WorkoutDetailScreen() {
           <Ionicons name="add" size={20} color={colors.textInverse} />
           <Text style={styles.fabLabel}>Add Exercise</Text>
         </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+// ─── Worked out with card ─────────────────────────────────────────
+
+type GroupCardProps = {
+  peers: WorkoutGroupPeer[];
+  allClients: import('@/types').ClientWithStats[];
+  currentClientId: string;
+  trainerId: string;
+  onAdd: (clientId: string, trainerId: string) => Promise<{ error: string | null }>;
+  onRemove: (peerWorkoutId: string) => Promise<{ error: string | null }>;
+  t: Theme;
+};
+
+function GroupCard({ peers, allClients, currentClientId, trainerId, onAdd, onRemove, t }: GroupCardProps) {
+  const [showPicker, setShowPicker] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const peerClientIds = new Set([currentClientId, ...peers.map((p) => p.client_id)]);
+  const available = allClients.filter((c) => !peerClientIds.has(c.id));
+
+  async function handleAdd(clientId: string) {
+    setBusy(clientId);
+    const { error } = await onAdd(clientId, trainerId);
+    setBusy(null);
+    setShowPicker(false);
+    if (error) Alert.alert('Error', error);
+  }
+
+  async function handleRemove(peer: WorkoutGroupPeer) {
+    setBusy(peer.id);
+    const { error } = await onRemove(peer.id);
+    setBusy(null);
+    if (error) Alert.alert('Error', error);
+  }
+
+  if (peers.length === 0 && !showPicker) {
+    return (
+      <TouchableOpacity
+        style={[styles.groupCardEmpty, { borderColor: t.border }]}
+        onPress={() => setShowPicker(true)}
+      >
+        <Ionicons name="people-outline" size={16} color={t.textSecondary as string} />
+        <Text style={[styles.groupCardEmptyText, { color: t.textSecondary }]}>Add clients who trained together</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={[styles.groupCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+      <View style={styles.groupCardHeader}>
+        <Ionicons name="people" size={15} color={colors.primary} />
+        <Text style={[styles.groupCardTitle, { color: t.textPrimary }]}>Worked out with</Text>
+        {available.length > 0 && (
+          <TouchableOpacity onPress={() => setShowPicker((v) => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name={showPicker ? 'close' : 'add'} size={18} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {peers.map((peer) => (
+        <View key={peer.id} style={styles.groupPeerRow}>
+          <Text style={[styles.groupPeerName, { color: t.textPrimary }]}>{peer.client?.full_name ?? peer.client_id}</Text>
+          <TouchableOpacity
+            onPress={() => handleRemove(peer)}
+            disabled={busy === peer.id}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {busy === peer.id
+              ? <ActivityIndicator size="small" color={t.textSecondary as string} />
+              : <Ionicons name="close-circle-outline" size={18} color={t.textSecondary as string} />}
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      {showPicker && available.length > 0 && (
+        <View style={[styles.groupPickerBox, { borderTopColor: t.border }]}>
+          {available.map((c) => (
+            <TouchableOpacity
+              key={c.id}
+              style={styles.groupPickerRow}
+              onPress={() => handleAdd(c.id)}
+              disabled={busy === c.id}
+            >
+              {busy === c.id
+                ? <ActivityIndicator size="small" color={colors.primary} />
+                : <Ionicons name="add-circle-outline" size={18} color={colors.primary} />}
+              <Text style={[styles.groupPeerName, { color: t.textPrimary }]}>{c.full_name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       )}
     </View>
   );
@@ -821,6 +930,24 @@ const styles = StyleSheet.create({
   deleteCancelText: { ...typography.body },
   deleteConfirmBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.error },
   deleteConfirmText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+
+  // ── Worked out with card ──
+  groupCardEmpty: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+    borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed',
+    padding: spacing.sm, marginBottom: spacing.md,
+  },
+  groupCardEmptyText: { ...typography.bodySmall },
+  groupCard: {
+    borderRadius: radius.md, borderWidth: 1,
+    padding: spacing.md, gap: spacing.xs, marginBottom: spacing.md,
+  },
+  groupCardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs },
+  groupCardTitle: { ...typography.label, fontWeight: '700', flex: 1 },
+  groupPeerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 },
+  groupPeerName: { ...typography.body },
+  groupPickerBox: { borderTopWidth: 1, marginTop: spacing.xs, paddingTop: spacing.xs, gap: spacing.xs },
+  groupPickerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: 2 },
 
   // ── Misc ──
   errorText: { ...typography.body, color: colors.error, textAlign: 'center', paddingHorizontal: spacing.lg },
