@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { CartesianChart, Line, Scatter, useChartPressState } from 'victory-native';
 import { Circle, useFont, Line as SkiaLine, vec } from '@shopify/react-native-skia';
@@ -6,18 +6,51 @@ import Animated, {
   useAnimatedStyle, useAnimatedReaction, useDerivedValue, runOnJS,
 } from 'react-native-reanimated';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { useSkiaAvailable } from '@/lib/skia';
 import type { ChartPoint } from '@/hooks/useClientProgress';
 
 type Props = { data: ChartPoint[]; unit?: string; title?: string };
 
+/**
+ * Line chart showing exercise or body metric progress over time.
+ * Outer component guards against uninitialized CanvasKit on web.
+ */
 export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
   const t = useTheme();
-  const { state, isActive } = useChartPressState({ x: 0, y: { y: 0 } });
-  const [tooltip, setTooltip] = useState<{ label: string; value: string } | null>(null);
+  const skiaAvailable = useSkiaAvailable();
 
+  if (!skiaAvailable) {
+    return (
+      <View style={[styles.empty, { backgroundColor: t.background }]}>
+        <Text style={[styles.emptyText, { color: t.textSecondary }]}>
+          Charts unavailable — could not load rendering engine.
+        </Text>
+      </View>
+    );
+  }
+
+  if (data.length < 2) {
+    return (
+      <View style={[styles.empty, { backgroundColor: t.background }]}>
+        <Text style={[styles.emptyText, { color: t.textSecondary }]}>
+          {data.length === 0
+            ? `No ${unit === 'reps' ? 'rep' : unit === '%' ? 'body fat' : 'weight'} data recorded.`
+            : 'Log at least 2 sessions to see progress.'}
+        </Text>
+      </View>
+    );
+  }
+
+  return <ExerciseProgressChartInner data={data} unit={unit} title={title} />;
+}
+
+/** Only mounts after CanvasKit is initialized — Skia hooks are safe here. */
+function ExerciseProgressChartInner({ data, unit = 'kg', title }: Props) {
+  const t = useTheme();
+  const { state } = useChartPressState({ x: 0, y: { y: 0 } });
+  const [tooltip, setTooltip] = useState<{ label: string; value: string } | null>(null);
   const font = useFont(require('../../assets/fonts/Roboto-Regular.ttf'), 10);
 
-  // Update tooltip text on JS thread when the press position changes
   const handlePressChange = useCallback(
     (active: boolean, idx: number, yVal: number) => {
       if (active) {
@@ -48,7 +81,6 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
     },
   );
 
-  // Tooltip container: animated position + fade on UI thread
   const tooltipStyle = useAnimatedStyle(() => ({
     opacity: state.isActive.value ? 1 : 0,
     transform: [
@@ -57,20 +89,7 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
     ],
   }));
 
-  // Cursor dot opacity driven by SharedValue (no React re-render needed)
   const cursorOpacity = useDerivedValue(() => state.isActive.value ? 1 : 0);
-
-  if (data.length < 2) {
-    return (
-      <View style={[styles.empty, { backgroundColor: t.background }]}>
-        <Text style={[styles.emptyText, { color: t.textSecondary }]}>
-          {data.length === 0
-            ? `No ${unit === 'reps' ? 'rep' : unit === '%' ? 'body fat' : 'weight'} data recorded.`
-            : 'Log at least 2 sessions to see progress.'}
-        </Text>
-      </View>
-    );
-  }
 
   const minY = Math.min(...data.map((d) => d.y));
   const maxY = Math.max(...data.map((d) => d.y));
@@ -87,15 +106,13 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
 
   return (
     <View>
-      {/* Chart title + Y axis label */}
       <View style={styles.chartMeta}>
         {title ? <Text style={[styles.chartTitle, { color: t.textPrimary }]}>{title}</Text> : null}
         <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>
-          {'↑ ' + (unit === 'reps' ? 'reps' : unit === '%' ? '%' : 'kg')}
+          {unit === 'reps' ? 'Reps' : unit === '%' ? 'Body fat (%)' : 'Weight (kg)'}
         </Text>
       </View>
 
-      {/* Chart + tooltip overlay */}
       <View style={styles.chart}>
         <CartesianChart
           data={data}
@@ -139,7 +156,6 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
                   <Circle cx={x} cy={y} r={4} color={colors.primary} />
                 )}
               />
-              {/* Cursor dot — driven by SharedValues, no React re-render */}
               <Circle
                 cx={state.x.position}
                 cy={state.y.y.position}
@@ -151,7 +167,6 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
           )}
         </CartesianChart>
 
-        {/* Tooltip overlay — absolutely positioned sibling of the Canvas */}
         <Animated.View
           style={[
             styles.tooltip,
@@ -169,6 +184,7 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
         </Animated.View>
       </View>
 
+      <Text style={[styles.xAxisLabel, { color: t.textSecondary }]}>Session</Text>
       <View style={styles.footer}>
         <Text style={[styles.footerDate, { color: t.textSecondary }]}>{first.label}</Text>
         <Text style={[styles.footerStat, gain >= 0 ? styles.positive : styles.negative]}>
@@ -187,7 +203,6 @@ const styles = StyleSheet.create({
   empty: { height: 80, justifyContent: 'center', alignItems: 'center', borderRadius: radius.sm },
   emptyText: { ...typography.bodySmall, textAlign: 'center' },
 
-  // Tooltip
   tooltip: {
     position: 'absolute',
     left: 0,
@@ -199,7 +214,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     gap: 2,
-    // shadow
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
@@ -218,7 +232,6 @@ const styles = StyleSheet.create({
   positive: { color: colors.success },
   negative: { color: colors.error },
 
-  // Chart meta row
   chartMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -228,4 +241,5 @@ const styles = StyleSheet.create({
   },
   chartTitle: { ...typography.label, fontWeight: '600' },
   yAxisLabel: { ...typography.label },
+  xAxisLabel: { ...typography.label, textAlign: 'center', marginTop: 2 },
 });

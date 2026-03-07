@@ -258,8 +258,8 @@ function DetailModalContent(props: DetailModalProps) {
 
 // ─── Main component ───────────────────────────────────────────────
 
-export function MediaGallery({ clientId }: { clientId: string }) {
-  const { media, loading, error, uploadMedia, updateMedia, deleteMedia } = useClientMedia(clientId);
+export function MediaGallery({ clientId, uploadTrainerId }: { clientId: string; uploadTrainerId?: string }) {
+  const { media, loading, error, uploadMedia, updateMedia, deleteMedia } = useClientMedia(clientId, uploadTrainerId);
   const t = useTheme();
 
   // Upload modal state

@@ -2,18 +2,28 @@ import { View, Text, StyleSheet } from 'react-native';
 import { CartesianChart, Bar } from 'victory-native';
 import { useFont, Line as SkiaLine, vec } from '@shopify/react-native-skia';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { useSkiaAvailable } from '@/lib/skia';
 import type { ChartPoint } from '@/hooks/useClientProgress';
 
 type Props = { data: ChartPoint[] };
 
 /**
  * Bar chart showing total workout volume (kg·reps) over time.
- * Receives pre-computed data — no Supabase calls inside.
+ * Outer component guards against uninitialized CanvasKit on web.
  */
 export function VolumeChart({ data }: Props) {
   const t = useTheme();
+  const skiaAvailable = useSkiaAvailable();
 
-  const font = useFont(require('../../assets/fonts/Roboto-Regular.ttf'), 10);
+  if (!skiaAvailable) {
+    return (
+      <View style={[styles.empty, { backgroundColor: t.background }]}>
+        <Text style={[styles.emptyText, { color: t.textSecondary }]}>
+          Charts unavailable — could not load rendering engine.
+        </Text>
+      </View>
+    );
+  }
 
   if (data.length < 2) {
     return (
@@ -25,6 +35,14 @@ export function VolumeChart({ data }: Props) {
     );
   }
 
+  return <VolumeChartInner data={data} />;
+}
+
+/** Only mounts after CanvasKit is initialized — Skia hooks are safe here. */
+function VolumeChartInner({ data }: Props) {
+  const t = useTheme();
+  const font = useFont(require('../../assets/fonts/Roboto-Regular.ttf'), 10);
+
   const maxY = Math.max(...data.map((d) => d.y), 1);
   const latest = data[data.length - 1];
   const first = data[0];
@@ -32,7 +50,7 @@ export function VolumeChart({ data }: Props) {
   return (
     <View>
       <View style={styles.chartMeta}>
-        <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>↑ kg·reps</Text>
+        <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>Volume (kg × reps)</Text>
       </View>
       <View style={styles.chart}>
         <CartesianChart
@@ -70,11 +88,13 @@ export function VolumeChart({ data }: Props) {
                 color={colors.primary}
                 roundedCorners={{ topLeft: 3, topRight: 3 }}
                 animate={{ type: 'spring' }}
+                barWidth={8}
               />
             </>
           )}
         </CartesianChart>
       </View>
+      <Text style={[styles.xAxisLabel, { color: t.textSecondary }]}>Workout</Text>
       <View style={styles.footer}>
         <Text style={[styles.footerDate, { color: t.textSecondary }]}>{first.label}</Text>
         <Text style={styles.footerStat}>Latest: {Math.round(latest.y).toLocaleString()} kg·reps</Text>
@@ -101,4 +121,5 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   yAxisLabel: { ...typography.label },
+  xAxisLabel: { ...typography.label, textAlign: 'center', marginTop: 2 },
 });

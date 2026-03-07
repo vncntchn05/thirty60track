@@ -1,0 +1,96 @@
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Image, View, StyleSheet } from 'react-native';
+import { colors, useTheme } from '@/constants/theme';
+
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+function tabIcon(name: IoniconsName, focusedName: IoniconsName) {
+  return ({ color, focused }: { color: string; focused: boolean }) => (
+    <Ionicons name={focused ? focusedName : name} size={24} color={color} />
+  );
+}
+
+function HeaderLogo() {
+  return (
+    <View style={styles.logoContainer}>
+      <Image
+        source={require('../../assets/Thirty60_logo.png')}
+        style={styles.logo}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  logoContainer: {
+    marginLeft: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+  },
+});
+
+export default function ClientLayout() {
+  const t = useTheme();
+  return (
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: t.textSecondary,
+        tabBarStyle: {
+          backgroundColor: t.surface,
+          borderTopColor: t.border,
+        },
+        headerStyle: { backgroundColor: t.surface },
+        headerTintColor: t.textPrimary,
+        headerTitleStyle: { fontWeight: '700' },
+        headerShown: true,
+        headerLeft: () => <HeaderLogo />,
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Home',
+          tabBarIcon: tabIcon('home-outline', 'home'),
+        }}
+      />
+      <Tabs.Screen
+        name="workouts"
+        options={{
+          title: 'Workouts',
+          tabBarIcon: tabIcon('barbell-outline', 'barbell'),
+        }}
+      />
+      <Tabs.Screen
+        name="progress"
+        options={{
+          title: 'Progress',
+          tabBarIcon: tabIcon('trending-up-outline', 'trending-up'),
+        }}
+      />
+      <Tabs.Screen
+        name="media"
+        options={{
+          title: 'Media',
+          tabBarIcon: tabIcon('image-outline', 'image'),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: tabIcon('person-outline', 'person'),
+        }}
+      />
+      {/* Push screens — not shown in tab bar */}
+      <Tabs.Screen name="workout/[id]" options={{ href: null }} />
+      <Tabs.Screen name="workout/log"  options={{ href: null }} />
+    </Tabs>
+  );
+}

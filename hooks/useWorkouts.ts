@@ -71,12 +71,12 @@ export function useWorkouts(clientId: string): UseWorkoutsResult {
     setError(null);
     const { data, error: err } = await supabase
       .from('workouts')
-      .select('id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, created_at, updated_at, trainer:trainers(full_name)')
+      .select('id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, workout_group_id, logged_by_role, logged_by_user_id, created_at, updated_at, trainer:trainers(full_name)')
       .eq('client_id', clientId)
       .order('performed_at', { ascending: false });
 
     if (err) setError(err.message);
-    else setWorkouts((data ?? []) as WorkoutWithTrainer[]);
+    else setWorkouts((data ?? []) as unknown as WorkoutWithTrainer[]);
     setLoading(false);
   }, [user, clientId]);
 
@@ -98,7 +98,7 @@ export function useWorkoutDetail(workoutId: string) {
     const { data, error: err } = await supabase
       .from('workouts')
       .select(`
-        id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, workout_group_id, created_at, updated_at,
+        id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, workout_group_id, logged_by_role, logged_by_user_id, created_at, updated_at,
         trainer:trainers(full_name),
         workout_sets (
           id, workout_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes, superset_group, created_at,
@@ -109,10 +109,11 @@ export function useWorkoutDetail(workoutId: string) {
       .single();
 
     if (err) { setError(err.message); setLoading(false); return; }
-    const sorted = (data as WorkoutWithSets).workout_sets.slice().sort(
+    const typedData = data as unknown as WorkoutWithSets;
+    const sorted = typedData.workout_sets.slice().sort(
       (a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0)
     );
-    setWorkout({ ...(data as WorkoutWithSets), workout_sets: sorted });
+    setWorkout({ ...typedData, workout_sets: sorted });
 
     // Fetch group peers if this workout belongs to a group
     if (data?.workout_group_id) {
@@ -121,7 +122,7 @@ export function useWorkoutDetail(workoutId: string) {
         .select('id, client_id, client:clients!client_id(full_name)')
         .eq('workout_group_id', data.workout_group_id)
         .neq('id', workoutId);
-      setGroupPeers((peers ?? []) as WorkoutGroupPeer[]);
+      setGroupPeers((peers ?? []) as unknown as WorkoutGroupPeer[]);
     } else {
       setGroupPeers([]);
     }

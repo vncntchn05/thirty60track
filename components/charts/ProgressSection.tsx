@@ -7,13 +7,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { FrequencyChart } from './FrequencyChart';
 import { VolumeChart } from './VolumeChart';
 import { ExerciseProgressChart } from './ExerciseProgressChart';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { useClientProgress } from '@/hooks/useClientProgress';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
-type Range = '1M' | '3M' | '6M' | '1Y' | 'All';
-const RANGES: Range[] = ['1M', '3M', '6M', '1Y', 'All'];
+type Range = '1M' | '3M' | '6M' | '1Y' | 'All' | 'Custom';
+const RANGES: Range[] = ['1M', '3M', '6M', '1Y', 'All', 'Custom'];
 const DAYS_BACK: Record<Range, number | undefined> = {
-  '1M': 30, '3M': 90, '6M': 180, '1Y': 365, 'All': undefined,
+  '1M': 30, '3M': 90, '6M': 180, '1Y': 365, 'All': undefined, 'Custom': undefined,
 };
 
 type Props = { clientId: string };
@@ -21,14 +22,48 @@ type Props = { clientId: string };
 export default function ProgressSection({ clientId }: Props) {
   const t = useTheme();
   const [range, setRange] = useState<Range>('All');
+  const [customStart, setCustomStart] = useState<Date | undefined>(undefined);
+  const [customEnd, setCustomEnd]     = useState<Date | undefined>(undefined);
+  const [calendarVisible, setCalendarVisible] = useState(false);
+
+  const customRange = range === 'Custom' && customStart && customEnd
+    ? { start: customStart, end: customEnd }
+    : undefined;
+
   const {
     frequencyData, frequencyStats, volumeData,
     bodyWeightData, bodyFatData,
-    exercises, getExerciseProgress, getExerciseRepsProgress, loading, error,
-  } = useClientProgress(clientId, DAYS_BACK[range]);
+    exercises, getExerciseProgress, getExerciseRepsProgress,
+    allWorkoutDates, loading, error,
+  } = useClientProgress(clientId, DAYS_BACK[range], customRange);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [query, setQuery] = useState('');
+
+  function handleRangePress(r: Range) {
+    if (r === 'Custom') {
+      setCalendarVisible(true);
+    } else {
+      setRange(r);
+      setCustomStart(undefined);
+      setCustomEnd(undefined);
+    }
+  }
+
+  function handleCalendarConfirm(start: Date, end: Date) {
+    setCustomStart(start);
+    setCustomEnd(end);
+    setRange('Custom');
+    setCalendarVisible(false);
+  }
+
+  function customLabel(): string {
+    if (range === 'Custom' && customStart && customEnd) {
+      const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `${fmt(customStart)} – ${fmt(customEnd)}`;
+    }
+    return 'Custom';
+  }
 
   if (loading) return <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />;
   if (error) return null;
@@ -61,19 +96,32 @@ export default function ProgressSection({ clientId }: Props) {
               { borderColor: t.border },
               r === range && styles.rangeChipActive,
             ]}
-            onPress={() => setRange(r)}
+            onPress={() => handleRangePress(r)}
             activeOpacity={0.7}
           >
-            <Text style={[
-              styles.rangeChipText,
-              { color: t.textSecondary },
-              r === range && styles.rangeChipTextActive,
-            ]}>
-              {r}
+            <Text
+              style={[
+                styles.rangeChipText,
+                { color: t.textSecondary },
+                r === range && styles.rangeChipTextActive,
+              ]}
+              numberOfLines={1}
+            >
+              {r === 'Custom' ? customLabel() : r}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Custom date range picker */}
+      <DateRangePicker
+        visible={calendarVisible}
+        onClose={() => setCalendarVisible(false)}
+        onConfirm={handleCalendarConfirm}
+        workoutDates={allWorkoutDates}
+        initialStart={customStart}
+        initialEnd={customEnd}
+      />
 
       {noData && (
         <View style={[styles.emptyState, { backgroundColor: t.surface, borderColor: t.border }]}>
@@ -244,15 +292,17 @@ const styles = StyleSheet.create({
   separator: { height: 1, marginVertical: spacing.sm },
 
   // Range selector
-  rangeRow: { flexDirection: 'row', gap: spacing.xs },
+  rangeRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
   rangeChip: {
     flex: 1,
+    minWidth: 40,
     alignItems: 'center',
     paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
     borderRadius: radius.sm,
     borderWidth: 1,
   },
   rangeChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  rangeChipText: { ...typography.label, fontWeight: '600' },
+  rangeChipText: { ...typography.label, fontWeight: '600', textAlign: 'center' },
   rangeChipTextActive: { color: colors.textInverse },
 });

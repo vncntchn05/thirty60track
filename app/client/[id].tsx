@@ -7,8 +7,9 @@ import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-rou
 import { Ionicons } from '@expo/vector-icons';
 import { useClient } from '@/hooks/useClients';
 import { useWorkouts } from '@/hooks/useWorkouts';
+import { useClientIntake } from '@/hooks/useClientIntake';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { Client, WorkoutWithTrainer, UpdateClient } from '@/types';
+import type { Client, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake } from '@/types';
 import { MediaGallery } from '@/components/client/MediaGallery';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
@@ -43,6 +44,7 @@ export default function ClientDetailScreen() {
 
   const { client, loading: clientLoading, error: clientError, updateClient, deleteClient } = useClient(id);
   const { workouts, loading: workoutsLoading, error: workoutsError, refetch: refetchWorkouts } = useWorkouts(client?.id ?? '');
+  const { intake, saveIntake } = useClientIntake(client?.id ?? '');
 
   useFocusEffect(useCallback(() => { refetchWorkouts(); }, [refetchWorkouts]));
 
@@ -83,6 +85,22 @@ export default function ClientDetailScreen() {
         }}
       />
 
+      {/* ── Health warning banner ── */}
+      {(intake?.current_injuries || intake?.chronic_conditions) && (
+        <View style={styles.warningBanner}>
+          <Ionicons name="warning-outline" size={16} color={colors.error} style={styles.warningIcon} />
+          <View style={styles.warningBody}>
+            <Text style={styles.warningTitle}>Health Alert</Text>
+            {intake.current_injuries ? (
+              <Text style={styles.warningText}><Text style={styles.warningFieldLabel}>Injuries: </Text>{intake.current_injuries}</Text>
+            ) : null}
+            {intake.chronic_conditions ? (
+              <Text style={styles.warningText}><Text style={styles.warningFieldLabel}>Conditions: </Text>{intake.chronic_conditions}</Text>
+            ) : null}
+          </View>
+        </View>
+      )}
+
       {/* ── Tab bar ── */}
       <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
         {(['progress', 'workouts', 'media'] as Tab[]).map((tab) => {
@@ -105,7 +123,13 @@ export default function ClientDetailScreen() {
       {/* ── Progress tab ── */}
       {activeTab === 'progress' && (
         <ScrollView contentContainerStyle={styles.tabContent}>
-          <ClientInfoCard client={client} onUpdate={updateClient} t={t} />
+          <ClientInfoCard
+            client={client}
+            intake={intake}
+            onUpdate={updateClient}
+            onIntakeSave={(intakeData, clientData) => saveIntake(intakeData, clientData, false)}
+            t={t}
+          />
           <MetricsCard client={client} onUpdate={updateClient} t={t} />
           <Suspense fallback={<ActivityIndicator size="small" color={colors.primary} style={styles.progressLoader} />}>
             <ProgressSection clientId={client.id} />
@@ -173,48 +197,119 @@ export default function ClientDetailScreen() {
   );
 }
 
-// ─── Client info card (view + inline edit) ────────────────────────
+// ─── Client info card (view + inline edit, includes intake fields) ─
 
 type GenderValue = 'male' | 'female' | 'other' | '';
-type InfoForm = { full_name: string; email: string; phone: string; date_of_birth: string; gender: GenderValue; notes: string };
+type InfoForm = {
+  // clients table
+  full_name: string; email: string; phone: string; date_of_birth: string; gender: GenderValue; notes: string;
+  // client_intake table
+  address: string; emergency_name: string; emergency_phone: string; emergency_relation: string;
+  occupation: string; current_injuries: string; past_injuries: string;
+  chronic_conditions: string; medications: string;
+  activity_level: string; goals: string; goal_timeframe: string;
+};
 
-function infoFormFromClient(c: Client): InfoForm {
+function infoFormFrom(c: Client, i: ClientIntake | null): InfoForm {
   return {
-    full_name: c.full_name,
-    email: c.email ?? '',
-    phone: c.phone ?? '',
-    date_of_birth: c.date_of_birth ?? '',
-    gender: c.gender ?? '',
-    notes: c.notes ?? '',
+    full_name: c.full_name, email: c.email ?? '', phone: c.phone ?? '',
+    date_of_birth: c.date_of_birth ?? '', gender: c.gender ?? '', notes: c.notes ?? '',
+    address: i?.address ?? '', emergency_name: i?.emergency_name ?? '',
+    emergency_phone: i?.emergency_phone ?? '', emergency_relation: i?.emergency_relation ?? '',
+    occupation: i?.occupation ?? '', current_injuries: i?.current_injuries ?? '',
+    past_injuries: i?.past_injuries ?? '', chronic_conditions: i?.chronic_conditions ?? '',
+    medications: i?.medications ?? '', activity_level: i?.activity_level ?? '',
+    goals: i?.goals ?? '', goal_timeframe: i?.goal_timeframe ?? '',
   };
 }
 
-function ClientInfoCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: UpdateClient) => Promise<{ error: string | null }>; t: Theme }) {
+const ACTIVITY_LABELS: Record<string, string> = {
+  sedentary: 'Sedentary', light: 'Lightly Active', moderate: 'Moderate',
+  active: 'Active', very_active: 'Very Active',
+};
+
+type ClientInfoCardProps = {
+  client: Client;
+  intake: ClientIntake | null;
+  onUpdate: (p: UpdateClient) => Promise<{ error: string | null }>;
+  onIntakeSave: (intakeData: UpdateClientIntake, clientData: UpdateClient) => Promise<{ error: string | null }>;
+  t: Theme;
+};
+
+function ClientInfoCard({ client, intake, onUpdate, onIntakeSave, t }: ClientInfoCardProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<InfoForm>(() => infoFormFromClient(client));
+  const [form, setForm] = useState<InfoForm>(() => infoFormFrom(client, intake));
 
-  function startEdit() { setForm(infoFormFromClient(client)); setEditing(true); }
+  function startEdit() { setForm(infoFormFrom(client, intake)); setEditing(true); }
+  function set(key: keyof InfoForm, value: string) { setForm((f) => ({ ...f, [key]: value })); }
 
   async function handleSave() {
-    if (!form.full_name.trim()) { Alert.alert('Name required', "Full name cannot be empty."); return; }
+    if (!form.full_name.trim()) { Alert.alert('Name required', 'Full name cannot be empty.'); return; }
     setSaving(true);
-    const { error } = await onUpdate({
-      full_name: form.full_name.trim(),
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      date_of_birth: form.date_of_birth.trim() || null,
-      gender: (form.gender || null) as Client['gender'],
-      notes: form.notes.trim() || null,
-    });
+    const { error } = await onIntakeSave(
+      {
+        address: form.address.trim() || null,
+        emergency_name: form.emergency_name.trim() || null,
+        emergency_phone: form.emergency_phone.trim() || null,
+        emergency_relation: form.emergency_relation.trim() || null,
+        occupation: form.occupation.trim() || null,
+        current_injuries: form.current_injuries.trim() || null,
+        past_injuries: form.past_injuries.trim() || null,
+        chronic_conditions: form.chronic_conditions.trim() || null,
+        medications: form.medications.trim() || null,
+        activity_level: (form.activity_level || null) as UpdateClientIntake['activity_level'],
+        goals: form.goals.trim() || null,
+        goal_timeframe: form.goal_timeframe.trim() || null,
+      },
+      {
+        full_name: form.full_name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        date_of_birth: form.date_of_birth.trim() || null,
+        gender: (form.gender || null) as Client['gender'],
+        notes: form.notes.trim() || null,
+      },
+    );
     setSaving(false);
     if (error) Alert.alert('Error', error);
     else setEditing(false);
   }
 
-  const initials = client.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
-
+  // ── Edit mode ──────────────────────────────────────────────────
   if (editing) {
+    const textRow = (label: string, field: keyof InfoForm, cap: 'none'|'words'|'sentences' = 'sentences', kb: 'default'|'email-address'|'phone-pad' = 'default') => (
+      <View key={field} style={[styles.infoEditRow, { borderBottomColor: t.border }]}>
+        <Text style={[styles.infoEditLabel, { color: t.textSecondary }]}>{label}</Text>
+        <TextInput
+          style={[styles.infoEditInput, { color: t.textPrimary }]}
+          value={form[field]}
+          onChangeText={(v) => set(field, v)}
+          autoCapitalize={cap}
+          keyboardType={kb}
+          placeholder="—"
+          placeholderTextColor={t.textSecondary}
+        />
+      </View>
+    );
+    const multiRow = (label: string, field: keyof InfoForm) => (
+      <View key={field} style={[styles.infoEditNotesRow, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
+        <Text style={[styles.infoEditLabel, { color: t.textSecondary }]}>{label}</Text>
+        <TextInput
+          style={[styles.infoEditNotesInput, { color: t.textPrimary }]}
+          value={form[field]}
+          onChangeText={(v) => set(field, v)}
+          placeholder="—"
+          placeholderTextColor={t.textSecondary}
+          multiline
+          textAlignVertical="top"
+        />
+      </View>
+    );
+    const sectionLabel = (title: string) => (
+      <Text key={title} style={[styles.infoSectionLabel, { color: t.textSecondary, borderBottomColor: t.border }]}>{title}</Text>
+    );
+
     return (
       <View style={[styles.infoCard, styles.infoCardEdit, { backgroundColor: t.surface, borderColor: t.border }]}>
         <View style={styles.cardHeader}>
@@ -228,35 +323,20 @@ function ClientInfoCard({ client, onUpdate, t }: { client: Client; onUpdate: (p:
             </TouchableOpacity>
           </View>
         </View>
-        {([ ['Full name *', 'full_name', 'words', 'default'],
-             ['Email', 'email', 'none', 'email-address'],
-             ['Phone', 'phone', 'none', 'phone-pad'],
-             ['Date of birth', 'date_of_birth', 'none', 'default'],
-        ] as const).map(([label, field, cap, kb]) => (
-          <View key={field} style={[styles.infoEditRow, { borderBottomColor: t.border }]}>
-            <Text style={[styles.infoEditLabel, { color: t.textSecondary }]}>{label}</Text>
-            <TextInput
-              style={[styles.infoEditInput, { color: t.textPrimary }]}
-              value={form[field]}
-              onChangeText={(v) => setForm((f) => ({ ...f, [field]: v }))}
-              autoCapitalize={cap}
-              keyboardType={kb as never}
-              placeholder="—"
-              placeholderTextColor={t.textSecondary}
-            />
-          </View>
-        ))}
+
+        {sectionLabel('Personal')}
+        {textRow('Full name *', 'full_name', 'words')}
+        {textRow('Email', 'email', 'none', 'email-address')}
+        {textRow('Phone', 'phone', 'none', 'phone-pad')}
+        {textRow('Date of birth', 'date_of_birth', 'none')}
         <View style={[styles.infoEditRow, { borderBottomColor: t.border }]}>
           <Text style={[styles.infoEditLabel, { color: t.textSecondary }]}>Gender</Text>
           <View style={styles.genderPicker}>
             {(['male', 'female', 'other'] as const).map((g) => {
               const selected = form.gender === g;
               return (
-                <Pressable
-                  key={g}
-                  style={[styles.genderOption, { borderColor: colors.primary }, selected && styles.genderOptionSelected]}
-                  onPress={() => setForm((f) => ({ ...f, gender: selected ? '' : g }))}
-                >
+                <Pressable key={g} style={[styles.genderOption, { borderColor: colors.primary }, selected && styles.genderOptionSelected]}
+                  onPress={() => set('gender', selected ? '' : g)}>
                   <Text style={[styles.genderOptionText, { color: colors.primary }, selected && styles.genderOptionTextSelected]}>
                     {g.charAt(0).toUpperCase() + g.slice(1)}
                   </Text>
@@ -265,46 +345,104 @@ function ClientInfoCard({ client, onUpdate, t }: { client: Client; onUpdate: (p:
             })}
           </View>
         </View>
-        <View style={styles.infoEditNotesRow}>
-          <Text style={[styles.infoEditLabel, { color: t.textSecondary }]}>Notes</Text>
-          <TextInput
-            style={[styles.infoEditNotesInput, { color: t.textPrimary }]}
-            value={form.notes}
-            onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))}
-            placeholder="—"
-            placeholderTextColor={t.textSecondary}
-            multiline
-            textAlignVertical="top"
-          />
+        {textRow('Address', 'address', 'words')}
+        {multiRow('Notes', 'notes')}
+
+        {sectionLabel('Emergency Contact')}
+        {textRow('Name', 'emergency_name', 'words')}
+        {textRow('Phone', 'emergency_phone', 'none', 'phone-pad')}
+        {textRow('Relationship', 'emergency_relation', 'words')}
+
+        {sectionLabel('Occupation & Lifestyle')}
+        {textRow('Occupation', 'occupation', 'words')}
+        <View style={[styles.infoEditRow, { borderBottomColor: t.border, flexWrap: 'wrap', height: 'auto' as never }]}>
+          <Text style={[styles.infoEditLabel, { color: t.textSecondary }]}>Activity level</Text>
+          <View style={styles.activityPicker}>
+            {(['sedentary','light','moderate','active','very_active'] as const).map((v) => {
+              const sel = form.activity_level === v;
+              return (
+                <Pressable key={v} style={[styles.activityChip, { borderColor: t.border }, sel && styles.activityChipSel]}
+                  onPress={() => set('activity_level', sel ? '' : v)}>
+                  <Text style={[styles.activityChipText, { color: t.textSecondary }, sel && styles.activityChipTextSel]}>
+                    {ACTIVITY_LABELS[v]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
+        {multiRow('Goals', 'goals')}
+        {textRow('Timeframe', 'goal_timeframe', 'sentences')}
+
+        {sectionLabel('Health History')}
+        {multiRow('Current injuries', 'current_injuries')}
+        {multiRow('Past injuries / surgery', 'past_injuries')}
+        {multiRow('Chronic conditions', 'chronic_conditions')}
+        {multiRow('Medications', 'medications')}
       </View>
     );
   }
 
+  // ── View mode ──────────────────────────────────────────────────
+  const initials = client.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+  const viewRow = (label: string, value: string | null | undefined) =>
+    value ? (
+      <View key={label} style={[styles.infoViewRow, { borderBottomColor: t.border }]}>
+        <Text style={[styles.infoViewLabel, { color: t.textSecondary }]}>{label}</Text>
+        <Text style={[styles.infoViewValue, { color: t.textPrimary }]}>{value}</Text>
+      </View>
+    ) : null;
+
   return (
-    <View style={[styles.infoCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initials}</Text>
+    <View style={[styles.infoCard, styles.infoCardEdit, { backgroundColor: t.surface, borderColor: t.border }]}>
+      {/* Header row: avatar + name + pencil */}
+      <View style={styles.infoViewHeader}>
+        <View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>
+        <Text style={[styles.clientName, { color: t.textPrimary, flex: 1 }]}>{client.full_name}</Text>
+        <TouchableOpacity onPress={startEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="pencil" size={16} color={colors.primary} />
+        </TouchableOpacity>
       </View>
-      <View style={styles.infoDetails}>
-        <Text style={[styles.clientName, { color: t.textPrimary }]}>{client.full_name}</Text>
-        {client.email ? <Text style={[styles.clientMeta, { color: t.textSecondary }]}>{client.email}</Text> : null}
-        {client.phone ? <Text style={[styles.clientMeta, { color: t.textSecondary }]}>{client.phone}</Text> : null}
-        {client.date_of_birth ? (
-          <Text style={[styles.clientMeta, { color: t.textSecondary }]}>
-            Born {isoToLocal(client.date_of_birth).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-          </Text>
-        ) : null}
-        {client.gender ? (
-          <Text style={[styles.clientMeta, { color: t.textSecondary }]}>
-            {client.gender.charAt(0).toUpperCase() + client.gender.slice(1)}
-          </Text>
-        ) : null}
-        {client.notes ? <Text style={[styles.clientNotes, { color: t.textSecondary }]} numberOfLines={2}>{client.notes}</Text> : null}
-      </View>
-      <TouchableOpacity onPress={startEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="pencil" size={16} color={colors.primary} />
-      </TouchableOpacity>
+
+      {/* Personal */}
+      {viewRow('Email', client.email)}
+      {viewRow('Phone', client.phone)}
+      {viewRow('Date of birth', client.date_of_birth ? isoToLocal(client.date_of_birth).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null)}
+      {viewRow('Gender', client.gender ? client.gender.charAt(0).toUpperCase() + client.gender.slice(1) : null)}
+      {viewRow('Address', intake?.address)}
+      {viewRow('Notes', client.notes)}
+
+      {/* Emergency contact */}
+      {(intake?.emergency_name || intake?.emergency_phone) ? (
+        <>
+          <Text style={[styles.infoSectionLabel, { color: t.textSecondary, borderBottomColor: t.border }]}>Emergency Contact</Text>
+          {viewRow('Name', intake?.emergency_name)}
+          {viewRow('Phone', intake?.emergency_phone)}
+          {viewRow('Relationship', intake?.emergency_relation)}
+        </>
+      ) : null}
+
+      {/* Occupation & fitness */}
+      {(intake?.occupation || intake?.activity_level || intake?.goals) ? (
+        <>
+          <Text style={[styles.infoSectionLabel, { color: t.textSecondary, borderBottomColor: t.border }]}>Occupation & Fitness</Text>
+          {viewRow('Occupation', intake?.occupation)}
+          {viewRow('Activity level', intake?.activity_level ? ACTIVITY_LABELS[intake.activity_level] : null)}
+          {viewRow('Goals', intake?.goals)}
+          {viewRow('Timeframe', intake?.goal_timeframe)}
+        </>
+      ) : null}
+
+      {/* Health */}
+      {(intake?.current_injuries || intake?.past_injuries || intake?.chronic_conditions || intake?.medications) ? (
+        <>
+          <Text style={[styles.infoSectionLabel, { color: t.textSecondary, borderBottomColor: t.border }]}>Health History</Text>
+          {viewRow('Current injuries', intake?.current_injuries)}
+          {viewRow('Past injuries', intake?.past_injuries)}
+          {viewRow('Chronic conditions', intake?.chronic_conditions)}
+          {viewRow('Medications', intake?.medications)}
+        </>
+      ) : null}
     </View>
   );
 }
@@ -530,6 +668,45 @@ const styles = StyleSheet.create({
   headerBtn: { marginRight: spacing.sm },
   headerBtns: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
 
+  // ── Intake card ──
+  intakeCard: { borderRadius: radius.md, padding: spacing.md, borderWidth: 1, gap: 0 },
+  intakePending: { ...typography.bodySmall, fontStyle: 'italic', paddingVertical: spacing.xs },
+  intakeRow: {
+    flexDirection: 'row', paddingVertical: spacing.sm,
+    borderBottomWidth: 1, gap: spacing.md,
+  },
+  intakeLabel: { ...typography.bodySmall, width: 130, flexShrink: 0 },
+  intakeValue: { ...typography.bodySmall, flex: 1 },
+
+  // ── Health warning banner ──
+  warningBanner: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: '#FEF2F2', borderBottomWidth: 1, borderBottomColor: '#FECACA',
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs,
+  },
+  warningIcon: { marginTop: 1 },
+  warningBody: { flex: 1, gap: 2 },
+  warningTitle: { ...typography.label, color: colors.error, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  warningText: { ...typography.bodySmall, color: '#991B1B' },
+  warningFieldLabel: { fontWeight: '700' },
+
+  // ── Info view mode ──
+  infoViewHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingBottom: spacing.sm },
+  infoViewRow: { flexDirection: 'row', paddingVertical: spacing.sm, borderBottomWidth: 1, gap: spacing.md },
+  infoViewLabel: { ...typography.bodySmall, width: 130, flexShrink: 0 },
+  infoViewValue: { ...typography.bodySmall, flex: 1, fontWeight: '600' },
+  infoSectionLabel: {
+    ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5,
+    paddingTop: spacing.sm, paddingBottom: spacing.xs, borderBottomWidth: 1,
+  },
+
+  // ── Activity level picker ──
+  activityPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, flex: 1, justifyContent: 'flex-end' },
+  activityChip: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full, borderWidth: 1 },
+  activityChipSel: { backgroundColor: colors.primary, borderColor: colors.primary },
+  activityChipText: { ...typography.bodySmall },
+  activityChipTextSel: { color: colors.textInverse, fontWeight: '600' },
+
   // ── Misc ──
   emptyText: { ...typography.body, textAlign: 'center', marginTop: spacing.xl },
   errorText: { ...typography.body, color: colors.error, textAlign: 'center', paddingHorizontal: spacing.lg },
@@ -554,5 +731,4 @@ const styles = StyleSheet.create({
   deleteCancelText: { ...typography.body },
   deleteConfirmBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.error },
   deleteConfirmText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
-  disabledBtn: { opacity: 0.6 },
 });

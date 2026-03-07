@@ -14,6 +14,7 @@ export type Trainer = {
 export type Client = {
   id: string;
   trainer_id: string;
+  auth_user_id: string | null; // Migration 011: linked Supabase Auth user
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -25,9 +26,33 @@ export type Client = {
   bf_percent: number | null;
   bmi: number | null;           // generated (read-only): weight_kg / (height_cm/100)^2
   lean_body_mass: number | null;
+  intake_completed: boolean;    // Migration 012
   created_at: string;
   updated_at: string;
 };
+
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+
+export type ClientIntake = {
+  id: string;
+  client_id: string;
+  address: string | null;
+  emergency_name: string | null;
+  emergency_phone: string | null;
+  emergency_relation: string | null;
+  occupation: string | null;
+  current_injuries: string | null;
+  past_injuries: string | null;
+  chronic_conditions: string | null;
+  medications: string | null;
+  activity_level: ActivityLevel | null;
+  goals: string | null;
+  goal_timeframe: string | null;
+  completed_at: string | null;
+  updated_at: string;
+};
+
+export type UpdateClientIntake = Partial<Omit<ClientIntake, 'id' | 'client_id' | 'updated_at'>>;
 
 export type ExerciseCategory = 'strength' | 'cardio' | 'flexibility' | 'other';
 
@@ -52,6 +77,8 @@ export type Workout = {
   body_weight_kg: number | null;
   body_fat_percent: number | null;
   workout_group_id: string | null; // shared UUID across clients who trained together
+  logged_by_role: 'trainer' | 'client'; // Migration 011
+  logged_by_user_id: string | null;     // Migration 011
   created_at: string;
   updated_at: string;
 };
@@ -112,10 +139,17 @@ export type UpdateClientMedia = Partial<Pick<ClientMedia, 'taken_at' | 'notes'>>
 
 // ─── Insert / Update payloads ─────────────────────────────────
 
-export type InsertClient = Omit<Client, 'id' | 'created_at' | 'updated_at' | 'bmi'>;
-export type UpdateClient = Partial<Omit<Client, 'id' | 'trainer_id' | 'created_at' | 'updated_at' | 'bmi'>>;
+export type InsertClient = Omit<Client, 'id' | 'created_at' | 'updated_at' | 'bmi' | 'auth_user_id' | 'intake_completed'> & {
+  auth_user_id?: string | null;
+  intake_completed?: boolean;
+};
+export type UpdateClient = Partial<Omit<Client, 'id' | 'trainer_id' | 'created_at' | 'updated_at' | 'bmi' | 'auth_user_id'>>;
 
-export type InsertWorkout = Omit<Workout, 'id' | 'created_at' | 'updated_at'>;
+export type InsertWorkout = Omit<Workout, 'id' | 'created_at' | 'updated_at' | 'logged_by_role' | 'logged_by_user_id' | 'workout_group_id'> & {
+  workout_group_id?: string | null;
+  logged_by_role?: 'trainer' | 'client';
+  logged_by_user_id?: string | null;
+};
 export type UpdateWorkout = Partial<Omit<Workout, 'id' | 'client_id' | 'trainer_id' | 'created_at' | 'updated_at'>>;
 
 export type InsertWorkoutSet = Omit<WorkoutSet, 'id' | 'created_at'>;

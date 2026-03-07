@@ -29,7 +29,8 @@ function getPublicUrl(storagePath: string): string {
   return supabase.storage.from(BUCKET).getPublicUrl(storagePath).data.publicUrl;
 }
 
-export function useClientMedia(clientId: string): UseClientMediaResult {
+/** Pass uploadTrainerId when the caller is a client user (whose user.id is not a trainer). */
+export function useClientMedia(clientId: string, uploadTrainerId?: string): UseClientMediaResult {
   const { user } = useAuth();
   const [media, setMedia] = useState<ClientMediaWithUrl[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +77,7 @@ export function useClientMedia(clientId: string): UseClientMediaResult {
 
     const { error: dbErr } = await supabase.from('client_media').insert({
       client_id: clientId,
-      trainer_id: user.id,
+      trainer_id: uploadTrainerId ?? user.id,
       storage_path: storagePath,
       media_type: mediaType,
       taken_at: takenAt,

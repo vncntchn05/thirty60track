@@ -38,16 +38,28 @@ type UseClientProgressResult = {
   exercises: ProgressExercise[];
   getExerciseProgress: (exerciseId: string) => ChartPoint[];
   getExerciseRepsProgress: (exerciseId: string) => ChartPoint[];
+  /** All workout dates across the full history (unfiltered), as 'YYYY-MM-DD' strings. */
+  allWorkoutDates: string[];
   loading: boolean;
   error: string | null;
 };
 
+/** Parse a YYYY-MM-DD (or YYYY-MM-DDTHH:…) string as local midnight to avoid UTC offset issues. */
+function isoToLocalMs(iso: string): number {
+  const [y, m, d] = iso.split('T')[0].split('-').map(Number);
+  return new Date(y, m - 1, d).getTime();
+}
+
 function shortDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
+  const [y, m, d] = iso.split('T')[0].split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function useClientProgress(clientId: string, daysBack?: number): UseClientProgressResult {
+export function useClientProgress(
+  clientId: string,
+  daysBack?: number,
+  customRange?: { start: Date; end: Date },
+): UseClientProgressResult {
   const [rawWorkouts, setRawWorkouts] = useState<RawWorkout[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,13 +94,29 @@ export function useClientProgress(clientId: string, daysBack?: number): UseClien
 
   useEffect(() => { fetch(); }, [fetch]);
 
+  // All workout dates for the calendar dot highlights (unfiltered)
+  const allWorkoutDates = useMemo(
+    () => rawWorkouts.map((w) => w.performed_at.split('T')[0]),
+    [rawWorkouts],
+  );
+
   // Apply optional date-range filter before all derivations (no refetch)
   const workouts = useMemo(() => {
+    if (customRange) {
+      const startMs = customRange.start.getTime();
+      const endMs   = customRange.end.getTime();
+      return rawWorkouts.filter((w) => {
+        const ms = isoToLocalMs(w.performed_at);
+        return ms >= startMs && ms <= endMs;
+      });
+    }
     if (!daysBack) return rawWorkouts;
     const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
     cutoff.setDate(cutoff.getDate() - daysBack);
-    return rawWorkouts.filter((w) => new Date(w.performed_at) >= cutoff);
-  }, [rawWorkouts, daysBack]);
+    const cutoffMs = cutoff.getTime();
+    return rawWorkouts.filter((w) => isoToLocalMs(w.performed_at) >= cutoffMs);
+  }, [rawWorkouts, daysBack, customRange]);
 
   // ── Derived: workouts per week + consistency stats ─────────────────
   const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -100,14 +128,14 @@ export function useClientProgress(clientId: string, daysBack?: number): UseClien
   };
 
   if (workouts.length > 0) {
-    const firstMs = new Date(workouts[0].performed_at).getTime();
-    const lastMs  = new Date(workouts[workouts.length - 1].performed_at).getTime();
+    const firstMs = isoToLocalMs(workouts[0].performed_at);
+    const lastMs  = isoToLocalMs(workouts[workouts.length - 1].performed_at);
     const totalWeeks = Math.max(1, Math.floor((lastMs - firstMs) / WEEK_MS) + 1);
 
     const counts = new Array<number>(totalWeeks).fill(0);
     workouts.forEach((w) => {
       const idx = Math.min(
-        Math.floor((new Date(w.performed_at).getTime() - firstMs) / WEEK_MS),
+        Math.floor((isoToLocalMs(w.performed_at) - firstMs) / WEEK_MS),
         totalWeeks - 1,
       );
       counts[idx]++;
@@ -137,8 +165,9 @@ export function useClientProgress(clientId: string, daysBack?: number): UseClien
     const now = new Date();
     const dow = now.getDay() || 7; // Mon=1..Sun=7
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dow - 1));
+    const startOfWeekMs = startOfWeek.getTime();
     const thisWeek = workouts.filter(
-      (w) => new Date(w.performed_at) >= startOfWeek,
+      (w) => isoToLocalMs(w.performed_at) >= startOfWeekMs,
     ).length;
 
     frequencyStats = {
@@ -214,5 +243,5 @@ export function useClientProgress(clientId: string, daysBack?: number): UseClien
     return points;
   }
 
-  return { frequencyData, frequencyStats, volumeData, bodyWeightData, bodyFatData, exercises, getExerciseProgress, getExerciseRepsProgress, loading, error };
+  return { frequencyData, frequencyStats, volumeData, bodyWeightData, bodyFatData, exercises, getExerciseProgress, getExerciseRepsProgress, allWorkoutDates, loading, error };
 }
