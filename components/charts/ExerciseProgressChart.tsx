@@ -109,7 +109,7 @@ function ExerciseProgressChartInner({ data, unit = 'kg', title }: Props) {
       <View style={styles.chartMeta}>
         {title ? <Text style={[styles.chartTitle, { color: t.textPrimary }]}>{title}</Text> : null}
         <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>
-          {'↑ ' + (unit === 'reps' ? 'reps' : unit === '%' ? '%' : 'kg')}
+          {unit === 'reps' ? 'Reps' : unit === '%' ? 'Body fat (%)' : 'Weight (kg)'}
         </Text>
       </View>
 
@@ -184,6 +184,7 @@ function ExerciseProgressChartInner({ data, unit = 'kg', title }: Props) {
         </Animated.View>
       </View>
 
+      <Text style={[styles.xAxisLabel, { color: t.textSecondary }]}>Session</Text>
       <View style={styles.footer}>
         <Text style={[styles.footerDate, { color: t.textSecondary }]}>{first.label}</Text>
         <Text style={[styles.footerStat, gain >= 0 ? styles.positive : styles.negative]}>
@@ -240,4 +241,5 @@ const styles = StyleSheet.create({
   },
   chartTitle: { ...typography.label, fontWeight: '600' },
   yAxisLabel: { ...typography.label },
+  xAxisLabel: { ...typography.label, textAlign: 'center', marginTop: 2 },
 });

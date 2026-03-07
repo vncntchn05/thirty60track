@@ -7,10 +7,11 @@ type UseClientProfileResult = {
   client: Client | null;
   loading: boolean;
   error: string | null;
+  refresh: () => void;
 };
 
 const CLIENT_FIELDS =
-  'id, trainer_id, auth_user_id, full_name, email, phone, date_of_birth, gender, notes, weight_kg, height_cm, bf_percent, bmi, lean_body_mass, created_at, updated_at';
+  'id, trainer_id, auth_user_id, full_name, email, phone, date_of_birth, gender, notes, weight_kg, height_cm, bf_percent, bmi, lean_body_mass, intake_completed, created_at, updated_at';
 
 /** Returns the client row for the currently authenticated client user. */
 export function useClientProfile(): UseClientProfileResult {
@@ -36,5 +37,5 @@ export function useClientProfile(): UseClientProfileResult {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  return { client, loading, error };
+  return { client, loading, error, refresh: fetch };
 }

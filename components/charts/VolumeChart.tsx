@@ -50,7 +50,7 @@ function VolumeChartInner({ data }: Props) {
   return (
     <View>
       <View style={styles.chartMeta}>
-        <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>↑ kg·reps</Text>
+        <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>Volume (kg × reps)</Text>
       </View>
       <View style={styles.chart}>
         <CartesianChart
@@ -88,11 +88,13 @@ function VolumeChartInner({ data }: Props) {
                 color={colors.primary}
                 roundedCorners={{ topLeft: 3, topRight: 3 }}
                 animate={{ type: 'spring' }}
+                barWidth={8}
               />
             </>
           )}
         </CartesianChart>
       </View>
+      <Text style={[styles.xAxisLabel, { color: t.textSecondary }]}>Workout</Text>
       <View style={styles.footer}>
         <Text style={[styles.footerDate, { color: t.textSecondary }]}>{first.label}</Text>
         <Text style={styles.footerStat}>Latest: {Math.round(latest.y).toLocaleString()} kg·reps</Text>
@@ -119,4 +121,5 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   yAxisLabel: { ...typography.label },
+  xAxisLabel: { ...typography.label, textAlign: 'center', marginTop: 2 },
 });

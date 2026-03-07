@@ -1,6 +1,9 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { useClientProfile } from '@/hooks/useClientProfile';
+import { useClientIntake } from '@/hooks/useClientIntake';
+import { IntakeForm } from '@/components/client/IntakeForm';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
 function MetricRow({ label, value }: { label: string; value: string | null }) {
@@ -15,8 +18,10 @@ function MetricRow({ label, value }: { label: string; value: string | null }) {
 
 export default function ClientProfileScreen() {
   const t = useTheme();
-  const { signOut } = useAuth();
-  const { client, loading } = useClientProfile();
+  const { signOut, clientId } = useAuth();
+  const { client, loading, refresh } = useClientProfile();
+  const { intake, saveIntake } = useClientIntake(clientId ?? '');
+  const [editingIntake, setEditingIntake] = useState(false);
 
   if (loading) {
     return (
@@ -58,6 +63,20 @@ export default function ClientProfileScreen() {
         />
       </View>
 
+      {/* Intake info card */}
+      <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <View style={styles.cardRow}>
+          <Text style={[styles.cardTitle, { color: t.textSecondary }]}>Health &amp; Fitness Info</Text>
+          <TouchableOpacity onPress={() => setEditingIntake(true)}>
+            <Text style={[styles.editLink, { color: colors.primary }]}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+        <MetricRow label="Activity level" value={intake?.activity_level?.replace('_', ' ') ?? null} />
+        <MetricRow label="Goals"          value={intake?.goals ?? null} />
+        <MetricRow label="Timeframe"      value={intake?.goal_timeframe ?? null} />
+        <MetricRow label="Occupation"     value={intake?.occupation ?? null} />
+      </View>
+
       {/* Sign out */}
       <TouchableOpacity
         style={[styles.signOutBtn, { borderColor: colors.error }]}
@@ -65,6 +84,22 @@ export default function ClientProfileScreen() {
       >
         <Text style={[styles.signOutText, { color: colors.error }]}>Sign Out</Text>
       </TouchableOpacity>
+
+      {/* Intake edit modal */}
+      {client && (
+        <Modal visible={editingIntake} animationType="slide" presentationStyle="pageSheet">
+          <IntakeForm
+            client={client}
+            intake={intake}
+            onSave={async (intakeData, clientData) => {
+              const result = await saveIntake(intakeData, clientData, false);
+              if (!result.error) { refresh(); setEditingIntake(false); }
+              return result;
+            }}
+            onCancel={() => setEditingIntake(false)}
+          />
+        </Modal>
+      )}
     </ScrollView>
   );
 }
@@ -77,6 +112,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
   readOnlyNote: { ...typography.bodySmall, fontStyle: 'italic', marginBottom: spacing.xs },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  editLink: { ...typography.bodySmall, fontWeight: '600' },
   metricRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: spacing.xs,

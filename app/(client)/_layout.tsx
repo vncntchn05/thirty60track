@@ -88,6 +88,9 @@ export default function ClientLayout() {
           tabBarIcon: tabIcon('person-outline', 'person'),
         }}
       />
+      {/* Push screens — not shown in tab bar */}
+      <Tabs.Screen name="workout/[id]" options={{ href: null }} />
+      <Tabs.Screen name="workout/log"  options={{ href: null }} />
     </Tabs>
   );
 }

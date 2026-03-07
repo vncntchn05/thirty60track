@@ -19,7 +19,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const t = useTheme();
   // Role toggle is UI-only — actual role is inferred from DB after sign-in
-  const [roleTab, setRoleTab] = useState<'trainer' | 'client'>('trainer');
+  const [roleTab, setRoleTab] = useState<'trainer' | 'client'>('client');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -50,19 +50,19 @@ export default function LoginScreen() {
         {/* Trainer / Client toggle */}
         <View style={[styles.roleToggle, { backgroundColor: t.surface, borderColor: t.border }]}>
           <TouchableOpacity
-            style={[styles.roleTab, roleTab === 'trainer' && styles.roleTabActive]}
-            onPress={() => setRoleTab('trainer')}
-          >
-            <Text style={[styles.roleTabText, { color: roleTab === 'trainer' ? colors.textInverse : t.textSecondary }]}>
-              I'm a Trainer
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.roleTab, roleTab === 'client' && styles.roleTabActive]}
             onPress={() => setRoleTab('client')}
           >
             <Text style={[styles.roleTabText, { color: roleTab === 'client' ? colors.textInverse : t.textSecondary }]}>
               I'm a Client
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.roleTab, roleTab === 'trainer' && styles.roleTabActive]}
+            onPress={() => setRoleTab('trainer')}
+          >
+            <Text style={[styles.roleTabText, { color: roleTab === 'trainer' ? colors.textInverse : t.textSecondary }]}>
+              I'm a Trainer
             </Text>
           </TouchableOpacity>
         </View>

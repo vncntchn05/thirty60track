@@ -26,9 +26,33 @@ export type Client = {
   bf_percent: number | null;
   bmi: number | null;           // generated (read-only): weight_kg / (height_cm/100)^2
   lean_body_mass: number | null;
+  intake_completed: boolean;    // Migration 012
   created_at: string;
   updated_at: string;
 };
+
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+
+export type ClientIntake = {
+  id: string;
+  client_id: string;
+  address: string | null;
+  emergency_name: string | null;
+  emergency_phone: string | null;
+  emergency_relation: string | null;
+  occupation: string | null;
+  current_injuries: string | null;
+  past_injuries: string | null;
+  chronic_conditions: string | null;
+  medications: string | null;
+  activity_level: ActivityLevel | null;
+  goals: string | null;
+  goal_timeframe: string | null;
+  completed_at: string | null;
+  updated_at: string;
+};
+
+export type UpdateClientIntake = Partial<Omit<ClientIntake, 'id' | 'client_id' | 'updated_at'>>;
 
 export type ExerciseCategory = 'strength' | 'cardio' | 'flexibility' | 'other';
 
@@ -115,10 +139,11 @@ export type UpdateClientMedia = Partial<Pick<ClientMedia, 'taken_at' | 'notes'>>
 
 // ─── Insert / Update payloads ─────────────────────────────────
 
-export type InsertClient = Omit<Client, 'id' | 'created_at' | 'updated_at' | 'bmi' | 'auth_user_id'> & {
+export type InsertClient = Omit<Client, 'id' | 'created_at' | 'updated_at' | 'bmi' | 'auth_user_id' | 'intake_completed'> & {
   auth_user_id?: string | null;
+  intake_completed?: boolean;
 };
-export type UpdateClient = Partial<Omit<Client, 'id' | 'trainer_id' | 'created_at' | 'updated_at' | 'bmi'>>;
+export type UpdateClient = Partial<Omit<Client, 'id' | 'trainer_id' | 'created_at' | 'updated_at' | 'bmi' | 'auth_user_id'>>;
 
 export type InsertWorkout = Omit<Workout, 'id' | 'created_at' | 'updated_at' | 'logged_by_role' | 'logged_by_user_id' | 'workout_group_id'> & {
   workout_group_id?: string | null;

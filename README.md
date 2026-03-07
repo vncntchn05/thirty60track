@@ -1,6 +1,6 @@
 # thirty60track
 
-An app for personal trainers to track client workouts, monitor progress, and load structured workout programs. Built with Expo (iOS, Android, Web) and Supabase.
+An app for personal trainers to track client workouts, monitor progress, and load structured workout programs — with a companion client-facing portal for self-logging and progress tracking. Built with Expo (iOS, Android, Web) and Supabase.
 
 ## Tech Stack
 
@@ -21,6 +21,10 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] Auth gate in root layout (redirects unauthenticated users)
 - [x] Auto-create trainer profile on signup (DB trigger)
 - [x] Sign out from profile screen
+- [x] **Dual-role login** — client tab shown by default on login/signup; toggle to trainer tab for trainer access
+- [x] **Client signup flow** — trainers add clients by email; clients sign up and are auto-linked to their profile
+- [x] **Rate limit handling** — exponential backoff on 429 token refresh errors; friendly error message when signup email is rate-limited
+- [x] **Auth recovery** — if a client account exists but `auth_user_id` was never written (signup race condition), the next sign-in auto-links the account by email
 
 ### Client Management
 - [x] Client list dashboard with workout count and last session date
@@ -31,6 +35,8 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] Client body metrics (weight, height, body fat %, BMI, lean body mass)
 - [x] Inline edit client info (including gender) and metrics on client detail screen
 - [x] Delete client (confirmation alert before deletion)
+- [x] **Full intake form in trainer view** — all intake fields (emergency contact, occupation, health history, fitness goals) are viewable and editable directly in the Client Info card above body metrics; no separate tab
+- [x] **Health alert banner** — red warning at the top of the client detail page if current injuries or chronic conditions are on file; hidden when neither is set
 - [ ] Archive/deactivate client
 - [ ] Client profile photo
 
@@ -86,16 +92,29 @@ Templates are matched to live exercises in the database when loading a workout. 
 - [x] **Form notes** — free-text step-by-step instructions per exercise (editable by any trainer)
 - [x] **Tutorial link** — YouTube URL per exercise with one-tap Watch button; 4 core lifts pre-seeded (Bench Press, Squat, Deadlift, Lat Pulldown)
 
+### Client Portal
+
+Clients have their own separate tab navigator with distinct screens:
+
+- [x] **Home dashboard** — greeting, total sessions, weekly streak, last workout card, quick actions
+- [x] **One-time intake form** — shown on first login; collects full name, date of birth, phone, address, emergency contact, occupation, current/past injuries, chronic conditions, medications, activity level, goals, and timeframe; disappears once submitted
+- [x] **Workout history** — list of all logged sessions with date, trainer name (if trainer-logged), and notes
+- [x] **Self-log workouts** — clients can log their own workouts (exercises + sets + body metrics)
+- [x] **Progress tab** — same frequency/volume/body composition/exercise charts as the trainer view
+- [x] **Media tab** — view photo/video gallery
+- [x] **Profile tab** — view personal info and body metrics (trainer-managed); edit health & fitness intake info
+- [x] Trainer name shown on workouts logged by the trainer (not generic "Logged by trainer")
+
 ### Progress & Charts
 
-All charts support a **time range filter: 1M / 3M / 6M / 1Y / All** applied simultaneously. Selecting a range with no data shows a "No workouts in this period" placeholder instead of hiding the selector.
+All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** applied simultaneously. Selecting a range with no data shows a "No workouts in this period" placeholder instead of hiding the selector.
 
 #### Workout Frequency
-- [x] Workouts-per-week bar chart
+- [x] Workouts-per-week bar chart with labelled axes (Sessions / week, Week)
 - [x] Stat chips: This week · Avg/week · Current streak · Best streak · Active weeks
 
 #### Volume Over Time
-- [x] Total volume (kg × reps) per session bar chart
+- [x] Total volume (kg × reps) per session bar chart with labelled axes (Volume (kg × reps), Workout)
 
 #### Body Composition
 - [x] Body weight trend line chart (logged per workout)
@@ -104,9 +123,13 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All** applied simu
 
 #### Exercise Progress
 - [x] Searchable dropdown — any exercise the client has logged
-- [x] Weight progress line chart (best set per session) with press-to-inspect tooltip
+- [x] Weight progress line chart (best set per session) with press-to-inspect tooltip and labelled axes
 - [x] Reps progress line chart (max reps per session) with tooltip
 - [x] Footer showing first date, total gain/loss, and latest value
+
+#### Date Range
+- [x] Preset chips: 1M / 3M / 6M / 1Y / All
+- [x] **Custom range** — tap "Custom" to open a calendar picker; select a start and end date; workout dates are highlighted with dots; selected range shown as a coloured strip; chip displays the chosen date span (e.g. "Jan 1 – Feb 28")
 
 - [ ] Personal records (PRs) tracking
 - [ ] Export progress data (CSV or PDF)
@@ -134,7 +157,8 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All** applied simu
 
 ```
 trainers           — one row per auth user (auto-created on signup via trigger)
-clients            — belong to one trainer; includes gender, body metrics, DOB, notes
+clients            — belong to one trainer; includes gender, body metrics, DOB, notes, intake_completed flag
+client_intake      — one row per client; full intake form data (health history, emergency contact, goals…)
 workouts           — one session per client per date; stores optional body metrics
 workout_sets       — one row per set (reps, weight_kg, duration_seconds, notes, superset_group)
 exercises          — shared library; authenticated read + insert
@@ -144,7 +168,9 @@ client_media       — image/video metadata per client (storage_path, media_type
 
 `workout_sets.superset_group` is a nullable integer that groups exercises into supersets within a workout. Sets for exercises in the same superset share the same group number, scoped to the workout.
 
-Row-Level Security is enabled on all tables. Trainers can only read and write their own clients and workout data.
+`clients.intake_completed` is a boolean flag set to `true` when the client submits their first intake form. The client home screen shows the intake form until this is set.
+
+Row-Level Security is enabled on all tables. Trainers can read and write their own clients and workout data. Clients can read their own row and write their own `client_intake` record.
 
 Media files are stored in the `client-media` Supabase Storage bucket (public read, authenticated write/delete). The `client_media` table records the storage path, type, date taken, and optional notes.
 
@@ -154,39 +180,52 @@ Media files are stored in the `client-media` Supabase Storage bucket (public rea
 
 ```
 app/
-  _layout.tsx          # Root layout — auth gate, Skia web init, dark status bar
-  (auth)/login.tsx     # Public login screen
-  (tabs)/index.tsx     # Client list + search bar
-  (tabs)/exercises.tsx # Exercise library — browse, group, add; Edit Templates FAB
-  (tabs)/profile.tsx   # Trainer profile + sign out
-  exercise/[id].tsx    # Exercise detail — form notes + tutorial link (editable)
-  client/[id].tsx      # Client detail — metrics, progress charts, workout history (accepts name slug or UUID)
-  client/new.tsx       # Add client form (duplicate name guard)
-  +not-found.tsx       # 404 handler — redirects to home
-  workout/[id].tsx     # Workout detail — view/edit sets, body metrics, supersets, delete
-  workout/new.tsx      # Log new workout + template loader + superset linking
+  _layout.tsx               # Root layout — auth gate, role-based routing, Skia web init
+  (auth)/login.tsx          # Login — client tab default, trainer tab on right
+  (auth)/signup.tsx         # Signup — client tab default; links client profile to auth user
+  (tabs)/index.tsx          # Trainer: client list + search bar
+  (tabs)/exercises.tsx      # Trainer: exercise library — browse, group, add; Edit Templates FAB
+  (tabs)/profile.tsx        # Trainer: profile + sign out
+  (client)/index.tsx        # Client: home dashboard + intake gate (shows intake form on first login)
+  (client)/workouts.tsx     # Client: workout history list
+  (client)/progress.tsx     # Client: progress charts (same charts as trainer view)
+  (client)/media.tsx        # Client: photo/video gallery
+  (client)/profile.tsx      # Client: personal info (read-only) + editable intake info
+  (client)/workout/log.tsx  # Client: self-log a workout
+  (client)/workout/[id].tsx # Client: workout detail view
+  exercise/[id].tsx         # Exercise detail — form notes + tutorial link (editable)
+  client/[id].tsx           # Trainer: client detail — info+intake card, body metrics, charts, workouts, media
+  client/new.tsx            # Add client form (duplicate name guard)
+  +not-found.tsx            # 404 handler — redirects to home
+  workout/[id].tsx          # Workout detail — view/edit sets, body metrics, supersets, delete
+  workout/new.tsx           # Trainer: log new workout + template loader + superset linking
 
 components/
   charts/
-    ProgressSection.tsx       # Time range selector + all chart sections
-    FrequencyChart.tsx        # Bar chart — workouts per week + streak chips
-    VolumeChart.tsx           # Bar chart — total volume per session
-    ExerciseProgressChart.tsx # Line chart — weight or reps over time + tooltip
+    ProgressSection.tsx       # Time range selector (presets + custom calendar) + all chart sections
+    FrequencyChart.tsx        # Bar chart — workouts per week + streak chips + axis labels
+    VolumeChart.tsx           # Bar chart — total volume per session + axis labels
+    ExerciseProgressChart.tsx # Line chart — weight or reps over time + tooltip + axis labels
   workout/
     ExercisePicker.tsx        # Searchable exercise picker
     TemplatePicker.tsx        # Phase-grouped template browser
     TemplateEditor.tsx        # Create / edit / delete workout templates
   client/
     MediaGallery.tsx          # Photo/video gallery — grid, upload modal, detail/edit modal
+    IntakeForm.tsx            # Client intake form (first-time and edit modes)
   ui/
-    DatePicker.tsx            # Date selection component
+    DatePicker.tsx            # Single date selection component
+    DateRangePicker.tsx       # Calendar modal — range selection with workout dot indicators
 
 hooks/
   useClients.ts           # Client CRUD + stats (workout count, last session)
+  useClientProfile.ts     # Fetch the authenticated client's own profile + refresh
+  useClientIntake.ts      # Fetch and upsert client_intake row; marks intake_completed on first submit
   useWorkouts.ts          # List workouts; single workout detail + sets + superset mutations
+  useClientWorkouts.ts    # Client's own workout history
   useExercises.ts         # Exercise library (read + create)
   useWorkoutTemplates.ts  # Template CRUD against the workout_templates table
-  useClientProgress.ts    # Derives all chart data from workouts; supports date range
+  useClientProgress.ts    # Derives all chart data from workouts; supports preset + custom date ranges
   useClientMedia.ts       # Media CRUD — upload (blob → Storage → DB), update, delete
   useTrainers.ts          # Fetch all trainers except the current user
 
@@ -196,11 +235,11 @@ constants/
 
 lib/
   supabase.ts          # Supabase client singleton
-  auth.tsx             # AuthContext + useAuth hook
+  auth.tsx             # AuthContext + useAuth (role detection, client linking, auth recovery)
   slugify.ts           # Name → URL slug helpers (clientSlug, slugify)
 
 types/
-  database.ts          # Manual TS types mirroring the DB schema
+  database.ts          # Manual TS types mirroring the DB schema (Client, ClientIntake, ActivityLevel…)
 
 assets/
   fonts/
@@ -208,7 +247,7 @@ assets/
   Thirty60_logo.png     # Brand logo used in header and favicon
 
 supabase/
-  schema.sql                # Source-of-truth DDL (migrations 001–010)
+  schema.sql                # Source-of-truth DDL (migrations 001–012)
   seed.sql                  # 150+ exercises across all muscle groups
   seed_test_client.sql      # Full year of realistic test data (youth hockey player)
 ```
@@ -251,6 +290,8 @@ Run these in order in the **Supabase SQL Editor**:
 - **008** — `gender` column on clients (`'male' | 'female' | 'other'`)
 - **009** — `form_notes` and `help_url` columns on exercises; UPDATE RLS policy for authenticated trainers
 - **010** — `workout_group_id UUID` on workouts; index; enables "worked out with" group sync
+- **011** — `intake_completed BOOLEAN` on clients (default `false`); `client_intake` table with all intake fields; RLS policies for trainers and clients
+- **012** — `clients: client update own` RLS policy so clients can update their own row
 
 **Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 

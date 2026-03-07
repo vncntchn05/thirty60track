@@ -36,7 +36,9 @@ function WorkoutRow({ workout, onPress }: { workout: WorkoutWithTrainer; onPress
         {isTrainerLogged && (
           <View style={styles.badgeRow}>
             <Ionicons name="lock-closed-outline" size={12} color={t.textSecondary as string} />
-            <Text style={[styles.badge, { color: t.textSecondary }]}>Logged by trainer</Text>
+            <Text style={[styles.badge, { color: t.textSecondary }]}>
+              Logged by {workout.trainer?.full_name ?? 'trainer'}
+            </Text>
           </View>
         )}
       </View>
@@ -94,7 +96,7 @@ export default function ClientWorkoutsScreen() {
       {/* FAB */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/(client)/workout/new' as never)}
+        onPress={() => router.push('/(client)/workout/log' as never)}
         accessibilityLabel="Log new workout"
       >
         <Ionicons name="add" size={22} color={colors.textInverse} />

@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { useClientProfile } from '@/hooks/useClientProfile';
 import { useClientWorkouts } from '@/hooks/useClientWorkouts';
+import { useClientIntake } from '@/hooks/useClientIntake';
+import { IntakeForm } from '@/components/client/IntakeForm';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
 function isoToLocal(iso: string): Date {
@@ -20,10 +22,27 @@ export default function ClientDashboard() {
   const router = useRouter();
   const t = useTheme();
   const { clientId } = useAuth();
-  const { client } = useClientProfile();
+  const { client, loading: profileLoading, refresh: refreshProfile } = useClientProfile();
+  const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const { workouts, loading, refresh } = useClientWorkouts(clientId ?? '');
 
   useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
+
+  // Show intake form until the client submits it
+  if (!profileLoading && client && !client.intake_completed) {
+    return (
+      <IntakeForm
+        client={client}
+        intake={intake}
+        onSave={async (intakeData, clientData) => {
+          const result = await saveIntake(intakeData, clientData, true);
+          if (!result.error) refreshProfile();
+          return result;
+        }}
+        isFirstTime
+      />
+    );
+  }
 
   const firstName = client?.full_name?.split(' ')[0] ?? 'there';
   const lastWorkout = workouts[0] ?? null;
@@ -101,7 +120,7 @@ export default function ClientDashboard() {
       <View style={styles.actionsRow}>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/(client)/workout/new' as never)}
+          onPress={() => router.push('/(client)/workout/log' as never)}
           activeOpacity={0.8}
         >
           <Ionicons name="add-circle-outline" size={22} color={colors.textInverse} />

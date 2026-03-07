@@ -74,7 +74,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // 3. Neither — sign out and clear state
+    // 3. Recovery: client exists in auth but auth_user_id was never written (e.g. signup race
+    //    condition when email confirmation is disabled). Find by email and auto-link.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      const { data: clientByEmail } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('email', user.email)
+        .is('auth_user_id', null)
+        .single();
+
+      if (clientByEmail) {
+        await supabase
+          .from('clients')
+          .update({ auth_user_id: userId })
+          .eq('id', clientByEmail.id);
+        setTrainer(null);
+        setRole('client');
+        setClientId(clientByEmail.id);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 4. Neither — sign out and clear state
     await supabase.auth.signOut();
     setTrainer(null);
     setRole(null);

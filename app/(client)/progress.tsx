@@ -1,7 +1,9 @@
-import { ScrollView, StyleSheet } from 'react-native';
+import { lazy, Suspense } from 'react';
+import { ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/lib/auth';
-import ProgressSection from '@/components/charts/ProgressSection';
-import { spacing, useTheme } from '@/constants/theme';
+import { colors, spacing, useTheme } from '@/constants/theme';
+
+const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
 export default function ClientProgressScreen() {
   const t = useTheme();
@@ -12,11 +14,16 @@ export default function ClientProgressScreen() {
       style={{ flex: 1, backgroundColor: t.background }}
       contentContainerStyle={styles.content}
     >
-      {clientId ? <ProgressSection clientId={clientId} /> : null}
+      {clientId ? (
+        <Suspense fallback={<ActivityIndicator size="small" color={colors.primary} style={styles.loader} />}>
+          <ProgressSection clientId={clientId} />
+        </Suspense>
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.md },
+  loader: { marginVertical: spacing.md },
 });

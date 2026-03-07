@@ -20,7 +20,7 @@ const GYM_ACCESS_CODE = 'thirty60fitness2026';
 export default function SignupScreen() {
   const router = useRouter();
   const t = useTheme();
-  const [roleTab, setRoleTab] = useState<'trainer' | 'client'>('trainer');
+  const [roleTab, setRoleTab] = useState<'trainer' | 'client'>('client');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,12 +54,18 @@ export default function SignupScreen() {
         password,
         options: { data: { full_name: fullName.trim(), role: 'trainer' } },
       });
-      if (authErr) { setError(authErr.message); setLoading(false); return; }
+      if (authErr) {
+        setError(formatSignUpError(authErr.message));
+        setLoading(false);
+        return;
+      }
       if (data.user?.identities?.length === 0) {
         setError('An account with this email already exists. Please sign in instead.');
         setLoading(false);
         return;
       }
+      // If email confirmation is disabled, session is returned immediately
+      if (data.session) return; // auth listener will navigate
       setConfirmed(true);
     } else {
       // Client signup: sign up then link to existing client row
@@ -68,7 +74,11 @@ export default function SignupScreen() {
         password,
         options: { data: { full_name: fullName.trim(), role: 'client' } },
       });
-      if (authErr) { setError(authErr.message); setLoading(false); return; }
+      if (authErr) {
+        setError(formatSignUpError(authErr.message));
+        setLoading(false);
+        return;
+      }
       if (data.user?.identities?.length === 0) {
         setError('An account with this email already exists. Please sign in instead.');
         setLoading(false);
@@ -76,23 +86,28 @@ export default function SignupScreen() {
       }
 
       if (data.user) {
-        // Find an existing unlinked client row matching this email
+        // Find the client row matching this email (ignore link status — email may have been updated by trainer)
         const { data: clientRow, error: clientErr } = await supabase
           .from('clients')
-          .select('id')
+          .select('id, auth_user_id')
           .eq('email', email.trim())
-          .is('auth_user_id', null)
           .single();
 
         if (clientErr || !clientRow) {
-          // No matching client — sign them back out
           await supabase.auth.signOut();
           setError('No client account found for this email. Ask your trainer to add you first.');
           setLoading(false);
           return;
         }
 
-        // Link the client row to the new auth user
+        if (clientRow.auth_user_id && clientRow.auth_user_id !== data.user.id) {
+          await supabase.auth.signOut();
+          setError('This email is already linked to an account. Please sign in instead.');
+          setLoading(false);
+          return;
+        }
+
+        // Link (or re-link) the client row to the new auth user
         const { error: linkErr } = await supabase
           .from('clients')
           .update({ auth_user_id: data.user.id })
@@ -104,12 +119,30 @@ export default function SignupScreen() {
           setLoading(false);
           return;
         }
+
+        if (data.session) {
+          // Email confirmation is disabled — the SIGNED_IN auth event already fired before
+          // linking completed, so detectRole missed the client row. Sign out and back in
+          // now that the link is in place so detectRole runs cleanly.
+          await supabase.auth.signOut();
+          await supabase.auth.signInWithPassword({ email: email.trim(), password });
+          setLoading(false);
+          return;
+        }
       }
 
       setConfirmed(true);
     }
 
     setLoading(false);
+  }
+
+  function formatSignUpError(message: string): string {
+    const lower = message.toLowerCase();
+    if (lower.includes('rate limit') || lower.includes('email rate') || lower.includes('over_email_send_rate_limit')) {
+      return 'Too many signup attempts — Supabase has temporarily limited confirmation emails. Please wait a few minutes and try again, or ask your trainer to disable email confirmation in the Supabase dashboard.';
+    }
+    return message;
   }
 
   if (confirmed) {
@@ -151,19 +184,19 @@ export default function SignupScreen() {
         {/* Trainer / Client toggle */}
         <View style={[styles.roleToggle, { backgroundColor: t.surface, borderColor: t.border }]}>
           <TouchableOpacity
-            style={[styles.roleTab, roleTab === 'trainer' && styles.roleTabActive]}
-            onPress={() => { setRoleTab('trainer'); setError(null); }}
-          >
-            <Text style={[styles.roleTabText, { color: roleTab === 'trainer' ? colors.textInverse : t.textSecondary }]}>
-              I'm a Trainer
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.roleTab, roleTab === 'client' && styles.roleTabActive]}
             onPress={() => { setRoleTab('client'); setError(null); }}
           >
             <Text style={[styles.roleTabText, { color: roleTab === 'client' ? colors.textInverse : t.textSecondary }]}>
               I'm a Client
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.roleTab, roleTab === 'trainer' && styles.roleTabActive]}
+            onPress={() => { setRoleTab('trainer'); setError(null); }}
+          >
+            <Text style={[styles.roleTabText, { color: roleTab === 'trainer' ? colors.textInverse : t.textSecondary }]}>
+              I'm a Trainer
             </Text>
           </TouchableOpacity>
         </View>

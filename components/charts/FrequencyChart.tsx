@@ -10,9 +10,6 @@ type Props = {
   stats: FrequencyStats;
 };
 
-/** Maximum weeks shown in the bar chart (avoids overcrowding on long histories). */
-const MAX_DISPLAY_WEEKS = 16;
-
 /**
  * Workouts-per-week bar chart + consistency stat row.
  * Stat chips are always visible; bar chart only renders once CanvasKit is ready.
@@ -70,11 +67,7 @@ function FrequencyChartInner({ data }: { data: ChartPoint[] }) {
   const t = useTheme();
   const font = useFont(require('../../assets/fonts/Roboto-Regular.ttf'), 10);
 
-  const displayData = data.length > MAX_DISPLAY_WEEKS
-    ? data.slice(-MAX_DISPLAY_WEEKS)
-    : data;
-
-  if (displayData.length < 2) {
+  if (data.length < 2) {
     return (
       <View style={[styles.empty, { backgroundColor: t.background }]}>
         <Text style={[styles.emptyText, { color: t.textSecondary }]}>
@@ -84,21 +77,29 @@ function FrequencyChartInner({ data }: { data: ChartPoint[] }) {
     );
   }
 
+  const maxY = Math.max(...data.map((d) => d.y), 1);
+  const latest = data[data.length - 1];
+  const first = data[0];
+  const xTickCount = Math.min(data.length, 6);
+  // Scale bar width with count; domainPadding must cover at least half a bar to avoid clipping
+  const barWidth = Math.max(6, Math.min(20, Math.round(300 / data.length)));
+  const domainPad = Math.ceil(barWidth / 2) + 2;
+
   return (
     <View>
       <View style={styles.chartMeta}>
-        <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>↑ sessions</Text>
+        <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>Sessions / week</Text>
       </View>
       <View style={styles.chart}>
         <CartesianChart
-          data={displayData}
+          data={data}
           xKey="x"
           yKeys={['y']}
-          domain={{ y: [0, Math.max(Math.max(...displayData.map((d) => d.y)), 3) + 0.5] }}
-          domainPadding={{ left: 10, right: 10, top: 4 }}
+          domain={{ y: [0, maxY * 1.15] }}
+          domainPadding={{ left: domainPad, right: domainPad, top: 8 }}
           axisOptions={{
             font,
-            tickCount: { x: 4, y: 4 },
+            tickCount: { x: xTickCount, y: 4 },
             labelColor: '#888888',
             lineColor: 'rgba(128,128,128,0.2)',
             formatXLabel: (v) => String(Math.round(Number(v)) + 1),
@@ -122,21 +123,17 @@ function FrequencyChartInner({ data }: { data: ChartPoint[] }) {
                 color={colors.primary}
                 roundedCorners={{ topLeft: 3, topRight: 3 }}
                 animate={{ type: 'spring' }}
+                barWidth={barWidth}
               />
             </>
           )}
         </CartesianChart>
       </View>
+      <Text style={[styles.xAxisLabel, { color: t.textSecondary }]}>Week</Text>
       <View style={styles.footer}>
-        <Text style={[styles.footerDate, { color: t.textSecondary }]}>
-          {displayData[0].label}
-        </Text>
-        <Text style={[styles.footerMeta, { color: t.textSecondary }]}>
-          {data.filter((d) => d.y > 0).length} of {data.length} weeks active
-        </Text>
-        <Text style={[styles.footerDate, { color: t.textSecondary }]}>
-          {displayData[displayData.length - 1].label}
-        </Text>
+        <Text style={[styles.footerDate, { color: t.textSecondary }]}>{first.label}</Text>
+        <Text style={styles.footerStat}>Latest: {latest.y} sessions</Text>
+        <Text style={[styles.footerDate, { color: t.textSecondary }]}>{latest.label}</Text>
       </View>
     </View>
   );
@@ -155,15 +152,15 @@ const styles = StyleSheet.create({
   statValueHighlight: { color: colors.textInverse },
   statLabel: { ...typography.label, textAlign: 'center' },
 
-  chart: { height: 120 },
+  chart: { height: 160 },
   footer: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginTop: spacing.xs, paddingHorizontal: spacing.xs,
   },
   footerDate: { ...typography.bodySmall },
-  footerMeta: { ...typography.bodySmall },
+  footerStat: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
 
-  empty: { height: 60, justifyContent: 'center', alignItems: 'center', borderRadius: radius.sm },
+  empty: { height: 80, justifyContent: 'center', alignItems: 'center', borderRadius: radius.sm },
   emptyText: { ...typography.bodySmall, textAlign: 'center' },
 
   chartMeta: {
@@ -173,4 +170,5 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   yAxisLabel: { ...typography.label },
+  xAxisLabel: { ...typography.label, textAlign: 'center', marginTop: 2 },
 });

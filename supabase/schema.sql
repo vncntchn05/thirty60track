@@ -351,6 +351,69 @@ CREATE POLICY "clients_write_own_sets" ON workout_sets
     )
   );
 
+-- ─── Migration 012: client intake form ───────────────────────────
+
+-- Flag on clients to gate the first-time form; default false so all existing clients must complete it
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS intake_completed BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Health/lifestyle intake fields (non-overlapping with the existing clients columns)
+CREATE TABLE IF NOT EXISTS client_intake (
+  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id           UUID        NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+  -- Contact
+  address             TEXT,
+  -- Emergency contact
+  emergency_name      TEXT,
+  emergency_phone     TEXT,
+  emergency_relation  TEXT,
+  -- Lifestyle
+  occupation          TEXT,
+  -- Health history
+  current_injuries    TEXT,
+  past_injuries       TEXT,   -- injuries + surgeries
+  chronic_conditions  TEXT,
+  medications         TEXT,
+  -- Fitness
+  activity_level      TEXT,   -- 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'
+  goals               TEXT,
+  goal_timeframe      TEXT,
+  -- Metadata
+  completed_at        TIMESTAMPTZ,
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS client_intake_updated_at ON client_intake;
+CREATE TRIGGER client_intake_updated_at
+  BEFORE UPDATE ON client_intake
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE client_intake ENABLE ROW LEVEL SECURITY;
+
+-- Trainers: full access
+CREATE POLICY "client_intake: authenticated" ON client_intake
+  FOR ALL USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
+-- Clients: read their own intake row
+CREATE POLICY "clients_read_own_intake" ON client_intake
+  FOR SELECT USING (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+-- Clients: write their own intake row
+CREATE POLICY "clients_write_own_intake" ON client_intake
+  FOR ALL USING (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  )
+  WITH CHECK (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+-- Allow clients to update their own client row (for intake_completed + name/DOB/phone sync)
+CREATE POLICY "clients: client update own" ON clients
+  FOR UPDATE USING (auth.uid() = auth_user_id)
+  WITH CHECK (auth.uid() = auth_user_id);
+
 -- RLS: clients can read and insert their own media
 CREATE POLICY "clients_read_own_media" ON client_media
   FOR SELECT USING (
