@@ -14,6 +14,7 @@ export type Trainer = {
 export type Client = {
   id: string;
   trainer_id: string;
+  auth_user_id: string | null; // Migration 011: linked Supabase Auth user
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -52,6 +53,8 @@ export type Workout = {
   body_weight_kg: number | null;
   body_fat_percent: number | null;
   workout_group_id: string | null; // shared UUID across clients who trained together
+  logged_by_role: 'trainer' | 'client'; // Migration 011
+  logged_by_user_id: string | null;     // Migration 011
   created_at: string;
   updated_at: string;
 };
@@ -112,10 +115,16 @@ export type UpdateClientMedia = Partial<Pick<ClientMedia, 'taken_at' | 'notes'>>
 
 // ─── Insert / Update payloads ─────────────────────────────────
 
-export type InsertClient = Omit<Client, 'id' | 'created_at' | 'updated_at' | 'bmi'>;
+export type InsertClient = Omit<Client, 'id' | 'created_at' | 'updated_at' | 'bmi' | 'auth_user_id'> & {
+  auth_user_id?: string | null;
+};
 export type UpdateClient = Partial<Omit<Client, 'id' | 'trainer_id' | 'created_at' | 'updated_at' | 'bmi'>>;
 
-export type InsertWorkout = Omit<Workout, 'id' | 'created_at' | 'updated_at'>;
+export type InsertWorkout = Omit<Workout, 'id' | 'created_at' | 'updated_at' | 'logged_by_role' | 'logged_by_user_id' | 'workout_group_id'> & {
+  workout_group_id?: string | null;
+  logged_by_role?: 'trainer' | 'client';
+  logged_by_user_id?: string | null;
+};
 export type UpdateWorkout = Partial<Omit<Workout, 'id' | 'client_id' | 'trainer_id' | 'created_at' | 'updated_at'>>;
 
 export type InsertWorkoutSet = Omit<WorkoutSet, 'id' | 'created_at'>;

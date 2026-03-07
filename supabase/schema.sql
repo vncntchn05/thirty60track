@@ -272,3 +272,97 @@ CREATE POLICY "exercises: authenticated update" ON exercises
 -- CREATE POLICY "client-media: public read"
 --   ON storage.objects FOR SELECT TO public
 --   USING (bucket_id = 'client-media');
+
+-- ─── Migration 011: client auth support ───────────────────────────
+
+-- Link clients table to auth
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS auth_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS clients_auth_user_id_idx ON clients(auth_user_id) WHERE auth_user_id IS NOT NULL;
+
+-- Track who logged each workout (trainer vs client)
+ALTER TABLE workouts ADD COLUMN IF NOT EXISTS logged_by_role TEXT NOT NULL DEFAULT 'trainer' CHECK (logged_by_role IN ('trainer', 'client'));
+ALTER TABLE workouts ADD COLUMN IF NOT EXISTS logged_by_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+-- Update handle_new_user to skip trainer-row creation when a client signs up.
+-- Clients pass role:'client' in raw_user_meta_data at signUp time.
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NEW.raw_user_meta_data->>'role' = 'client' THEN
+    RETURN NEW;
+  END IF;
+  INSERT INTO public.trainers (id, full_name, email)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    NEW.email
+  );
+  RETURN NEW;
+END;
+$$;
+
+-- RLS: clients can read their own client row
+CREATE POLICY "clients_read_own" ON clients
+  FOR SELECT USING (auth.uid() = auth_user_id);
+
+-- RLS: clients can read their own workouts
+CREATE POLICY "clients_read_own_workouts" ON workouts
+  FOR SELECT USING (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+-- RLS: clients can insert workouts for themselves only
+CREATE POLICY "clients_insert_own_workouts" ON workouts
+  FOR INSERT WITH CHECK (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+    AND logged_by_role = 'client'
+    AND logged_by_user_id = auth.uid()
+  );
+
+-- RLS: clients can update/delete only workouts THEY logged
+CREATE POLICY "clients_update_own_workouts" ON workouts
+  FOR UPDATE USING (
+    logged_by_role = 'client'
+    AND logged_by_user_id = auth.uid()
+  );
+
+CREATE POLICY "clients_delete_own_workouts" ON workouts
+  FOR DELETE USING (
+    logged_by_role = 'client'
+    AND logged_by_user_id = auth.uid()
+  );
+
+-- RLS: clients can read workout_sets for their workouts
+CREATE POLICY "clients_read_own_sets" ON workout_sets
+  FOR SELECT USING (
+    workout_id IN (
+      SELECT id FROM workouts
+      WHERE client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+    )
+  );
+
+-- RLS: clients can insert/update/delete sets only on workouts they logged
+CREATE POLICY "clients_write_own_sets" ON workout_sets
+  FOR ALL USING (
+    workout_id IN (
+      SELECT id FROM workouts
+      WHERE logged_by_role = 'client'
+        AND logged_by_user_id = auth.uid()
+    )
+  );
+
+-- RLS: clients can read and insert their own media
+CREATE POLICY "clients_read_own_media" ON client_media
+  FOR SELECT USING (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+CREATE POLICY "clients_insert_own_media" ON client_media
+  FOR INSERT WITH CHECK (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+CREATE POLICY "clients_delete_own_media" ON client_media
+  FOR DELETE USING (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );

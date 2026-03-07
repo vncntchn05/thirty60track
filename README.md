@@ -274,3 +274,11 @@ Press `i` for iOS simulator, `a` for Android emulator, or `w` for web.
 |---|---|
 | `EXPO_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
+
+## Future Features
+
+### Server-Side Trainer Access Code Verification
+
+Currently, the gym access code required during trainer signup is validated client-side only. Since the code lives in the app bundle, a determined user could theoretically extract it and create an unauthorised trainer account.
+
+**Planned improvement:** Move validation to a Supabase Edge Function. The signup flow would call the function with the submitted access code; the function would verify it against a secret stored in Supabase Vault (not the app bundle) and only return a success token if correct. The client would then pass that token to the actual `signUp` call, and a database trigger would verify the token before creating the trainer row — ensuring no trainer account can be created without passing server-side validation.

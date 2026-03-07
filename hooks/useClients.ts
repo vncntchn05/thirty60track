@@ -7,7 +7,7 @@ import type { Client, ClientWithStats, InsertClient, UpdateClient } from '@/type
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const CLIENT_FIELDS =
-  'id, trainer_id, full_name, email, phone, date_of_birth, gender, notes, weight_kg, height_cm, bf_percent, bmi, lean_body_mass, created_at, updated_at';
+  'id, trainer_id, auth_user_id, full_name, email, phone, date_of_birth, gender, notes, weight_kg, height_cm, bf_percent, bmi, lean_body_mass, created_at, updated_at';
 
 type UseClientsResult = {
   clients: ClientWithStats[];
