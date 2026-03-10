@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,18 +25,24 @@ export default function ClientDashboard() {
   const { client, loading: profileLoading, refresh: refreshProfile } = useClientProfile();
   const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const { workouts, loading, refresh } = useClientWorkouts(clientId ?? '');
+  const [intakeCompleted, setIntakeCompleted] = useState(false);
 
   useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
 
-  // Show intake form until the client submits it
-  if (!profileLoading && client && !client.intake_completed) {
+  // Show intake form until the client submits it.
+  // Check both DB flag and intake.completed_at in case the clients UPDATE was blocked by RLS.
+  const dbIntakeComplete = client?.intake_completed || !!intake?.completed_at;
+  if (!intakeCompleted && !profileLoading && client && !dbIntakeComplete) {
     return (
       <IntakeForm
         client={client}
         intake={intake}
         onSave={async (intakeData, clientData) => {
           const result = await saveIntake(intakeData, clientData, true);
-          if (!result.error) refreshProfile();
+          if (!result.error) {
+            setIntakeCompleted(true);
+            refreshProfile();
+          }
           return result;
         }}
         isFirstTime
@@ -95,7 +101,7 @@ export default function ClientDashboard() {
       {lastWorkout ? (
         <TouchableOpacity
           style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}
-          onPress={() => router.push(`/(client)/workout/${lastWorkout.id}` as never)}
+          onPress={() => router.push(`/(client)/session/${lastWorkout.id}` as never)}
           activeOpacity={0.8}
         >
           <View style={styles.cardHeader}>

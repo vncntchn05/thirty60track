@@ -18,8 +18,6 @@ export default function LoginScreen() {
   const { signIn } = useAuth();
   const router = useRouter();
   const t = useTheme();
-  // Role toggle is UI-only — actual role is inferred from DB after sign-in
-  const [roleTab, setRoleTab] = useState<'trainer' | 'client'>('client');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -46,26 +44,6 @@ export default function LoginScreen() {
           resizeMode="contain"
         />
         <Text style={styles.appName}>thirty60track</Text>
-
-        {/* Trainer / Client toggle */}
-        <View style={[styles.roleToggle, { backgroundColor: t.surface, borderColor: t.border }]}>
-          <TouchableOpacity
-            style={[styles.roleTab, roleTab === 'client' && styles.roleTabActive]}
-            onPress={() => setRoleTab('client')}
-          >
-            <Text style={[styles.roleTabText, { color: roleTab === 'client' ? colors.textInverse : t.textSecondary }]}>
-              I'm a Client
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.roleTab, roleTab === 'trainer' && styles.roleTabActive]}
-            onPress={() => setRoleTab('trainer')}
-          >
-            <Text style={[styles.roleTabText, { color: roleTab === 'trainer' ? colors.textInverse : t.textSecondary }]}>
-              I'm a Trainer
-            </Text>
-          </TouchableOpacity>
-        </View>
 
         <Text style={[styles.subtitle, { color: t.textSecondary }]}>Sign In</Text>
 
@@ -118,21 +96,6 @@ const styles = StyleSheet.create({
   inner: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.lg, gap: spacing.md },
   logo: { width: 96, height: 96, alignSelf: 'center', marginBottom: spacing.sm },
   appName: { ...typography.heading1, color: colors.primary, textAlign: 'center' },
-  roleToggle: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    marginBottom: spacing.xs,
-  },
-  roleTab: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    borderRadius: radius.full,
-  },
-  roleTabActive: { backgroundColor: colors.primary },
-  roleTabText: { ...typography.bodySmall, fontWeight: '600' },
   subtitle: { ...typography.body, textAlign: 'center', marginBottom: spacing.xs },
   input: {
     borderWidth: 1,

@@ -34,7 +34,7 @@ export function ExerciseProgressChart({ data, unit = 'kg', title }: Props) {
       <View style={[styles.empty, { backgroundColor: t.background }]}>
         <Text style={[styles.emptyText, { color: t.textSecondary }]}>
           {data.length === 0
-            ? `No ${unit === 'reps' ? 'rep' : unit === '%' ? 'body fat' : 'weight'} data recorded.`
+            ? `No ${unit === 'reps' ? 'rep' : unit === '%' ? 'body fat' : unit === 'secs' ? 'duration' : 'weight'} data recorded.`
             : 'Log at least 2 sessions to see progress.'}
         </Text>
       </View>
@@ -60,7 +60,11 @@ function ExerciseProgressChartInner({ data, unit = 'kg', title }: Props) {
             ? `${Math.round(yVal)} reps`
             : unit === '%'
               ? `${yVal.toFixed(1)}%`
-              : `${yVal.toFixed(1)} kg`;
+              : unit === 'secs'
+                ? `${Math.round(yVal)}s`
+                : unit === 'lbs'
+                  ? `${yVal.toFixed(1)} lbs`
+                  : `${yVal.toFixed(1)} kg`;
           setTooltip({ label: pt.label, value: valueStr });
         }
       } else {
@@ -102,14 +106,22 @@ function ExerciseProgressChartInner({ data, unit = 'kg', title }: Props) {
     ? `${gain >= 0 ? '+' : '-'}${Math.abs(gain).toFixed(0)} reps · Latest: ${Math.round(latest.y)} reps`
     : unit === '%'
       ? `${gain >= 0 ? '+' : ''}${gain.toFixed(1)}% · Latest: ${latest.y.toFixed(1)}%`
-      : `${gain >= 0 ? '+' : ''}${gain.toFixed(1)} kg  ·  Latest: ${latest.y} kg`;
+      : unit === 'secs'
+        ? `${gain >= 0 ? '+' : ''}${gain.toFixed(0)}s · Latest: ${Math.round(latest.y)}s`
+        : unit === 'lbs'
+          ? `${gain >= 0 ? '+' : ''}${gain.toFixed(1)} lbs · Latest: ${latest.y.toFixed(1)} lbs`
+          : `${gain >= 0 ? '+' : ''}${gain.toFixed(1)} kg · Latest: ${latest.y.toFixed(1)} kg`;
 
   return (
     <View>
       <View style={styles.chartMeta}>
         {title ? <Text style={[styles.chartTitle, { color: t.textPrimary }]}>{title}</Text> : null}
         <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>
-          {unit === 'reps' ? 'Reps' : unit === '%' ? 'Body fat (%)' : 'Weight (kg)'}
+          {unit === 'reps' ? 'Reps'
+            : unit === '%' ? 'Body fat (%)'
+            : unit === 'secs' ? 'Duration (s)'
+            : unit === 'lbs' ? 'Weight (lbs)'
+            : 'Weight (kg)'}
         </Text>
       </View>
 

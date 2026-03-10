@@ -33,12 +33,13 @@ export default function ProgressSection({ clientId }: Props) {
   const {
     frequencyData, frequencyStats, volumeData,
     bodyWeightData, bodyFatData,
-    exercises, getExerciseProgress, getExerciseRepsProgress,
+    exercises, getExerciseProgress, getExerciseRepsProgress, getExerciseDurationProgress,
     allWorkoutDates, loading, error,
   } = useClientProgress(clientId, DAYS_BACK[range], customRange);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [weightUnit, setWeightUnit] = useState<'lbs' | 'kg'>('lbs');
 
   function handleRangePress(r: Range) {
     if (r === 'Custom') {
@@ -71,7 +72,13 @@ export default function ProgressSection({ clientId }: Props) {
   const noData = frequencyStats.totalWorkouts === 0;
   const activeId = selectedExerciseId ?? exercises[0]?.id ?? null;
   const activeExercise = exercises.find((e) => e.id === activeId);
-  const progressData = activeId ? getExerciseProgress(activeId) : [];
+  const hasWeight = activeExercise?.hasWeight ?? false;
+  const hasDuration = activeExercise?.hasDuration ?? false;
+  const rawProgressData = activeId ? getExerciseProgress(activeId) : [];
+  const progressData = weightUnit === 'lbs'
+    ? rawProgressData.map((p) => ({ ...p, y: p.y * 2.20462 }))
+    : rawProgressData;
+  const durationProgressData = activeId ? getExerciseDurationProgress(activeId) : [];
   const repsProgressData = activeId ? getExerciseRepsProgress(activeId) : [];
 
   const filteredExercises = query.trim()
@@ -221,8 +228,36 @@ export default function ProgressSection({ clientId }: Props) {
                 </View>
               )}
 
-              <ExerciseProgressChart data={progressData} unit="kg" title="Weight" />
-              <View style={[styles.separator, { backgroundColor: t.border }]} />
+              {hasWeight && (
+                <>
+                  <View style={styles.chartLabelRow}>
+                    <Text style={[styles.chartSectionLabel, { color: t.textSecondary }]}>Weight</Text>
+                    <View style={[styles.unitToggle, { borderColor: t.border, backgroundColor: t.background }]}>
+                      {(['lbs', 'kg'] as const).map((u) => (
+                        <TouchableOpacity
+                          key={u}
+                          style={[styles.unitBtn, weightUnit === u && styles.unitBtnActive]}
+                          onPress={() => setWeightUnit(u)}
+                        >
+                          <Text style={[styles.unitBtnText, { color: weightUnit === u ? colors.textInverse : t.textSecondary }]}>
+                            {u}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <ExerciseProgressChart data={progressData} unit={weightUnit} />
+                </>
+              )}
+              {hasDuration && (
+                <>
+                  {hasWeight && <View style={[styles.separator, { backgroundColor: t.border }]} />}
+                  <ExerciseProgressChart data={durationProgressData} unit="secs" title="Duration" />
+                </>
+              )}
+              {(hasWeight || hasDuration) && repsProgressData.length >= 2 && (
+                <View style={[styles.separator, { backgroundColor: t.border }]} />
+              )}
               <ExerciseProgressChart data={repsProgressData} unit="reps" title="Reps" />
             </View>
           )}
@@ -231,8 +266,26 @@ export default function ProgressSection({ clientId }: Props) {
 
       {/* Volume Over Time — full width below */}
       <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
-        <Text style={[styles.label, { color: t.textSecondary }]}>Volume Over Time</Text>
-        <VolumeChart data={volumeData} />
+        <View style={styles.chartLabelRow}>
+          <Text style={[styles.label, { color: t.textSecondary }]}>Volume Over Time</Text>
+          <View style={[styles.unitToggle, { borderColor: t.border, backgroundColor: t.background }]}>
+            {(['lbs', 'kg'] as const).map((u) => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.unitBtn, weightUnit === u && styles.unitBtnActive]}
+                onPress={() => setWeightUnit(u)}
+              >
+                <Text style={[styles.unitBtnText, { color: weightUnit === u ? colors.textInverse : t.textSecondary }]}>
+                  {u}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        <VolumeChart
+          data={weightUnit === 'lbs' ? volumeData.map((p) => ({ ...p, y: p.y * 2.20462 })) : volumeData}
+          unit={weightUnit}
+        />
       </View>
       </>)}
     </>
@@ -290,6 +343,14 @@ const styles = StyleSheet.create({
 
   // Separator between weight and reps charts
   separator: { height: 1, marginVertical: spacing.sm },
+
+  // Weight unit toggle
+  chartLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  chartSectionLabel: { ...typography.label },
+  unitToggle: { flexDirection: 'row', borderRadius: radius.sm, borderWidth: 1, overflow: 'hidden' },
+  unitBtn: { paddingVertical: 3, paddingHorizontal: spacing.sm },
+  unitBtnActive: { backgroundColor: colors.primary },
+  unitBtnText: { ...typography.label, fontWeight: '600' },
 
   // Range selector
   rangeRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },

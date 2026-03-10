@@ -21,9 +21,20 @@ function getSupersetColor(group: number): string {
 type SetWithExercise = WorkoutSet & { exercise: Exercise };
 type Theme = ReturnType<typeof useTheme>;
 type Section = { title: string; exerciseId: string; supersetGroup: number | null; data: SetWithExercise[] };
-type SetForm = { reps: string; weight_kg: string; duration_seconds: string; notes: string };
+type WeightUnit = 'lbs' | 'kg' | 'secs';
+type SetForm = { reps: string; amount: string; notes: string };
 
-const EMPTY_FORM: SetForm = { reps: '', weight_kg: '', duration_seconds: '', notes: '' };
+const EMPTY_FORM: SetForm = { reps: '', amount: '', notes: '' };
+
+const UNITS: WeightUnit[] = ['lbs', 'kg', 'secs'];
+function nextUnit(u: WeightUnit): WeightUnit { return UNITS[(UNITS.indexOf(u) + 1) % UNITS.length]; }
+function resolveAmount(raw: string, unit: WeightUnit): { weight_kg: number | null; duration_seconds: number | null } {
+  if (!raw.trim()) return { weight_kg: null, duration_seconds: null };
+  const n = parseFloat(raw);
+  if (isNaN(n)) return { weight_kg: null, duration_seconds: null };
+  if (unit === 'secs') return { weight_kg: null, duration_seconds: Math.round(n) };
+  return { weight_kg: unit === 'lbs' ? n * 0.453592 : n, duration_seconds: null };
+}
 
 function parseOptionalInt(v: string): number | null {
   const n = parseInt(v, 10);
@@ -48,6 +59,7 @@ export default function WorkoutDetailScreen() {
   // Add-set state — tracks which exercise the pending form targets
   const [pendingExercise, setPendingExercise] = useState<{ id: string; name: string } | null>(null);
   const [pendingForm, setPendingForm] = useState<SetForm>(EMPTY_FORM);
+  const [pendingUnit, setPendingUnit] = useState<WeightUnit>('lbs');
   const [savingSet, setSavingSet] = useState(false);
 
   // Exercise picker (for exercises not yet in this workout)
@@ -66,6 +78,7 @@ export default function WorkoutDetailScreen() {
   const startAddSet = useCallback((exerciseId: string, exerciseName: string) => {
     setPendingExercise({ id: exerciseId, name: exerciseName });
     setPendingForm(EMPTY_FORM);
+    setPendingUnit('lbs');
   }, []);
 
   const cancelAdd = useCallback(() => setPendingExercise(null), []);
@@ -75,8 +88,7 @@ export default function WorkoutDetailScreen() {
     setSavingSet(true);
     const { error: err } = await addSet(pendingExercise.id, {
       reps: parseOptionalInt(pendingForm.reps),
-      weight_kg: parseOptionalFloat(pendingForm.weight_kg),
-      duration_seconds: parseOptionalInt(pendingForm.duration_seconds),
+      ...resolveAmount(pendingForm.amount, pendingUnit),
       notes: pendingForm.notes.trim() || null,
     });
     setSavingSet(false);
@@ -215,7 +227,7 @@ export default function WorkoutDetailScreen() {
               notes={workout.notes}
               bodyWeightKg={workout.body_weight_kg}
               bodyFatPercent={workout.body_fat_percent}
-              trainerName={workout.trainer?.full_name ?? null}
+              trainerName={workout.logged_by_role === 'trainer' ? (workout.trainer?.full_name ?? null) : (workout.client?.full_name ?? null)}
               onSave={updateWorkout}
               t={t}
             />
@@ -293,7 +305,9 @@ export default function WorkoutDetailScreen() {
               <AddSetForm
                 label={`Add set to ${section.title}`}
                 form={pendingForm}
+                unit={pendingUnit}
                 onChange={setPendingForm}
+                onUnitChange={setPendingUnit}
                 onSave={handleAddSet}
                 onCancel={cancelAdd}
                 saving={savingSet}
@@ -318,7 +332,9 @@ export default function WorkoutDetailScreen() {
               <AddSetForm
                 label="Add first set"
                 form={pendingForm}
+                unit={pendingUnit}
                 onChange={setPendingForm}
+                onUnitChange={setPendingUnit}
                 onSave={handleAddSet}
                 onCancel={cancelAdd}
                 saving={savingSet}
@@ -472,14 +488,16 @@ function GroupCard({ peers, allClients, currentClientId, trainerId, onAdd, onRem
 type AddSetFormProps = {
   label: string;
   form: SetForm;
+  unit: WeightUnit;
   onChange: (f: SetForm) => void;
+  onUnitChange: (u: WeightUnit) => void;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
   t: Theme;
 };
 
-function AddSetForm({ label, form, onChange, onSave, onCancel, saving, t }: AddSetFormProps) {
+function AddSetForm({ label, form, unit, onChange, onUnitChange, onSave, onCancel, saving, t }: AddSetFormProps) {
   return (
     <View style={[styles.addSetCard, { backgroundColor: t.surface, borderColor: t.border }]}>
       <View style={styles.addSetHeader}>
@@ -501,23 +519,30 @@ function AddSetForm({ label, form, onChange, onSave, onCancel, saving, t }: AddS
       </View>
 
       <View style={styles.setFieldRow}>
-        {([
-          ['Reps', 'reps', 'number-pad'],
-          ['Weight (kg)', 'weight_kg', 'decimal-pad'],
-          ['Duration (s)', 'duration_seconds', 'number-pad'],
-        ] as const).map(([label2, field, kb]) => (
-          <View key={field} style={styles.setFieldGroup}>
-            <Text style={[styles.setFieldLabel, { color: t.textSecondary }]}>{label2}</Text>
-            <TextInput
-              style={[styles.setFieldInput, { color: t.textPrimary, borderColor: t.border }]}
-              value={form[field]}
-              onChangeText={(v) => onChange({ ...form, [field]: v })}
-              keyboardType={kb as never}
-              placeholder="—"
-              placeholderTextColor={t.textSecondary}
-            />
-          </View>
-        ))}
+        <View style={styles.setFieldGroup}>
+          <Text style={[styles.setFieldLabel, { color: t.textSecondary }]}>Reps</Text>
+          <TextInput
+            style={[styles.setFieldInput, { color: t.textPrimary, borderColor: t.border }]}
+            value={form.reps}
+            onChangeText={(v) => onChange({ ...form, reps: v })}
+            keyboardType="number-pad"
+            placeholder="—"
+            placeholderTextColor={t.textSecondary}
+          />
+        </View>
+        <View style={styles.setFieldGroup}>
+          <TouchableOpacity onPress={() => onUnitChange(nextUnit(unit))}>
+            <Text style={[styles.setFieldLabel, { color: colors.primary }]}>{unit} ⟳</Text>
+          </TouchableOpacity>
+          <TextInput
+            style={[styles.setFieldInput, { color: t.textPrimary, borderColor: t.border }]}
+            value={form.amount}
+            onChangeText={(v) => onChange({ ...form, amount: v })}
+            keyboardType={unit === 'secs' ? 'number-pad' : 'decimal-pad'}
+            placeholder="—"
+            placeholderTextColor={t.textSecondary}
+          />
+        </View>
       </View>
 
       <TextInput
@@ -682,15 +707,19 @@ type SetRowProps = {
 function SetRow({ set, supersetColor, onDelete, onSave, t }: SetRowProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const initUnit: WeightUnit = set.duration_seconds != null ? 'secs' : set.weight_kg != null ? 'kg' : 'lbs';
+  const initAmount = set.duration_seconds != null ? String(set.duration_seconds)
+                   : set.weight_kg != null ? String(set.weight_kg) : '';
   const [repsVal, setRepsVal] = useState(set.reps != null ? String(set.reps) : '');
-  const [weightVal, setWeightVal] = useState(set.weight_kg != null ? String(set.weight_kg) : '');
-  const [durationVal, setDurationVal] = useState(set.duration_seconds != null ? String(set.duration_seconds) : '');
+  const [amountVal, setAmountVal] = useState(initAmount);
+  const [unit, setUnit] = useState<WeightUnit>(initUnit);
   const [notesVal, setNotesVal] = useState(set.notes ?? '');
 
   function startEdit() {
     setRepsVal(set.reps != null ? String(set.reps) : '');
-    setWeightVal(set.weight_kg != null ? String(set.weight_kg) : '');
-    setDurationVal(set.duration_seconds != null ? String(set.duration_seconds) : '');
+    setAmountVal(set.duration_seconds != null ? String(set.duration_seconds)
+               : set.weight_kg != null ? String(set.weight_kg) : '');
+    setUnit(set.duration_seconds != null ? 'secs' : set.weight_kg != null ? 'kg' : 'lbs');
     setNotesVal(set.notes ?? '');
     setEditing(true);
   }
@@ -699,8 +728,7 @@ function SetRow({ set, supersetColor, onDelete, onSave, t }: SetRowProps) {
     setSaving(true);
     const { error } = await onSave({
       reps: parseOptionalInt(repsVal),
-      weight_kg: parseOptionalFloat(weightVal),
-      duration_seconds: parseOptionalInt(durationVal),
+      ...resolveAmount(amountVal, unit),
       notes: notesVal.trim() || null,
     });
     setSaving(false);
@@ -738,23 +766,30 @@ function SetRow({ set, supersetColor, onDelete, onSave, t }: SetRowProps) {
           </View>
         </View>
         <View style={styles.setFieldRow}>
-          {([
-            ['Reps', repsVal, setRepsVal, 'number-pad'],
-            ['Weight (kg)', weightVal, setWeightVal, 'decimal-pad'],
-            ['Duration (s)', durationVal, setDurationVal, 'number-pad'],
-          ] as const).map(([label, val, setter, kb]) => (
-            <View key={label} style={styles.setFieldGroup}>
-              <Text style={[styles.setFieldLabel, { color: t.textSecondary }]}>{label}</Text>
-              <TextInput
-                style={[styles.setFieldInput, { color: t.textPrimary, borderColor: t.border }]}
-                value={val}
-                onChangeText={setter as (v: string) => void}
-                keyboardType={kb as never}
-                placeholder="—"
-                placeholderTextColor={t.textSecondary}
-              />
-            </View>
-          ))}
+          <View style={styles.setFieldGroup}>
+            <Text style={[styles.setFieldLabel, { color: t.textSecondary }]}>Reps</Text>
+            <TextInput
+              style={[styles.setFieldInput, { color: t.textPrimary, borderColor: t.border }]}
+              value={repsVal}
+              onChangeText={setRepsVal}
+              keyboardType="number-pad"
+              placeholder="—"
+              placeholderTextColor={t.textSecondary}
+            />
+          </View>
+          <View style={styles.setFieldGroup}>
+            <TouchableOpacity onPress={() => setUnit(nextUnit(unit))}>
+              <Text style={[styles.setFieldLabel, { color: colors.primary }]}>{unit} ⟳</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.setFieldInput, { color: t.textPrimary, borderColor: t.border }]}
+              value={amountVal}
+              onChangeText={setAmountVal}
+              keyboardType={unit === 'secs' ? 'number-pad' : 'decimal-pad'}
+              placeholder="—"
+              placeholderTextColor={t.textSecondary}
+            />
+          </View>
         </View>
         <TextInput
           style={[styles.setNotesInput, { color: t.textPrimary, borderColor: t.border }]}

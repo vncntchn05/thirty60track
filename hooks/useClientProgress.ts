@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export type ChartPoint = { x: number; y: number; label: string };
-export type ProgressExercise = { id: string; name: string };
+export type ProgressExercise = { id: string; name: string; hasWeight: boolean; hasDuration: boolean };
 
 export type FrequencyStats = {
   totalWorkouts: number;
@@ -18,6 +18,7 @@ type RawSet = {
   exercise_id: string;
   reps: number | null;
   weight_kg: number | null;
+  duration_seconds: number | null;
   exercise: { id: string; name: string } | null;
 };
 
@@ -38,6 +39,7 @@ type UseClientProgressResult = {
   exercises: ProgressExercise[];
   getExerciseProgress: (exerciseId: string) => ChartPoint[];
   getExerciseRepsProgress: (exerciseId: string) => ChartPoint[];
+  getExerciseDurationProgress: (exerciseId: string) => ChartPoint[];
   /** All workout dates across the full history (unfiltered), as 'YYYY-MM-DD' strings. */
   allWorkoutDates: string[];
   loading: boolean;
@@ -78,6 +80,7 @@ export function useClientProgress(
           exercise_id,
           reps,
           weight_kg,
+          duration_seconds,
           exercise:exercises ( id, name )
         )
       `)
@@ -201,16 +204,21 @@ export function useClientProgress(
     .map((w, i) => ({ x: i, y: w.body_fat_percent as number, label: shortDate(w.performed_at) }));
 
   // ── Derived: unique exercises this client has done ─────────────────
-  const exerciseMap = new Map<string, string>();
+  const exerciseMap = new Map<string, { name: string; hasWeight: boolean; hasDuration: boolean }>();
   workouts.forEach((w) => {
     w.workout_sets.forEach((s) => {
-      if (s.exercise && !exerciseMap.has(s.exercise_id)) {
-        exerciseMap.set(s.exercise_id, s.exercise.name);
+      if (s.exercise) {
+        const prev = exerciseMap.get(s.exercise_id) ?? { name: s.exercise.name, hasWeight: false, hasDuration: false };
+        exerciseMap.set(s.exercise_id, {
+          name: prev.name,
+          hasWeight: prev.hasWeight || s.weight_kg != null,
+          hasDuration: prev.hasDuration || s.duration_seconds != null,
+        });
       }
     });
   });
   const exercises: ProgressExercise[] = Array.from(exerciseMap.entries())
-    .map(([id, name]) => ({ id, name }))
+    .map(([id, info]) => ({ id, ...info }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // ── Derived: max weight per session for one exercise ───────────────
@@ -223,6 +231,21 @@ export function useClientProgress(
       if (relevant.length > 0) {
         const maxWeight = Math.max(...relevant.map((s) => s.weight_kg as number));
         points.push({ x: points.length, y: maxWeight, label: shortDate(w.performed_at) });
+      }
+    });
+    return points;
+  }
+
+  // ── Derived: max duration per session for one exercise ────────────
+  function getExerciseDurationProgress(exerciseId: string): ChartPoint[] {
+    const points: ChartPoint[] = [];
+    workouts.forEach((w) => {
+      const relevant = w.workout_sets.filter(
+        (s) => s.exercise_id === exerciseId && s.duration_seconds != null
+      );
+      if (relevant.length > 0) {
+        const maxDuration = Math.max(...relevant.map((s) => s.duration_seconds as number));
+        points.push({ x: points.length, y: maxDuration, label: shortDate(w.performed_at) });
       }
     });
     return points;
@@ -243,5 +266,5 @@ export function useClientProgress(
     return points;
   }
 
-  return { frequencyData, frequencyStats, volumeData, bodyWeightData, bodyFatData, exercises, getExerciseProgress, getExerciseRepsProgress, allWorkoutDates, loading, error };
+  return { frequencyData, frequencyStats, volumeData, bodyWeightData, bodyFatData, exercises, getExerciseProgress, getExerciseRepsProgress, getExerciseDurationProgress, allWorkoutDates, loading, error };
 }

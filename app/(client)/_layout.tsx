@@ -1,6 +1,6 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, View, StyleSheet } from 'react-native';
+import { Image, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { colors, useTheme } from '@/constants/theme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -37,6 +37,7 @@ const styles = StyleSheet.create({
 
 export default function ClientLayout() {
   const t = useTheme();
+  const router = useRouter();
   return (
     <Tabs
       screenOptions={{
@@ -89,8 +90,23 @@ export default function ClientLayout() {
         }}
       />
       {/* Push screens — not shown in tab bar */}
-      <Tabs.Screen name="workout/[id]" options={{ href: null }} />
-      <Tabs.Screen name="workout/log"  options={{ href: null }} />
+      <Tabs.Screen
+        name="session/[id]"
+        options={{
+          href: null,
+          title: 'Workout',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.push('/(client)/workouts' as never)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ marginLeft: 8 }}
+            >
+              <Ionicons name="chevron-back" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
+      <Tabs.Screen name="workout/log" options={{ href: null }} />
     </Tabs>
   );
 }

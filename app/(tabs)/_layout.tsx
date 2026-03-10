@@ -75,6 +75,12 @@ export default function TabsLayout() {
           tabBarIcon: tabIcon('person-outline', 'person'),
         }}
       />
+      <Tabs.Screen
+        name="assigned"
+        options={{
+          href: null, // hidden from tab bar — accessible by clients via direct navigation
+        }}
+      />
     </Tabs>
   );
 }

@@ -112,6 +112,7 @@ export type WorkoutWithTrainer = Workout & {
 
 /** Workout with its sets and exercise details, used on the workout detail screen. */
 export type WorkoutWithSets = WorkoutWithTrainer & {
+  client: { full_name: string } | null;
   workout_sets: (WorkoutSet & { exercise: Exercise })[];
 };
 
@@ -154,3 +155,76 @@ export type UpdateWorkout = Partial<Omit<Workout, 'id' | 'client_id' | 'trainer_
 
 export type InsertWorkoutSet = Omit<WorkoutSet, 'id' | 'created_at'>;
 export type UpdateWorkoutSet = Partial<Omit<WorkoutSet, 'id' | 'workout_id' | 'created_at'>>;
+
+// ─── Assigned Workouts ────────────────────────────────────────
+
+export type AssignedWorkout = {
+  id: string;
+  trainer_id: string;
+  client_id: string;
+  title: string | null;
+  scheduled_date: string; // YYYY-MM-DD
+  notes: string | null;
+  status: 'assigned' | 'completed';
+  completed_at: string | null;
+  completed_workout_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssignedWorkoutExercise = {
+  id: string;
+  assigned_workout_id: string;
+  exercise_id: string;
+  order_index: number;
+  superset_group: number | null;
+};
+
+export type AssignedWorkoutSet = {
+  id: string;
+  assigned_workout_exercise_id: string;
+  set_number: number;
+  reps: number | null;
+  weight_kg: number | null;
+  duration_seconds: number | null;
+  notes: string | null;
+};
+
+/** AssignedWorkoutExercise with joined exercise details and sets. */
+export type AssignedWorkoutExerciseWithDetails = AssignedWorkoutExercise & {
+  exercise: Exercise;
+  sets: AssignedWorkoutSet[];
+};
+
+/** AssignedWorkout with all exercises (sorted by order_index) and their sets. */
+export type AssignedWorkoutWithDetails = AssignedWorkout & {
+  exercises: AssignedWorkoutExerciseWithDetails[];
+};
+
+/** Payload for a single exercise when creating/updating an assigned workout. */
+export type AssignedExercisePayload = {
+  exercise_id: string;
+  order_index: number;
+  superset_group: number | null;
+  sets: Array<{
+    set_number: number;
+    reps: number | null;
+    weight_kg: number | null;
+    duration_seconds: number | null;
+    notes: string | null;
+  }>;
+};
+
+export type InsertAssignedWorkout = {
+  title: string | null;
+  scheduled_date: string;
+  notes: string | null;
+  exercises: AssignedExercisePayload[];
+};
+
+export type UpdateAssignedWorkout = {
+  title?: string | null;
+  scheduled_date?: string;
+  notes?: string | null;
+  exercises?: AssignedExercisePayload[];
+};

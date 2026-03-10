@@ -8,8 +8,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useClient } from '@/hooks/useClients';
 import { useWorkouts } from '@/hooks/useWorkouts';
 import { useClientIntake } from '@/hooks/useClientIntake';
+import { useAssignedWorkoutsForClient } from '@/hooks/useAssignedWorkouts';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { Client, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake } from '@/types';
+import type { Client, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake, AssignedWorkoutWithDetails } from '@/types';
 import { MediaGallery } from '@/components/client/MediaGallery';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
@@ -45,8 +46,9 @@ export default function ClientDetailScreen() {
   const { client, loading: clientLoading, error: clientError, updateClient, deleteClient } = useClient(id);
   const { workouts, loading: workoutsLoading, error: workoutsError, refetch: refetchWorkouts } = useWorkouts(client?.id ?? '');
   const { intake, saveIntake } = useClientIntake(client?.id ?? '');
+  const { assignedWorkouts, refetch: refetchAssigned } = useAssignedWorkoutsForClient(client?.id ?? '');
 
-  useFocusEffect(useCallback(() => { refetchWorkouts(); }, [refetchWorkouts]));
+  useFocusEffect(useCallback(() => { refetchWorkouts(); refetchAssigned(); }, [refetchWorkouts, refetchAssigned]));
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -143,16 +145,26 @@ export default function ClientDetailScreen() {
           data={workouts}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.tabContent}
-          renderItem={({ item }) => <WorkoutRow workout={item as WorkoutWithTrainer} t={t} />}
+          renderItem={({ item }) => <WorkoutRow workout={item as WorkoutWithTrainer} clientName={client.full_name} t={t} />}
           ListHeaderComponent={
-            workoutsLoading
-              ? <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: spacing.sm }} />
-              : workoutsError
-                ? <Text style={styles.errorText}>{workoutsError}</Text>
-                : null
+            <>
+              {workoutsLoading
+                ? <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: spacing.sm }} />
+                : workoutsError
+                  ? <Text style={styles.errorText}>{workoutsError}</Text>
+                  : null}
+              {/* Pending assigned workouts shown at the top with green outline */}
+              {assignedWorkouts.filter((a) => a.status === 'assigned').map((item) => (
+                <UpcomingWorkoutRow
+                  key={item.id}
+                  item={item}
+                  t={t}
+                />
+              ))}
+            </>
           }
           ListEmptyComponent={
-            !workoutsLoading
+            !workoutsLoading && assignedWorkouts.filter((a) => a.status === 'assigned').length === 0
               ? <Text style={[styles.emptyText, { color: t.textSecondary }]}>No workouts logged yet.</Text>
               : null
           }
@@ -182,7 +194,7 @@ export default function ClientDetailScreen() {
         </View>
       )}
 
-      {/* ── FAB (Log Workout — hidden on media tab which has its own FAB) ── */}
+      {/* ── FAB (Log Workout — hidden on media tab) ── */}
       {!confirmingDelete && activeTab !== 'media' && (
         <TouchableOpacity
           style={styles.fab}
@@ -553,9 +565,45 @@ function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: Up
   );
 }
 
+// ─── Upcoming assigned workout row (green outline, shown in Workouts tab) ────
+
+function UpcomingWorkoutRow({ item, t }: { item: AssignedWorkoutWithDetails; t: Theme }) {
+  const router = useRouter();
+  const [y, m, d] = item.scheduled_date.split('-').map(Number);
+  const dateStr = new Date(y, m - 1, d).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+  });
+  const exerciseCount = item.exercises.length;
+
+  return (
+    <TouchableOpacity
+      style={[styles.row, styles.upcomingRow, { backgroundColor: t.surface }]}
+      onPress={() => router.push(`/workout/assigned/${item.id}` as never)}
+    >
+      <View style={styles.rowMain}>
+        <View style={styles.upcomingBadgeRow}>
+          <View style={styles.upcomingBadge}>
+            <Text style={styles.upcomingBadgeText}>UPCOMING</Text>
+          </View>
+          <Text style={[styles.dateText, { color: t.textPrimary }]}>
+            {item.title ?? 'Untitled Workout'}
+          </Text>
+        </View>
+        <Text style={[styles.trainerText, { color: t.textSecondary }]}>{dateStr}</Text>
+        {exerciseCount > 0 && (
+          <Text style={[styles.rowMetricText, { color: t.textSecondary }]}>
+            {exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''}
+          </Text>
+        )}
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
+    </TouchableOpacity>
+  );
+}
+
 // ─── Workout row ──────────────────────────────────────────────────
 
-function WorkoutRow({ workout, t }: { workout: WorkoutWithTrainer; t: Theme }) {
+function WorkoutRow({ workout, clientName, t }: { workout: WorkoutWithTrainer; clientName: string; t: Theme }) {
   const router = useRouter();
   const date = isoToLocal(workout.performed_at).toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
@@ -572,7 +620,9 @@ function WorkoutRow({ workout, t }: { workout: WorkoutWithTrainer; t: Theme }) {
     >
       <View style={styles.rowMain}>
         <Text style={[styles.dateText, { color: t.textPrimary }]}>{date}</Text>
-        {workout.trainer?.full_name ? <Text style={[styles.trainerText, { color: t.textSecondary }]}>Logged by {workout.trainer.full_name}</Text> : null}
+        {workout.logged_by_role === 'trainer'
+          ? <Text style={[styles.trainerText, { color: t.textSecondary }]}>Logged by {workout.trainer?.full_name ?? 'trainer'}</Text>
+          : <Text style={[styles.trainerText, { color: t.textSecondary }]}>Logged by {clientName}</Text>}
         {workout.notes ? <Text style={[styles.notesText, { color: t.textSecondary }]} numberOfLines={1}>{workout.notes}</Text> : null}
         {metricParts ? <Text style={[styles.rowMetricText, { color: t.textSecondary }]}>{metricParts}</Text> : null}
       </View>
@@ -658,6 +708,14 @@ const styles = StyleSheet.create({
 
   // ── Workouts tab ──
   row: { borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1 },
+  upcomingRow: { borderColor: colors.success, borderLeftWidth: 3 },
+  upcomingBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
+  upcomingBadge: {
+    backgroundColor: `${colors.success}22`,
+    paddingHorizontal: spacing.xs, paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  upcomingBadgeText: { ...typography.label, color: colors.success, letterSpacing: 0.5 },
   rowMain: { flex: 1, gap: 2 },
   dateText: { ...typography.body, fontWeight: '600' },
   trainerText: { ...typography.bodySmall, fontStyle: 'italic' },
@@ -706,6 +764,19 @@ const styles = StyleSheet.create({
   activityChipSel: { backgroundColor: colors.primary, borderColor: colors.primary },
   activityChipText: { ...typography.bodySmall },
   activityChipTextSel: { color: colors.textInverse, fontWeight: '600' },
+
+  // ── Assigned workout cards ──
+  assignedCard: {
+    borderRadius: radius.md, padding: spacing.md, borderWidth: 1, gap: spacing.xs,
+  },
+  assignedCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  assignedCardTitle: { flex: 1, gap: 2 },
+  assignedTitle: { ...typography.body, fontWeight: '600' },
+  assignedDate: { ...typography.bodySmall },
+  statusBadge: {
+    paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.full,
+  },
+  statusBadgeText: { ...typography.label, fontWeight: '700' },
 
   // ── Misc ──
   emptyText: { ...typography.body, textAlign: 'center', marginTop: spacing.xl },

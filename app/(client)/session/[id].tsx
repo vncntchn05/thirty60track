@@ -124,7 +124,7 @@ export default function ClientWorkoutDetailScreen() {
         options={{
           headerLeft: () => (
             <TouchableOpacity
-              onPress={() => router.canGoBack() ? router.back() : router.replace('/(client)/workouts' as never)}
+              onPress={() => router.replace('/(client)/workouts' as never)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.headerBtn}
             >
@@ -156,6 +156,7 @@ export default function ClientWorkoutDetailScreen() {
             bodyWeightKg={workout.body_weight_kg}
             bodyFatPercent={workout.body_fat_percent}
             trainerName={workout.logged_by_role === 'trainer' ? (workout.trainer?.full_name ?? null) : null}
+            loggedByClientName={workout.logged_by_role === 'client' ? (workout.client?.full_name ?? null) : null}
             canEdit={canEdit}
             onSave={updateWorkout}
             t={t}
@@ -242,12 +243,13 @@ type WorkoutHeaderProps = {
   bodyWeightKg: number | null;
   bodyFatPercent: number | null;
   trainerName: string | null;
+  loggedByClientName: string | null;
   canEdit: boolean;
   onSave: (p: UpdateWorkout) => Promise<{ error: string | null }>;
   t: Theme;
 };
 
-function WorkoutHeader({ displayDate, notes, bodyWeightKg, bodyFatPercent, trainerName, canEdit, onSave, t }: WorkoutHeaderProps) {
+function WorkoutHeader({ displayDate, notes, bodyWeightKg, bodyFatPercent, trainerName, loggedByClientName, canEdit, onSave, t }: WorkoutHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dateVal, setDateVal] = useState('');
@@ -288,6 +290,11 @@ function WorkoutHeader({ displayDate, notes, bodyWeightKg, bodyFatPercent, train
           </Text>
         </View>
       )}
+      {loggedByClientName ? (
+        <Text style={[styles.loggedByText, { color: t.textSecondary }]}>
+          Logged by {loggedByClientName}
+        </Text>
+      ) : null}
 
       <View style={styles.headerRow}>
         <Text style={[styles.dateText, { color: t.textPrimary }]}>{displayDate}</Text>
@@ -518,6 +525,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.xs,
   },
   trainerBannerText: { ...typography.bodySmall, fontStyle: 'italic', flex: 1 },
+  loggedByText: { ...typography.bodySmall },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dateText: { ...typography.heading3, flex: 1 },
   notesText: { ...typography.body },

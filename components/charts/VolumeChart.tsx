@@ -5,13 +5,13 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 import { useSkiaAvailable } from '@/lib/skia';
 import type { ChartPoint } from '@/hooks/useClientProgress';
 
-type Props = { data: ChartPoint[] };
+type Props = { data: ChartPoint[]; unit?: 'kg' | 'lbs' };
 
 /**
- * Bar chart showing total workout volume (kg·reps) over time.
+ * Bar chart showing total workout volume (kg·reps or lbs·reps) over time.
  * Outer component guards against uninitialized CanvasKit on web.
  */
-export function VolumeChart({ data }: Props) {
+export function VolumeChart({ data, unit = 'kg' }: Props) {
   const t = useTheme();
   const skiaAvailable = useSkiaAvailable();
 
@@ -35,11 +35,11 @@ export function VolumeChart({ data }: Props) {
     );
   }
 
-  return <VolumeChartInner data={data} />;
+  return <VolumeChartInner data={data} unit={unit} />;
 }
 
 /** Only mounts after CanvasKit is initialized — Skia hooks are safe here. */
-function VolumeChartInner({ data }: Props) {
+function VolumeChartInner({ data, unit = 'kg' }: Props) {
   const t = useTheme();
   const font = useFont(require('../../assets/fonts/Roboto-Regular.ttf'), 10);
 
@@ -50,7 +50,7 @@ function VolumeChartInner({ data }: Props) {
   return (
     <View>
       <View style={styles.chartMeta}>
-        <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>Volume (kg × reps)</Text>
+        <Text style={[styles.yAxisLabel, { color: t.textSecondary }]}>Volume ({unit} × reps)</Text>
       </View>
       <View style={styles.chart}>
         <CartesianChart
@@ -97,7 +97,7 @@ function VolumeChartInner({ data }: Props) {
       <Text style={[styles.xAxisLabel, { color: t.textSecondary }]}>Workout</Text>
       <View style={styles.footer}>
         <Text style={[styles.footerDate, { color: t.textSecondary }]}>{first.label}</Text>
-        <Text style={styles.footerStat}>Latest: {Math.round(latest.y).toLocaleString()} kg·reps</Text>
+        <Text style={styles.footerStat}>Latest: {Math.round(latest.y).toLocaleString()} {unit}·reps</Text>
         <Text style={[styles.footerDate, { color: t.textSecondary }]}>{latest.label}</Text>
       </View>
     </View>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, StyleSheet, ActivityIndicator, Alert,
@@ -8,11 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { TemplatePicker } from '@/components/workout/TemplatePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { createWorkoutWithSets } from '@/hooks/useWorkouts';
-import { createAssignedWorkout } from '@/hooks/useAssignedWorkouts';
+import { useAssignedWorkoutDetail, updateAssignedWorkout, deleteAssignedWorkout } from '@/hooks/useAssignedWorkouts';
 import { useExercises } from '@/hooks/useExercises';
-import { useClients } from '@/hooks/useClients';
-import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Exercise } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
@@ -22,7 +19,6 @@ function getSupersetColor(group: number): string {
   return SUPERSET_COLORS[(group - 1) % SUPERSET_COLORS.length];
 }
 
-type Mode = 'log' | 'assign';
 type WeightUnit = 'lbs' | 'kg' | 'secs';
 type SetRow = { reps: string; amount: string; notes: string };
 type ExerciseBlock = { exercise: Exercise; sets: SetRow[]; linkedToNext: boolean; unit: WeightUnit };
@@ -38,49 +34,83 @@ function resolveAmount(raw: string, unit: WeightUnit): { weight_kg: number | nul
 }
 
 const EMPTY_SET: SetRow = { reps: '', amount: '', notes: '' };
-
 const EMPTY_BLOCK = (exercise: Exercise): ExerciseBlock =>
   ({ exercise, sets: [{ ...EMPTY_SET }], linkedToNext: false, unit: 'lbs' });
 
 function formatDate(iso: string) {
-  // Avoid timezone shift by parsing as local date
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
 }
 
-function getTomorrow(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
-}
-
-export default function NewWorkoutScreen() {
-  const { clientId } = useLocalSearchParams<{ clientId: string }>();
+export default function EditAssignedWorkoutScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { user } = useAuth();
   const t = useTheme();
   const { exercises: allExercises } = useExercises();
-  const { clients } = useClients();
-  // ── mode ──
-  const [mode, setMode] = useState<Mode>('log');
-  // ── log-now state ──
-  const [workedOutWith, setWorkedOutWith] = useState<Set<string>>(new Set());
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const { assignedWorkout, loading, error } = useAssignedWorkoutDetail(id);
+
+  const [initialized, setInitialized] = useState(false);
+  const [title, setTitle] = useState('');
+  const [scheduledDate, setScheduledDate] = useState('');
   const [showCalendar, setShowCalendar] = useState(false);
-  const [bodyWeight, setBodyWeight] = useState('');
-  const [bodyFat, setBodyFat] = useState('');
-  // ── assign-for-later state ──
-  const [scheduledDate, setScheduledDate] = useState(getTomorrow);
-  const [showScheduledCalendar, setShowScheduledCalendar] = useState(false);
-  const [workoutTitle, setWorkoutTitle] = useState('');
-  // ── shared state ──
-  const [blocks, setBlocks] = useState<ExerciseBlock[]>([]);
   const [workoutNotes, setWorkoutNotes] = useState('');
+  const [blocks, setBlocks] = useState<ExerciseBlock[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function performDelete() {
+    setIsDeleting(true);
+    const { error: delErr } = await deleteAssignedWorkout(id ?? '');
+    setIsDeleting(false);
+    if (delErr) { setDeleteError(delErr); return; }
+    router.back();
+  }
+
+  // Populate state once the assigned workout loads
+  useEffect(() => {
+    if (!assignedWorkout || initialized) return;
+    setTitle(assignedWorkout.title ?? '');
+    setScheduledDate(assignedWorkout.scheduled_date);
+    setWorkoutNotes(assignedWorkout.notes ?? '');
+
+    const loaded: ExerciseBlock[] = assignedWorkout.exercises.map((ex, i) => {
+      const next = assignedWorkout.exercises[i + 1];
+      const linkedToNext =
+        ex.superset_group != null && next != null && next.superset_group === ex.superset_group;
+      // Infer unit from stored data: secs if duration_seconds, kg if weight_kg, else default lbs
+      const firstSet = ex.sets[0];
+      const unit: WeightUnit =
+        firstSet?.duration_seconds != null ? 'secs' :
+        firstSet?.weight_kg != null ? 'kg' :
+        'lbs';
+      return {
+        exercise: ex.exercise,
+        sets: ex.sets.length > 0
+          ? ex.sets.map((s) => ({
+              reps: s.reps != null ? String(s.reps) : '',
+              amount: s.duration_seconds != null ? String(s.duration_seconds)
+                    : s.weight_kg != null ? String(s.weight_kg)
+                    : '',
+              notes: s.notes ?? '',
+            }))
+          : [{ ...EMPTY_SET }],
+        linkedToNext,
+        unit,
+      };
+    });
+    setBlocks(loaded);
+    setInitialized(true);
+  }, [assignedWorkout, initialized]);
+
+  function updateBlockUnit(bi: number, unit: WeightUnit) {
+    setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, unit } : b));
+  }
 
   function addExercise(exercise: Exercise) {
     setBlocks((prev) => [...prev, EMPTY_BLOCK(exercise)]);
@@ -89,7 +119,6 @@ export default function NewWorkoutScreen() {
   function removeBlock(bi: number) {
     setBlocks((prev) => {
       const next = prev.filter((_, i) => i !== bi);
-      // If the removed block was linked to next, unlink the previous block
       if (bi > 0 && prev[bi - 1].linkedToNext && bi === prev.length - 1) {
         return next.map((b, i) => i === bi - 1 ? { ...b, linkedToNext: false } : b);
       }
@@ -101,10 +130,6 @@ export default function NewWorkoutScreen() {
     setBlocks((prev) =>
       prev.map((b, i) => i === bi ? { ...b, sets: [...b.sets, { ...EMPTY_SET }] } : b)
     );
-  }
-
-  function updateBlockUnit(bi: number, unit: WeightUnit) {
-    setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, unit } : b));
   }
 
   function updateSet(bi: number, si: number, field: keyof SetRow, value: string) {
@@ -125,37 +150,27 @@ export default function NewWorkoutScreen() {
     setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, linkedToNext: !b.linkedToNext } : b));
   }
 
-  function isInSuperset(bi: number): boolean {
-    return blocks[bi].linkedToNext || (bi > 0 && blocks[bi - 1].linkedToNext);
-  }
-
   function handleSelectTemplate(template: WorkoutTemplate) {
     const matched: ExerciseBlock[] = [];
     const skipped: string[] = [];
-
     for (const name of template.exerciseNames) {
       const exercise = allExercises.find(
         (e) => e.name.trim().toLowerCase() === name.trim().toLowerCase()
       );
-      if (exercise) {
-        matched.push(EMPTY_BLOCK(exercise));
-      } else {
-        skipped.push(name);
-      }
+      if (exercise) matched.push(EMPTY_BLOCK(exercise));
+      else skipped.push(name);
     }
-
     const apply = () => {
       setBlocks(matched);
       setShowTemplatePicker(false);
       if (skipped.length > 0) {
         Alert.alert(
           'Some exercises not found',
-          `The following exercises aren't in your library yet and were skipped:\n\n${skipped.join('\n')}\n\nYou can add them manually.`,
+          `The following exercises aren't in your library yet and were skipped:\n\n${skipped.join('\n')}`,
           [{ text: 'OK' }],
         );
       }
     };
-
     if (blocks.length > 0) {
       Alert.alert(
         'Replace current workout?',
@@ -170,10 +185,8 @@ export default function NewWorkoutScreen() {
     }
   }
 
-  async function handleAssign() {
-    if (!user) { Alert.alert('Not signed in', 'Please sign in to assign workouts.'); return; }
-    if (!clientId) { Alert.alert('No client', 'No client selected. Please go back and try again.'); return; }
-    if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before assigning.'); return; }
+  async function handleSave() {
+    if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before saving.'); return; }
 
     let groupCounter = 0;
     const blockGroups: (number | null)[] = new Array(blocks.length).fill(null);
@@ -199,83 +212,18 @@ export default function NewWorkoutScreen() {
     }));
 
     setSaving(true);
-    try {
-      const { error } = await createAssignedWorkout(
-        Array.isArray(clientId) ? clientId[0] : clientId,
-        user.id,
-        {
-          title: workoutTitle.trim() || null,
-          scheduled_date: scheduledDate,
-          notes: workoutNotes.trim() || null,
-          exercises,
-        },
-      );
-      if (error) {
-        Alert.alert('Error saving assigned workout', error);
-      } else {
-        Alert.alert(
-          'Workout Assigned',
-          `Workout assigned for ${formatDate(scheduledDate)}.`,
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
-      }
-    } catch (e) {
-      Alert.alert('Unexpected error', e instanceof Error ? e.message : String(e));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleSave() {
-    if (!user || !clientId) return;
-    if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before saving.'); return; }
-
-    // Compute superset_group per block using linkedToNext chain
-    let groupCounter = 0;
-    const blockGroups: (number | null)[] = new Array(blocks.length).fill(null);
-    for (let i = 0; i < blocks.length - 1; i++) {
-      if (blocks[i].linkedToNext) {
-        if (blockGroups[i] === null) blockGroups[i] = ++groupCounter;
-        blockGroups[i + 1] = blockGroups[i];
-      }
-    }
-
-    const allSets = blocks.flatMap((b, bi) =>
-      b.sets
-        .filter((s) => s.reps.trim() !== '' || s.amount.trim() !== '')
-        .map((s, si) => ({
-          exercise_id: b.exercise.id,
-          set_number: si + 1,
-          superset_group: blockGroups[bi],
-          reps: s.reps.trim() ? parseInt(s.reps, 10) : null,
-          ...resolveAmount(s.amount, b.unit),
-          notes: s.notes.trim() || null,
-        }))
-    );
-    if (allSets.length === 0) { Alert.alert('No sets entered', 'Add at least one set with reps or weight.'); return; }
-
-    const wVal = bodyWeight.trim() ? parseFloat(bodyWeight) : NaN;
-    const bfVal = bodyFat.trim() ? parseFloat(bodyFat) : NaN;
-
-    setSaving(true);
-    const { error } = await createWorkoutWithSets(
-      {
-        client_id: clientId,
-        trainer_id: user.id,
-        performed_at: date,
-        notes: workoutNotes.trim() || null,
-        body_weight_kg: !isNaN(wVal) && wVal > 0 ? wVal : null,
-        body_fat_percent: !isNaN(bfVal) && bfVal >= 0 && bfVal < 100 ? bfVal : null,
-      },
-      allSets,
-      [...workedOutWith],
-    );
+    const { error: saveErr } = await updateAssignedWorkout(id, {
+      title: title.trim() || null,
+      scheduled_date: scheduledDate,
+      notes: workoutNotes.trim() || null,
+      exercises,
+    });
     setSaving(false);
-    if (error) Alert.alert('Error', error);
+    if (saveErr) Alert.alert('Error', saveErr);
     else router.back();
   }
 
-  // ── Template picker ───────────────────────────────────────────────
+  // ── Template picker ──
   if (showTemplatePicker) {
     return (
       <TemplatePicker
@@ -285,7 +233,7 @@ export default function NewWorkoutScreen() {
     );
   }
 
-  // ── Exercise picker ───────────────────────────────────────────────
+  // ── Exercise picker ──
   if (showPicker) {
     return (
       <ExercisePicker
@@ -295,7 +243,23 @@ export default function NewWorkoutScreen() {
     );
   }
 
-  // Compute superset group numbers for display coloring
+  if (loading) {
+    return (
+      <View style={[styles.centered, { backgroundColor: t.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (error || !assignedWorkout) {
+    return (
+      <View style={[styles.centered, { backgroundColor: t.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error ?? 'Workout not found.'}</Text>
+      </View>
+    );
+  }
+
+  // Compute superset group display colors
   const displayGroups: (number | null)[] = new Array(blocks.length).fill(null);
   let _gc = 0;
   for (let i = 0; i < blocks.length - 1; i++) {
@@ -305,161 +269,73 @@ export default function NewWorkoutScreen() {
     }
   }
 
-  // ── Workout builder ───────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
       <Stack.Screen
         options={{
-          title: mode === 'log' ? 'Log Workout' : 'Assign Workout',
+          headerShown: true,
+          title: 'Edit Assigned Workout',
+          headerStyle: { backgroundColor: t.surface },
+          headerTintColor: t.textPrimary,
+          headerTitleStyle: { fontWeight: '700' as const },
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
               <Ionicons name="chevron-back" size={24} color={colors.primary} />
             </TouchableOpacity>
           ),
           headerRight: () => (
-            <TouchableOpacity onPress={() => router.replace('/(tabs)/' as never)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="home-outline" size={22} color={colors.primary} />
+            <TouchableOpacity
+              onPress={() => { setConfirmingDelete(true); setDeleteError(null); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.headerBtn}
+            >
+              <Ionicons name="trash-outline" size={22} color={colors.error} />
             </TouchableOpacity>
           ),
         }}
       />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={[styles.header, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-          {/* ── Mode toggle ── */}
-          <View style={[styles.modeToggle, { backgroundColor: t.background, borderColor: t.border }]}>
-            {(['log', 'assign'] as Mode[]).map((m) => {
-              const active = mode === m;
-              return (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.modeBtn, active && styles.modeBtnActive]}
-                  onPress={() => setMode(m)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.modeBtnText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                    {m === 'log' ? 'Log Now' : 'Assign for Later'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {mode === 'log' ? (
-            <>
-              <TouchableOpacity
-                style={styles.dateTouchable}
-                onPress={() => setShowCalendar((v) => !v)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.dateLabel, { color: t.textPrimary }]}>{formatDate(date)}</Text>
-                <Ionicons
-                  name={showCalendar ? 'calendar' : 'calendar-outline'}
-                  size={18}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
-              {showCalendar && (
-                <DatePicker
-                  value={date}
-                  onChange={(d) => { setDate(d); setShowCalendar(false); }}
-                />
-              )}
-              <View style={styles.metricsRow}>
-                <View style={styles.metricCol}>
-                  <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Body weight (kg)</Text>
-                  <TextInput
-                    style={[styles.metricInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-                    placeholder="Optional"
-                    placeholderTextColor={t.textSecondary}
-                    keyboardType="decimal-pad"
-                    value={bodyWeight}
-                    onChangeText={setBodyWeight}
-                  />
-                </View>
-                <View style={styles.metricCol}>
-                  <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Body fat (%)</Text>
-                  <TextInput
-                    style={[styles.metricInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-                    placeholder="Optional"
-                    placeholderTextColor={t.textSecondary}
-                    keyboardType="decimal-pad"
-                    value={bodyFat}
-                    onChangeText={setBodyFat}
-                  />
-                </View>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Workout Title</Text>
-              <TextInput
-                style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
-                placeholder="e.g. Upper Body A"
-                placeholderTextColor={t.textSecondary}
-                value={workoutTitle}
-                onChangeText={setWorkoutTitle}
-              />
-              <TouchableOpacity
-                style={styles.dateTouchable}
-                onPress={() => setShowScheduledCalendar((v) => !v)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Scheduled Date</Text>
-                <View style={styles.dateTouchableRight}>
-                  <Text style={[styles.dateLabel, { color: t.textPrimary }]}>{formatDate(scheduledDate)}</Text>
-                  <Ionicons
-                    name={showScheduledCalendar ? 'calendar' : 'calendar-outline'}
-                    size={18}
-                    color={colors.primary}
-                  />
-                </View>
-              </TouchableOpacity>
-              {showScheduledCalendar && (
-                <DatePicker
-                  value={scheduledDate}
-                  onChange={(d) => { setScheduledDate(d); setShowScheduledCalendar(false); }}
-                />
-              )}
-            </>
-          )}
-
+          <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Workout Title</Text>
           <TextInput
             style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
-            placeholder={mode === 'log' ? 'Workout notes (optional)' : 'Instructions for client (optional)'}
+            placeholder="e.g. Upper Body A"
+            placeholderTextColor={t.textSecondary}
+            value={title}
+            onChangeText={setTitle}
+          />
+          <TouchableOpacity
+            style={styles.dateTouchable}
+            onPress={() => setShowCalendar((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Scheduled Date</Text>
+            <View style={styles.dateTouchableRight}>
+              <Text style={[styles.dateLabel, { color: t.textPrimary }]}>
+                {scheduledDate ? formatDate(scheduledDate) : '—'}
+              </Text>
+              <Ionicons
+                name={showCalendar ? 'calendar' : 'calendar-outline'}
+                size={18}
+                color={colors.primary}
+              />
+            </View>
+          </TouchableOpacity>
+          {showCalendar && scheduledDate && (
+            <DatePicker
+              value={scheduledDate}
+              onChange={(d) => { setScheduledDate(d); setShowCalendar(false); }}
+            />
+          )}
+          <TextInput
+            style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
+            placeholder="Instructions for client (optional)"
             placeholderTextColor={t.textSecondary}
             value={workoutNotes}
             onChangeText={setWorkoutNotes}
             multiline
           />
         </View>
-
-        {/* Worked out with — only shown in Log Now mode */}
-        {mode === 'log' && clients.filter((c) => c.id !== clientId).length > 0 && (
-          <View style={[styles.groupSection, { backgroundColor: t.surface, borderColor: t.border }]}>
-            <Text style={[styles.groupLabel, { color: t.textSecondary }]}>Worked out with</Text>
-            {clients.filter((c) => c.id !== clientId).map((c) => {
-              const selected = workedOutWith.has(c.id);
-              return (
-                <TouchableOpacity
-                  key={c.id}
-                  style={styles.groupRow}
-                  onPress={() => setWorkedOutWith((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
-                    return next;
-                  })}
-                >
-                  <Ionicons
-                    name={selected ? 'checkbox' : 'square-outline'}
-                    size={20}
-                    color={selected ? colors.primary : t.textSecondary as string}
-                  />
-                  <Text style={[styles.groupClientName, { color: t.textPrimary }]}>{c.full_name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
 
         {blocks.length === 0 && (
           <View style={styles.emptyState}>
@@ -479,7 +355,6 @@ export default function NewWorkoutScreen() {
 
           return (
             <View key={bi}>
-              {/* Superset connector pill between blocks */}
               {isLinkedFromPrev && supersetColor && (
                 <View style={styles.supersetConnector}>
                   <View style={[styles.supersetLine, { backgroundColor: supersetColor }]} />
@@ -487,7 +362,6 @@ export default function NewWorkoutScreen() {
                   <View style={[styles.supersetLine, { backgroundColor: supersetColor }]} />
                 </View>
               )}
-
               <View style={[
                 styles.blockCard,
                 { backgroundColor: t.surface, borderColor: t.border },
@@ -496,15 +370,13 @@ export default function NewWorkoutScreen() {
                 <View style={[styles.blockHeader, { backgroundColor: t.background, borderBottomColor: t.border }]}>
                   <View style={styles.exerciseInfo}>
                     <Text style={[styles.blockName, { color: t.textPrimary }]}>{block.exercise.name}</Text>
-                    {block.exercise.muscle_group ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{block.exercise.muscle_group}</Text> : null}
+                    {block.exercise.muscle_group
+                      ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{block.exercise.muscle_group}</Text>
+                      : null}
                   </View>
                   <View style={styles.blockHeaderActions}>
-                    {/* Chain/link icon — available on all blocks except the last (linking "this to next") */}
                     {bi < blocks.length - 1 && (
-                      <TouchableOpacity
-                        onPress={() => toggleLink(bi)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
+                      <TouchableOpacity onPress={() => toggleLink(bi)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                         <Ionicons
                           name={isLinkedToNext ? 'link' : 'link-outline'}
                           size={18}
@@ -579,71 +451,56 @@ export default function NewWorkoutScreen() {
         </View>
       </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-        onPress={mode === 'log' ? handleSave : handleAssign}
-        disabled={saving}
-      >
-        {saving
-          ? <ActivityIndicator color={colors.textInverse} />
-          : <Text style={styles.saveBtnText}>{mode === 'log' ? 'Save Workout' : 'Assign Workout'}</Text>}
-      </TouchableOpacity>
+      {!confirmingDelete && (
+        <TouchableOpacity
+          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? <ActivityIndicator color={colors.textInverse} /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
+        </TouchableOpacity>
+      )}
+
+      {confirmingDelete && (
+        <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
+          <Text style={[styles.deleteBarText, { color: t.textPrimary }]}>
+            Delete this assigned workout?
+          </Text>
+          {deleteError ? <Text style={styles.deleteBarError}>{deleteError}</Text> : null}
+          <View style={styles.deleteBarButtons}>
+            <TouchableOpacity
+              onPress={() => { setConfirmingDelete(false); setDeleteError(null); }}
+              style={[styles.deleteCancelBtn, { borderColor: t.border }]}
+            >
+              <Text style={[styles.deleteCancelText, { color: t.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={performDelete}
+              disabled={isDeleting}
+              style={[styles.deleteConfirmBtn, isDeleting && styles.saveBtnDisabled]}
+            >
+              {isDeleting
+                ? <ActivityIndicator size="small" color={colors.textInverse} />
+                : <Text style={styles.deleteConfirmText}>Delete</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   headerBtn: { marginRight: spacing.sm },
-  // ── Mode toggle ──
-  modeToggle: {
-    flexDirection: 'row', borderRadius: radius.md, borderWidth: 1,
-    overflow: 'hidden', marginBottom: spacing.xs,
-  },
-  modeBtn: {
-    flex: 1, paddingVertical: spacing.sm, alignItems: 'center',
-  },
-  modeBtnActive: { backgroundColor: colors.primary },
-  modeBtnText: { ...typography.body, fontWeight: '600' },
-  dateTouchableRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  loader: { marginTop: spacing.xl },
-  pickerHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    padding: spacing.md, borderBottomWidth: 1,
-  },
-  backBtn: { padding: spacing.xs },
-  searchInput: {
-    ...typography.body, flex: 1, borderWidth: 1, borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, height: 40,
-  },
-  exerciseList: { padding: spacing.md, gap: spacing.sm },
-  exerciseRow: {
-    borderRadius: radius.md, padding: spacing.md, borderWidth: 1,
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-  },
-  exerciseInfo: { flex: 1 },
-  exerciseName: { ...typography.body, fontWeight: '600' },
-  muscleGroup: { ...typography.bodySmall, marginTop: 2 },
-  emptyText: { ...typography.body, textAlign: 'center', marginTop: spacing.xl },
+  errorText: { ...typography.body, textAlign: 'center', paddingHorizontal: spacing.lg },
   scroll: { gap: spacing.md, paddingBottom: spacing.xxl },
   header: { padding: spacing.md, gap: spacing.sm, borderBottomWidth: 1 },
   dateTouchable: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dateTouchableRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   dateLabel: { ...typography.body, fontWeight: '600' },
-  metricsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  metricCol: {
-    flex: 1,
-    gap: 4,
-  },
-  metricLabel: {
-    ...typography.label,
-  },
-  metricInput: {
-    ...typography.body, borderWidth: 1, borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, height: 40,
-  },
+  metricLabel: { ...typography.label },
   notesInput: {
     ...typography.body, borderWidth: 1, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minHeight: 40,
@@ -659,10 +516,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     padding: spacing.md, paddingBottom: spacing.sm, borderBottomWidth: 1,
   },
-  blockHeaderActions: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-  },
+  blockHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   blockName: { ...typography.body, fontWeight: '600' },
+  exerciseInfo: { flex: 1 },
+  muscleGroup: { ...typography.bodySmall, marginTop: 2 },
   colHeader: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing.md, gap: spacing.xs,
@@ -689,9 +546,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary, gap: spacing.xs,
   },
   addSetBtnText: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
-  actionRow: {
-    flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.md,
-  },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.md },
   actionFlex: { flex: 1, marginHorizontal: 0 },
   addExerciseBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -708,21 +563,19 @@ const styles = StyleSheet.create({
   saveBtn: { margin: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
-  groupSection: {
-    marginHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1,
-    padding: spacing.md, gap: spacing.sm,
-  },
-  groupLabel: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
-  groupRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
-  groupClientName: { ...typography.body },
-  // Superset connector
+  deleteBar: { borderTopWidth: 1, padding: spacing.md, gap: spacing.sm },
+  deleteBarText: { ...typography.body },
+  deleteBarError: { ...typography.bodySmall, color: colors.error },
+  deleteBarButtons: { flexDirection: 'row', gap: spacing.sm },
+  deleteCancelBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, borderWidth: 1 },
+  deleteCancelText: { ...typography.body },
+  deleteConfirmBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.error },
+  deleteConfirmText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
   supersetConnector: {
     flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: spacing.md + 3, // align with left border
+    marginHorizontal: spacing.md + 3,
     marginVertical: 2, gap: spacing.xs,
   },
   supersetLine: { flex: 1, height: 1 },
-  supersetBadge: {
-    ...typography.label, fontWeight: '700', letterSpacing: 1,
-  },
+  supersetBadge: { ...typography.label, fontWeight: '700', letterSpacing: 1 },
 });

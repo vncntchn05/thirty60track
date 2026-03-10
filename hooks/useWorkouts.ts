@@ -100,6 +100,7 @@ export function useWorkoutDetail(workoutId: string) {
       .select(`
         id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, workout_group_id, logged_by_role, logged_by_user_id, created_at, updated_at,
         trainer:trainers(full_name),
+        client:clients!client_id(full_name),
         workout_sets (
           id, workout_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes, superset_group, created_at,
           exercise:exercises ( id, name, muscle_group, category, form_notes, help_url, created_at )
