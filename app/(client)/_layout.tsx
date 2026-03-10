@@ -76,6 +76,13 @@ export default function ClientLayout() {
         }}
       />
       <Tabs.Screen
+        name="nutrition"
+        options={{
+          title: 'Nutrition',
+          tabBarIcon: tabIcon('nutrition-outline', 'nutrition'),
+        }}
+      />
+      <Tabs.Screen
         name="media"
         options={{
           title: 'Media',

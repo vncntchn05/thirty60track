@@ -13,6 +13,7 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 import type { Client, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake, AssignedWorkoutWithDetails } from '@/types';
 import { MediaGallery } from '@/components/client/MediaGallery';
 import ReportCardButton from '@/components/client/ReportCardButton';
+import { NutritionTab } from '@/components/nutrition/NutritionTab';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
@@ -33,7 +34,7 @@ function fmt(v: number | null, unit: string): string {
   return v != null ? `${v}${unit}` : '—';
 }
 
-type Tab = 'progress' | 'workouts' | 'media';
+type Tab = 'progress' | 'workouts' | 'nutrition' | 'media';
 type Theme = ReturnType<typeof useTheme>;
 
 // ─── Screen ───────────────────────────────────────────────────────
@@ -106,11 +107,12 @@ export default function ClientDetailScreen() {
 
       {/* ── Tab bar ── */}
       <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-        {(['progress', 'workouts', 'media'] as Tab[]).map((tab) => {
+        {(['progress', 'workouts', 'nutrition', 'media'] as Tab[]).map((tab) => {
           const active = activeTab === tab;
           const label =
-            tab === 'progress' ? 'Progress'
-            : tab === 'workouts' ? `Workouts${workouts.length ? ` (${workouts.length})` : ''}`
+            tab === 'progress'  ? 'Progress'
+            : tab === 'workouts'  ? `Workouts${workouts.length ? ` (${workouts.length})` : ''}`
+            : tab === 'nutrition' ? 'Nutrition'
             : 'Media';
           return (
             <Pressable key={tab} style={styles.tabItem} onPress={() => setActiveTab(tab)}>
@@ -172,6 +174,9 @@ export default function ClientDetailScreen() {
           }
         />
       )}
+
+      {/* ── Nutrition tab ── */}
+      {activeTab === 'nutrition' && <NutritionTab clientId={client.id} canEditGoal />}
 
       {/* ── Media tab ── */}
       {activeTab === 'media' && <MediaGallery clientId={client.id} />}

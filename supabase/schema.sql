@@ -518,3 +518,83 @@ CREATE POLICY "clients_update_assigned_workouts" ON assigned_workouts
   FOR UPDATE USING (
     client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
   );
+
+-- ─── Migration 014: Nutrition tracking ───────────────────────────
+
+CREATE TABLE nutrition_logs (
+  id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id         UUID        NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  trainer_id        UUID        NOT NULL REFERENCES trainers(id),
+  logged_date       DATE        NOT NULL,
+  meal_type         TEXT        NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
+  food_name         TEXT        NOT NULL,
+  serving_size_g    NUMERIC(7,2) NOT NULL DEFAULT 100,
+  calories          NUMERIC(7,2),
+  protein_g         NUMERIC(7,2),
+  carbs_g           NUMERIC(7,2),
+  fat_g             NUMERIC(7,2),
+  fiber_g           NUMERIC(7,2),
+  usda_food_id      TEXT,
+  logged_by_role    TEXT        NOT NULL DEFAULT 'trainer' CHECK (logged_by_role IN ('trainer', 'client')),
+  logged_by_user_id UUID,
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_nutrition_logs_client_date ON nutrition_logs(client_id, logged_date);
+
+ALTER TABLE nutrition_logs ENABLE ROW LEVEL SECURITY;
+
+-- Trainers: full access to their clients' logs
+CREATE POLICY "trainer_all_nutrition_logs" ON nutrition_logs
+  FOR ALL USING (trainer_id = auth.uid());
+
+-- Clients: read own logs
+CREATE POLICY "clients_read_own_nutrition_logs" ON nutrition_logs
+  FOR SELECT USING (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+-- Clients: insert own logs
+CREATE POLICY "clients_insert_own_nutrition_logs" ON nutrition_logs
+  FOR INSERT WITH CHECK (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+-- Clients: delete their own logged entries only
+CREATE POLICY "clients_delete_own_nutrition_logs" ON nutrition_logs
+  FOR DELETE USING (
+    logged_by_role = 'client'
+    AND logged_by_user_id = auth.uid()
+    AND client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+-- ── Nutrition goals (one row per client, upserted by trainer) ─────
+
+CREATE TABLE nutrition_goals (
+  id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id    UUID         NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+  trainer_id   UUID         NOT NULL REFERENCES trainers(id),
+  calories     NUMERIC(7,2) NOT NULL,
+  protein_pct  NUMERIC(5,2) NOT NULL,
+  carbs_pct    NUMERIC(5,2) NOT NULL,
+  fat_pct      NUMERIC(5,2) NOT NULL,
+  created_at   TIMESTAMPTZ  DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ  DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS nutrition_goals_updated_at ON nutrition_goals;
+CREATE TRIGGER nutrition_goals_updated_at
+  BEFORE UPDATE ON nutrition_goals
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE nutrition_goals ENABLE ROW LEVEL SECURITY;
+
+-- Trainers: full access
+CREATE POLICY "trainer_all_nutrition_goals" ON nutrition_goals
+  FOR ALL USING (trainer_id = auth.uid());
+
+-- Clients: read own goal
+CREATE POLICY "clients_read_own_nutrition_goals" ON nutrition_goals
+  FOR SELECT USING (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
