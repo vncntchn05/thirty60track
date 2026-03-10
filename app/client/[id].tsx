@@ -12,6 +12,7 @@ import { useAssignedWorkoutsForClient } from '@/hooks/useAssignedWorkouts';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Client, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake, AssignedWorkoutWithDetails } from '@/types';
 import { MediaGallery } from '@/components/client/MediaGallery';
+import ReportCardButton from '@/components/client/ReportCardButton';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
@@ -133,6 +134,7 @@ export default function ClientDetailScreen() {
             t={t}
           />
           <MetricsCard client={client} onUpdate={updateClient} t={t} />
+          <ReportCardButton clientId={client.id} clientName={client.full_name} />
           <Suspense fallback={<ActivityIndicator size="small" color={colors.primary} style={styles.progressLoader} />}>
             <ProgressSection clientId={client.id} />
           </Suspense>

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { colors, spacing, useTheme } from '@/constants/theme';
+import ReportCardButton from '@/components/client/ReportCardButton';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
@@ -15,9 +16,12 @@ export default function ClientProgressScreen() {
       contentContainerStyle={styles.content}
     >
       {clientId ? (
-        <Suspense fallback={<ActivityIndicator size="small" color={colors.primary} style={styles.loader} />}>
-          <ProgressSection clientId={clientId} />
-        </Suspense>
+        <>
+          <ReportCardButton clientId={clientId} />
+          <Suspense fallback={<ActivityIndicator size="small" color={colors.primary} style={styles.loader} />}>
+            <ProgressSection clientId={clientId} />
+          </Suspense>
+        </>
       ) : null}
     </ScrollView>
   );

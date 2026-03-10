@@ -115,7 +115,7 @@ Clients have their own separate tab navigator with distinct screens:
 - [x] **Workout history** — list of all logged sessions with date, logged-by name (trainer or client), and notes; pending assigned workouts shown at the top
 - [x] **Self-log workouts** — clients can log their own workouts (exercises + sets + body metrics) with per-exercise unit toggle
 - [x] **Complete assigned workouts** — pre-filled prescribed sets; client fills in actual values and confirms via a bottom confirmation bar; saved to workout log automatically
-- [x] **Progress tab** — same frequency/volume/body composition/exercise charts as the trainer view
+- [x] **Progress tab** — same frequency/volume/body composition/exercise charts as the trainer view; includes Performance Report Card button
 - [x] **Media tab** — view photo/video gallery
 - [x] **Profile tab** — view personal info and body metrics (trainer-managed); edit health & fitness intake info
 - [x] Correct logged-by name shown on all workouts (trainer name for trainer-logged; client name for client-logged) in both list and detail views
@@ -151,7 +151,13 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] **Custom range** — tap "Custom" to open a calendar picker; select a start and end date; workout dates are highlighted with dots; selected range shown as a coloured strip; chip displays the chosen date span (e.g. "Jan 1 – Feb 28")
 
 - [ ] Personal records (PRs) tracking
-- [ ] Export progress data (CSV or PDF)
+
+#### Performance Report Card
+- [x] **Report Card button** — available on both the trainer's Progress tab (client detail) and the client's own Progress tab
+- [x] **Period selection** — This Week / Last 4 Weeks / Last 12 Weeks / Custom (calendar picker with workout dots, same pattern as chart range picker)
+- [x] **Generated PDF includes:** summary stats (sessions, total sets, volume, new PRs), body progress (start/end/Δ per metric + side-by-side line charts for weight, body fat, and lean mass), and exercise bests with PR flag
+- [x] **Native share** — PDF file generated via `expo-print`, shared via system share sheet (`expo-sharing`)
+- [x] **Web** — HTML report opens in a new tab and auto-triggers the browser print dialog (Save as PDF); default filename set from `<title>`
 
 ### UI & Theme
 - [x] **Forced dark theme** — deep charcoal (`#111111`) background, `#1C1C1C` surfaces, gold (`#B88C32`) accents across iOS, Android, and Web
@@ -237,6 +243,7 @@ components/
   client/
     MediaGallery.tsx          # Photo/video gallery — grid, upload modal, detail/edit modal
     IntakeForm.tsx            # Client intake form (first-time and edit modes)
+    ReportCardButton.tsx      # Period picker + data fetching + PDF generation trigger
   ui/
     DatePicker.tsx            # Single date selection component
     DateRangePicker.tsx       # Calendar modal — range selection with workout dot indicators
@@ -259,9 +266,10 @@ constants/
   workoutTemplates.ts   # Seed data shape for the 16 built-in templates
 
 lib/
-  supabase.ts          # Supabase client singleton
-  auth.tsx             # AuthContext + useAuth (role detection, client linking, auth recovery)
-  slugify.ts           # Name → URL slug helpers (clientSlug, slugify)
+  supabase.ts              # Supabase client singleton
+  auth.tsx                 # AuthContext + useAuth (role detection, client linking, auth recovery)
+  slugify.ts               # Name → URL slug helpers (clientSlug, slugify)
+  generateReportPdf.ts     # HTML report builder + SVG chart generator + expo-print/sharing wrapper
 
 types/
   database.ts          # Manual TS types mirroring the DB schema (Client, ClientIntake, ActivityLevel…)
@@ -289,7 +297,7 @@ supabase/
 git clone <repo-url>
 cd thirty60track
 npm install
-npx expo install expo-image-picker expo-av
+npx expo install expo-image-picker expo-av expo-print expo-sharing expo-file-system
 ```
 
 ### 2. Configure environment
