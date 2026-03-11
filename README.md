@@ -38,8 +38,6 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] Delete client (confirmation alert before deletion)
 - [x] **Full intake form in trainer view** — all intake fields (emergency contact, occupation, health history, fitness goals) are viewable and editable directly in the Client Info card above body metrics; no separate tab
 - [x] **Health alert banner** — red warning at the top of the client detail page if current injuries or chronic conditions are on file; hidden when neither is set
-- [ ] Archive/deactivate client
-- [ ] Client profile photo
 
 ### Media Gallery
 - [x] Per-client photo and video gallery (Media tab on client detail screen)
@@ -70,7 +68,6 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] Workout notes per set
 - [x] **Worked out with** — select clients who trained in the same session; their workouts are created and kept in sync (add/edit/delete sets propagate to all group members automatically); exercise display order is preserved on all members' workout views; manage the group from the workout edit screen
 - [x] **Logged-by attribution** — workout list and detail screens show the correct name (trainer or client) for who logged each session
-- [ ] Rest timer
 
 ### Assigned Workouts
 - [x] Trainers can assign a workout to a client with a title, scheduled date, optional notes, and a full exercise + set prescription
@@ -116,6 +113,7 @@ Clients have their own separate tab navigator with distinct screens:
 - [x] **Self-log workouts** — clients can log their own workouts (exercises + sets + body metrics) with per-exercise unit toggle
 - [x] **Complete assigned workouts** — pre-filled prescribed sets; client fills in actual values and confirms via a bottom confirmation bar; saved to workout log automatically
 - [x] **Progress tab** — same frequency/volume/body composition/exercise charts as the trainer view; includes Performance Report Card button
+- [x] **Nutrition tab** — log daily meals, search USDA food database, view macro summary vs. daily goal (goal set by trainer)
 - [x] **Media tab** — view photo/video gallery
 - [x] **Profile tab** — view personal info and body metrics (trainer-managed); edit health & fitness intake info
 - [x] Correct logged-by name shown on all workouts (trainer name for trainer-logged; client name for client-logged) in both list and detail views
@@ -150,14 +148,26 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] Preset chips: 1M / 3M / 6M / 1Y / All
 - [x] **Custom range** — tap "Custom" to open a calendar picker; select a start and end date; workout dates are highlighted with dots; selected range shown as a coloured strip; chip displays the chosen date span (e.g. "Jan 1 – Feb 28")
 
-- [ ] Personal records (PRs) tracking
-
 #### Performance Report Card
 - [x] **Report Card button** — available on both the trainer's Progress tab (client detail) and the client's own Progress tab
 - [x] **Period selection** — This Week / Last 4 Weeks / Last 12 Weeks / Custom (calendar picker with workout dots, same pattern as chart range picker)
 - [x] **Generated PDF includes:** summary stats (sessions, total sets, volume, new PRs), body progress (start/end/Δ per metric + side-by-side line charts for weight, body fat, and lean mass), and exercise bests with PR flag
 - [x] **Native share** — PDF file generated via `expo-print`, shared via system share sheet (`expo-sharing`)
 - [x] **Web** — HTML report opens in a new tab and auto-triggers the browser print dialog (Save as PDF); default filename set from `<title>`
+
+### Nutrition Tracking
+
+- [x] **Daily nutrition log** — trainers and clients can log meals per day (Breakfast / Lunch / Dinner / Snack)
+- [x] **USDA food search** — search the USDA FoodData Central database by name; selecting a result auto-fills calorie and macro values scaled to the entered serving size
+- [x] **Manual entry** — add food manually without a USDA lookup (name + serving size + macros)
+- [x] **Serving size scaling** — changing the serving size in the add-food form instantly recalculates all macros
+- [x] **Daily macro summary** — calorie ring + protein / carbs / fat progress bars vs. goal; shown at the top of the Nutrition tab
+- [x] **Calorie & macro goals** — trainers set a daily calorie target and protein/carbs/fat percentage split per client; live gram previews while editing; macros must total 100%
+- [x] **Goal card auto-expands** — Daily Goal card starts expanded when no goal has been set yet
+- [x] Date navigation — prev/next day with arrows; capped at today
+- [x] Delete log entries — trainers can delete any entry; clients can only delete entries they logged themselves
+- [x] **Client Nutrition tab** — clients have a dedicated Nutrition screen in their tab navigator (same log view, goal read-only)
+- [x] Trainer Nutrition tab — accessible from the client detail screen (Progress / Workouts / Assigned / **Nutrition** / Media); full goal editing enabled
 
 ### UI & Theme
 - [x] **Forced dark theme** — deep charcoal (`#111111`) background, `#1C1C1C` surfaces, gold (`#B88C32`) accents across iOS, Android, and Web
@@ -169,12 +179,9 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] Safe back navigation — falls back to home if no navigation history (works on web direct links)
 - [x] **Name-based client URLs** — web routes use `/client/john-doe` instead of UUIDs; slug lookup with UUID fallback for backward compatibility
 - [x] **404 redirect** — unmatched routes redirect to the home screen
-- [x] Four-tab layout on client detail screen (Progress / Workouts / Assigned / Media)
+- [x] Five-tab layout on client detail screen (Progress / Workouts / Assigned / Nutrition / Media)
 - [x] Skia web initialization with CanvasKit CDN (charts work on web)
 - [x] Lazy-loaded chart section (CanvasKit loads before charts render)
-- [ ] Shared UI primitives library (Button, Card, Input)
-- [ ] Pull-to-refresh
-- [ ] Loading skeletons
 
 ---
 
@@ -192,6 +199,8 @@ client_media                — image/video metadata per client (storage_path, m
 assigned_workouts           — trainer-assigned workout prescriptions per client (title, scheduled_date, status)
 assigned_workout_exercises  — exercises within an assigned workout (exercise_id, order_index, superset_group)
 assigned_workout_sets       — prescribed sets per assigned exercise (reps, weight_kg, duration_seconds, notes)
+nutrition_logs              — per-meal food entries per client per day (food_name, serving_size_g, macros, usda_food_id, logged_by_role)
+nutrition_goals             — one row per client; daily calorie target + protein/carbs/fat percentage split
 ```
 
 `workout_sets.superset_group` is a nullable integer that groups exercises into supersets within a workout. Sets for exercises in the same superset share the same group number, scoped to the workout.
@@ -217,6 +226,7 @@ app/
   (client)/index.tsx                    # Client: home dashboard + intake gate (shows intake form on first login)
   (client)/workouts.tsx                 # Client: workout history + pending assigned workouts at top
   (client)/progress.tsx                 # Client: progress charts (same charts as trainer view)
+  (client)/nutrition.tsx                # Client: daily nutrition log + macro summary (goal read-only)
   (client)/media.tsx                    # Client: photo/video gallery
   (client)/profile.tsx                  # Client: personal info (read-only) + editable intake info
   (client)/workout/log.tsx              # Client: self-log a workout
@@ -259,6 +269,7 @@ hooks/
   useWorkoutTemplates.ts     # Template CRUD against the workout_templates table
   useClientProgress.ts       # Derives all chart data from workouts; hasWeight/hasDuration flags per exercise; duration progress series
   useClientMedia.ts          # Media CRUD — upload (blob → Storage → DB), update, delete
+  useNutrition.ts            # Nutrition log CRUD + goal upsert; fetches trainer_id from clients table for client accounts
   useTrainers.ts             # Fetch all trainers except the current user
 
 constants/
@@ -270,6 +281,15 @@ lib/
   auth.tsx                 # AuthContext + useAuth (role detection, client linking, auth recovery)
   slugify.ts               # Name → URL slug helpers (clientSlug, slugify)
   generateReportPdf.ts     # HTML report builder + SVG chart generator + expo-print/sharing wrapper
+  usda.ts                  # USDA FoodData Central search client; in-memory cache; per-100g macro scaling
+
+components/
+  nutrition/
+    NutritionTab.tsx       # Date nav + daily summary + goal editor + meal sections + add food modal
+    DailySummary.tsx       # Calorie ring + protein/carbs/fat progress bars vs. goal
+    GoalEditor.tsx         # Collapsible calorie target + macro % split editor (trainer only)
+    AddFoodModal.tsx       # Bottom sheet — USDA food search or manual entry; serving size scaling
+    MealSection.tsx        # Per-meal log entries with calorie subtotal + delete
 
 types/
   database.ts          # Manual TS types mirroring the DB schema (Client, ClientIntake, ActivityLevel…)
@@ -280,7 +300,7 @@ assets/
   Thirty60_logo.png     # Brand logo used in header and favicon
 
 supabase/
-  schema.sql                # Source-of-truth DDL (migrations 001–013)
+  schema.sql                # Source-of-truth DDL (migrations 001–014)
   seed.sql                  # 150+ exercises across all muscle groups
   seed_test_client.sql      # Full year of realistic test data (youth hockey player)
   migrations/
@@ -329,6 +349,7 @@ Run these in order in the **Supabase SQL Editor**:
 - **011** — `intake_completed BOOLEAN` on clients (default `false`); `client_intake` table with all intake fields; RLS policies for trainers and clients
 - **012** — `clients: client update own` RLS policy so clients can update their own row
 - **013** — `assigned_workouts`, `assigned_workout_exercises`, `assigned_workout_sets` tables; RLS for both trainers (full CRUD on their clients' assignments) and clients (read + complete their own); `assigned_workouts.status` enum (`assigned` | `completed`); `completed_workout_id` FK back to `workouts`
+- **014** — `nutrition_logs` table (per-meal food entries with USDA food ID, serving size, macros); `nutrition_goals` table (daily calorie target + macro % split per client); RLS for trainers (full CRUD on their clients' data) and clients (read + insert + delete own logs; read own goal)
 
 **Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 
@@ -352,8 +373,24 @@ Press `i` for iOS simulator, `a` for Android emulator, or `w` for web.
 |---|---|
 | `EXPO_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
+| `EXPO_PUBLIC_USDA_API_KEY` | USDA FoodData Central API key (optional — falls back to `DEMO_KEY` at 30 req/hr; get a free key at api.nal.usda.gov) |
 
 ## Future Features
+
+### Planned
+
+- [ ] **Remove phases from templates** — flatten the template browser; drop the Phase 1/2/3 grouping so templates are listed directly without phase headers
+- [ ] **Weekly hard sets / muscle group monitor** — track weekly set volume per muscle group across all workouts; surface a per-muscle-group summary (e.g. chest: 14 sets this week) and flag when a group is under- or over-trained relative to a target range
+- [ ] **Quick-tap coaching cues (AI)** — one-tap form cues per exercise during a workout; optionally AI-generated based on the exercise and the client's logged history
+- [ ] **Push notifications** — reminders for upcoming assigned workouts; trainer alerts when a client completes a session or logs a new PR
+- [ ] **[BIG] Full scheduling** — calendar-based view for planning future workouts weeks or months ahead; drag-and-drop rescheduling; recurring session patterns; trainer sees all clients' schedules in one view
+- [ ] **Rest timer** — countdown between sets with audio/haptic alert
+- [ ] **Personal records (PRs) tracking** — dedicated PR log per exercise; auto-flagged when a new best is set
+- [ ] Archive/deactivate client
+- [ ] Client profile photo
+- [ ] Shared UI primitives library (Button, Card, Input)
+- [ ] Pull-to-refresh
+- [ ] Loading skeletons
 
 ### Server-Side Trainer Access Code Verification
 
