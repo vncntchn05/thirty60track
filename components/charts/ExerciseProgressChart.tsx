@@ -164,9 +164,9 @@ function ExerciseProgressChartInner({ data, unit = 'kg', title }: Props) {
               />
               <Scatter
                 points={points.y}
-                shape={({ x, y }) => (
-                  <Circle cx={x} cy={y} r={4} color={colors.primary} />
-                )}
+                shape="circle"
+                radius={4}
+                color={colors.primary}
               />
               <Circle
                 cx={state.x.position}

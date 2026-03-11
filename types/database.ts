@@ -228,3 +228,48 @@ export type UpdateAssignedWorkout = {
   notes?: string | null;
   exercises?: AssignedExercisePayload[];
 };
+
+// ─── Nutrition (Migration 014) ────────────────────────────────
+
+export const MEAL_TYPES = {
+  breakfast: 'breakfast',
+  lunch:     'lunch',
+  dinner:    'dinner',
+  snack:     'snack',
+} as const;
+
+export type MealType = typeof MEAL_TYPES[keyof typeof MEAL_TYPES];
+
+export type NutritionLog = {
+  id: string;
+  client_id: string;
+  trainer_id: string;
+  logged_date: string;            // 'YYYY-MM-DD'
+  meal_type: MealType;
+  food_name: string;
+  serving_size_g: number;
+  calories: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fiber_g: number | null;
+  usda_food_id: string | null;
+  logged_by_role: 'trainer' | 'client';
+  logged_by_user_id: string | null;
+  created_at: string;
+};
+
+export type NutritionGoal = {
+  id: string;
+  client_id: string;
+  trainer_id: string;
+  calories: number;
+  protein_pct: number;
+  carbs_pct: number;
+  fat_pct: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InsertNutritionLog = Omit<NutritionLog, 'id' | 'created_at'>;
+export type UpsertNutritionGoal = Omit<NutritionGoal, 'id' | 'created_at' | 'updated_at'>;

@@ -49,8 +49,7 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: t.surface },
         headerTintColor: t.textPrimary,
         headerTitleStyle: { fontWeight: '700' },
-        contentStyle: { backgroundColor: t.background },
-        headerShown: true,
+headerShown: true,
         headerLeft: () => <HeaderLogo />,
       }}
     >
