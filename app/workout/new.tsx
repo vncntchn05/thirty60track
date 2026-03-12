@@ -75,6 +75,10 @@ export default function NewWorkoutScreen() {
   const [scheduledDate, setScheduledDate] = useState(getTomorrow);
   const [showScheduledCalendar, setShowScheduledCalendar] = useState(false);
   const [workoutTitle, setWorkoutTitle] = useState('');
+  const [assignedClients, setAssignedClients] = useState<Set<string>>(() => {
+    const id = Array.isArray(clientId) ? clientId[0] : clientId;
+    return id ? new Set([id]) : new Set();
+  });
   // ── shared state ──
   const [blocks, setBlocks] = useState<ExerciseBlock[]>([]);
   const [workoutNotes, setWorkoutNotes] = useState('');
@@ -172,7 +176,7 @@ export default function NewWorkoutScreen() {
 
   async function handleAssign() {
     if (!user) { Alert.alert('Not signed in', 'Please sign in to assign workouts.'); return; }
-    if (!clientId) { Alert.alert('No client', 'No client selected. Please go back and try again.'); return; }
+    if (assignedClients.size === 0) { Alert.alert('No clients selected', 'Select at least one client to assign this workout to.'); return; }
     if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before assigning.'); return; }
 
     let groupCounter = 0;
@@ -200,24 +204,21 @@ export default function NewWorkoutScreen() {
 
     setSaving(true);
     try {
-      const { error } = await createAssignedWorkout(
-        Array.isArray(clientId) ? clientId[0] : clientId,
-        user.id,
-        {
-          title: workoutTitle.trim() || null,
-          scheduled_date: scheduledDate,
-          notes: workoutNotes.trim() || null,
-          exercises,
-        },
+      const results = await Promise.all(
+        [...assignedClients].map((cid) =>
+          createAssignedWorkout(cid, user.id, {
+            title: workoutTitle.trim() || null,
+            scheduled_date: scheduledDate,
+            notes: workoutNotes.trim() || null,
+            exercises,
+          })
+        )
       );
-      if (error) {
-        Alert.alert('Error saving assigned workout', error);
+      const firstError = results.find((r) => r.error)?.error;
+      if (firstError) {
+        Alert.alert('Error saving assigned workout', firstError);
       } else {
-        Alert.alert(
-          'Workout Assigned',
-          `Workout assigned for ${formatDate(scheduledDate)}.`,
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
+        router.back();
       }
     } catch (e) {
       Alert.alert('Unexpected error', e instanceof Error ? e.message : String(e));
@@ -432,6 +433,36 @@ export default function NewWorkoutScreen() {
             multiline
           />
         </View>
+
+        {/* Assign to — only shown in Assign mode */}
+        {mode === 'assign' && (
+          <View style={[styles.groupSection, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <Text style={[styles.groupLabel, { color: t.textSecondary }]}>Assign to</Text>
+            {clients.length === 0 ? (
+              <Text style={[styles.groupClientName, { color: t.textSecondary }]}>No clients found.</Text>
+            ) : clients.map((c) => {
+              const selected = assignedClients.has(c.id);
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  style={styles.groupRow}
+                  onPress={() => setAssignedClients((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                    return next;
+                  })}
+                >
+                  <Ionicons
+                    name={selected ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={selected ? colors.primary : t.textSecondary as string}
+                  />
+                  <Text style={[styles.groupClientName, { color: t.textPrimary }]}>{c.full_name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Worked out with — only shown in Log Now mode */}
         {mode === 'log' && clients.filter((c) => c.id !== clientId).length > 0 && (

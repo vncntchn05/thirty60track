@@ -5,8 +5,6 @@ import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 type DbRow = {
   id: string;
   name: string;
-  phase: string;
-  category: string;
   exercise_names: string[];
   created_at: string;
   updated_at: string;
@@ -16,16 +14,12 @@ function toTemplate(row: DbRow): WorkoutTemplate {
   return {
     id: row.id,
     name: row.name,
-    phase: row.phase,
-    category: row.category as 'Main' | 'Abs',
     exerciseNames: row.exercise_names,
   };
 }
 
 type TemplatePayload = {
   name: string;
-  phase: string;
-  category: string;
   exerciseNames: string[];
 };
 
@@ -39,7 +33,6 @@ export function useWorkoutTemplates() {
     const { data, error: err } = await supabase
       .from('workout_templates')
       .select('*')
-      .order('phase')
       .order('name');
     if (err) setError(err.message);
     else setTemplates((data ?? []).map((r) => toTemplate(r as DbRow)));
@@ -53,17 +46,13 @@ export function useWorkoutTemplates() {
       .from('workout_templates')
       .insert({
         name: payload.name,
-        phase: payload.phase,
-        category: payload.category,
         exercise_names: payload.exerciseNames,
       })
       .select()
       .single();
     if (!err && data) {
       setTemplates((prev) =>
-        [...prev, toTemplate(data as DbRow)].sort(
-          (a, b) => a.phase.localeCompare(b.phase) || a.name.localeCompare(b.name),
-        ),
+        [...prev, toTemplate(data as DbRow)].sort((a, b) => a.name.localeCompare(b.name)),
       );
     }
     return { error: err?.message ?? null };
@@ -74,8 +63,6 @@ export function useWorkoutTemplates() {
       .from('workout_templates')
       .update({
         name: payload.name,
-        phase: payload.phase,
-        category: payload.category,
         exercise_names: payload.exerciseNames,
       })
       .eq('id', id);

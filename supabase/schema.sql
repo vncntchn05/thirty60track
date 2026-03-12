@@ -598,3 +598,21 @@ CREATE POLICY "clients_read_own_nutrition_goals" ON nutrition_goals
   FOR SELECT USING (
     client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
   );
+
+-- ─── Migration 015: Remove phase/category from workout_templates ──
+-- Rename duplicate template names (same name existed across phases) before
+-- adding the unique constraint, then drop the phase/category columns.
+
+UPDATE workout_templates SET name = name || ' (P2)' WHERE phase = 'Phase 2' AND name IN (
+  SELECT name FROM workout_templates WHERE phase = 'Phase 1'
+);
+UPDATE workout_templates SET name = name || ' (P3)' WHERE phase = 'Phase 3' AND name IN (
+  SELECT name FROM workout_templates WHERE phase IN ('Phase 1', 'Phase 2')
+);
+
+ALTER TABLE workout_templates DROP CONSTRAINT IF EXISTS workout_templates_name_phase_key;
+ALTER TABLE workout_templates DROP CONSTRAINT IF EXISTS workout_templates_name_key;
+ALTER TABLE workout_templates ADD CONSTRAINT workout_templates_name_key UNIQUE (name);
+
+ALTER TABLE workout_templates DROP COLUMN IF EXISTS phase;
+ALTER TABLE workout_templates DROP COLUMN IF EXISTS category;

@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNutrition } from '@/hooks/useNutrition';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { DailySummary } from './DailySummary';
 import { GoalEditor } from './GoalEditor';
 import { MealSection } from './MealSection';
 import { AddFoodModal } from './AddFoodModal';
+import { DatePickerModal } from '@/components/ui/DatePickerModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { MEAL_TYPES } from '@/types';
 import type { MealType, InsertNutritionLog } from '@/types';
@@ -59,6 +61,21 @@ export function NutritionTab({ clientId, canEditGoal }: Props) {
 
   const [date, setDate] = useState(toIso(new Date()));
   const [modalMeal, setModalMeal] = useState<MealType | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [logDates, setLogDates] = useState<string[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('nutrition_logs')
+      .select('logged_date')
+      .eq('client_id', clientId)
+      .then(({ data }) => {
+        if (data) {
+          const unique = [...new Set(data.map((r: { logged_date: string }) => r.logged_date))];
+          setLogDates(unique);
+        }
+      });
+  }, [clientId]);
 
   const { logs, goal, trainerId: fetchedTrainerId, loading, error, refetch, addLog, deleteLog, saveGoal } = useNutrition(clientId, date);
 
@@ -108,7 +125,14 @@ export function NutritionTab({ clientId, canEditGoal }: Props) {
           >
             <Ionicons name="chevron-back" size={20} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={[styles.dateLabel, { color: t.textPrimary }]}>{fmtDisplayDate(date)}</Text>
+          <TouchableOpacity
+            style={styles.dateLabelBtn}
+            onPress={() => setShowCalendar(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={[styles.dateLabel, { color: t.textPrimary }]}>{fmtDisplayDate(date)}</Text>
+            <Ionicons name="calendar-outline" size={14} color={t.textSecondary as string} />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setDate((d) => offsetDate(d, 1))}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -155,6 +179,15 @@ export function NutritionTab({ clientId, canEditGoal }: Props) {
 
       </ScrollView>
 
+      {/* Date picker calendar */}
+      <DatePickerModal
+        visible={showCalendar}
+        onClose={() => setShowCalendar(false)}
+        onSelect={(iso) => { setDate(iso); setShowCalendar(false); }}
+        value={date}
+        logDates={logDates}
+      />
+
       {/* Add food modal */}
       {modalMeal && (
         <AddFoodModal
@@ -178,6 +211,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderWidth: 1, borderRadius: radius.md, padding: spacing.sm, paddingHorizontal: spacing.md,
   },
+  dateLabelBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   dateLabel: { ...typography.body, fontWeight: '600' },
   errorText: { ...typography.bodySmall },
 });

@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { generateAndShare } from '@/lib/generateReportPdf';
-import type { ReportWorkout, ReportExercisePR, BodyProgressPoint } from '@/lib/generateReportPdf';
+import type { ReportWorkout, ReportExercisePR, BodyProgressPoint, ReportNutritionSummary } from '@/lib/generateReportPdf';
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -61,6 +61,8 @@ export default function ReportCardButton({ clientId, clientName }: Props) {
   const { trainer } = useAuth();
   const [uiState, setUiState] = useState<State>('idle');
   const [error, setError] = useState<string | null>(null);
+
+  const [includeNutrition, setIncludeNutrition] = useState(false);
 
   // Calendar state (custom period)
   const [calendarVisible, setCalendarVisible] = useState(false);
@@ -199,6 +201,49 @@ export default function ReportCardButton({ clientId, clientName }: Props) {
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
 
+    // Fetch nutrition logs for period (if requested)
+    let nutritionSummary: ReportNutritionSummary | undefined;
+    if (includeNutrition) {
+      const { data: nutRows } = await supabase
+        .from('nutrition_logs')
+        .select('logged_date, calories, protein_g, carbs_g, fat_g')
+        .eq('client_id', clientId)
+        .gte('logged_date', startIso)
+        .lte('logged_date', endIso);
+
+      if (nutRows && nutRows.length > 0) {
+        type NutRow = { logged_date: string; calories: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null };
+        // Sum per day, then average across days
+        const byDay = new Map<string, { cal: number; pro: number; carb: number; fat: number }>();
+        for (const r of nutRows as NutRow[]) {
+          const day = byDay.get(r.logged_date) ?? { cal: 0, pro: 0, carb: 0, fat: 0 };
+          day.cal  += r.calories  ?? 0;
+          day.pro  += r.protein_g ?? 0;
+          day.carb += r.carbs_g   ?? 0;
+          day.fat  += r.fat_g     ?? 0;
+          byDay.set(r.logged_date, day);
+        }
+        const days = byDay.size;
+        const totals = [...byDay.values()].reduce((acc, d) => ({
+          cal: acc.cal + d.cal, pro: acc.pro + d.pro,
+          carb: acc.carb + d.carb, fat: acc.fat + d.fat,
+        }), { cal: 0, pro: 0, carb: 0, fat: 0 });
+
+        // Total days in period
+        const msPerDay = 86400000;
+        const totalDays = Math.round((end.getTime() - start.getTime()) / msPerDay) + 1;
+
+        nutritionSummary = {
+          avgCalories: totals.cal / days,
+          avgProtein:  totals.pro / days,
+          avgCarbs:    totals.carb / days,
+          avgFat:      totals.fat / days,
+          daysLogged:  days,
+          totalDays,
+        };
+      }
+    }
+
     // Build body progress from period workouts (oldest first)
     const bodyProgress: BodyProgressPoint[] = ((rawWorkouts ?? []) as unknown as RawWorkout[])
       .slice()
@@ -220,6 +265,7 @@ export default function ReportCardButton({ clientId, clientName }: Props) {
       workouts,
       exercisePRs,
       bodyProgress,
+      nutritionSummary,
       generatedAt: new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
     });
 
@@ -295,6 +341,20 @@ export default function ReportCardButton({ clientId, clientName }: Props) {
             </TouchableOpacity>
           </View>
 
+          {/* Include Nutrition checkbox */}
+          <TouchableOpacity
+            style={styles.checkRow}
+            onPress={() => setIncludeNutrition((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={includeNutrition ? 'checkbox' : 'square-outline'}
+              size={18}
+              color={includeNutrition ? colors.primary : t.textSecondary as string}
+            />
+            <Text style={[styles.checkLabel, { color: t.textSecondary }]}>Include nutrition</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity onPress={() => setUiState('idle')} style={styles.cancelRow}>
             <Text style={[styles.cancelText, { color: t.textSecondary }]}>Cancel</Text>
           </TouchableOpacity>
@@ -346,6 +406,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm, alignItems: 'center',
   },
 periodBtnText: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xs },
+  checkLabel: { ...typography.bodySmall },
   cancelRow: { alignItems: 'center', paddingTop: spacing.xs },
   cancelText: { ...typography.bodySmall },
   errorText: { ...typography.bodySmall, color: colors.error, textAlign: 'center' },

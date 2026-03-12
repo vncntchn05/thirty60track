@@ -36,6 +36,15 @@ export type BodyProgressPoint = {
   lbm_kg: number | null;     // calculated: weight * (1 - bf/100)
 };
 
+export type ReportNutritionSummary = {
+  avgCalories: number;
+  avgProtein: number;  // grams
+  avgCarbs: number;    // grams
+  avgFat: number;      // grams
+  daysLogged: number;
+  totalDays: number;
+};
+
 export type ReportInput = {
   clientName: string;
   trainerName: string;
@@ -45,6 +54,7 @@ export type ReportInput = {
   workouts: ReportWorkout[];
   exercisePRs: ReportExercisePR[];
   bodyProgress: BodyProgressPoint[]; // from period workouts, sorted oldest→newest
+  nutritionSummary?: ReportNutritionSummary;
   generatedAt: string; // formatted date string
 };
 
@@ -196,8 +206,62 @@ function buildBodyProgressHtml(points: BodyProgressPoint[]): string {
 </div>`;
 }
 
+function buildNutritionHtml(n: ReportNutritionSummary): string {
+  const totalMacroG = n.avgProtein + n.avgCarbs + n.avgFat;
+  const proteinPct = totalMacroG > 0 ? Math.round((n.avgProtein * 4 / (totalMacroG > 0 ? n.avgCalories : 1)) * 100) : 0;
+  const carbsPct   = totalMacroG > 0 ? Math.round((n.avgCarbs   * 4 / (totalMacroG > 0 ? n.avgCalories : 1)) * 100) : 0;
+  const fatPct     = totalMacroG > 0 ? Math.round((n.avgFat     * 9 / (totalMacroG > 0 ? n.avgCalories : 1)) * 100) : 0;
+
+  const macroBar = (label: string, grams: number, pct: number, color: string) => `
+    <tr>
+      <td style="width:70px;font-size:11px;color:#555555;padding:3px 8px 3px 0;">${label}</td>
+      <td style="font-size:11px;color:#1a1a1a;font-weight:700;width:50px;padding:3px 8px 3px 0;">${Math.round(grams)}g</td>
+      <td style="width:120px;padding:3px 0;">
+        <div style="background:#eeeeee;border-radius:4px;height:8px;overflow:hidden;">
+          <div style="background:${color};width:${Math.min(pct, 100)}%;height:8px;border-radius:4px;"></div>
+        </div>
+      </td>
+      <td style="font-size:10px;color:#888888;padding:3px 0 3px 6px;">${pct}%</td>
+    </tr>`;
+
+  return `
+<div class="section">
+  <div class="section-title">Nutrition (Avg per Day)</div>
+  <table class="stats-table"><tr>
+    <td class="stat-box">
+      <span class="stat-value">${Math.round(n.avgCalories)}</span>
+      <span class="stat-label">Avg Calories</span>
+    </td>
+    <td class="stat-box">
+      <span class="stat-value">${Math.round(n.avgProtein)}g</span>
+      <span class="stat-label">Avg Protein</span>
+    </td>
+    <td class="stat-box">
+      <span class="stat-value">${Math.round(n.avgCarbs)}g</span>
+      <span class="stat-label">Avg Carbs</span>
+    </td>
+    <td class="stat-box">
+      <span class="stat-value">${Math.round(n.avgFat)}g</span>
+      <span class="stat-label">Avg Fat</span>
+    </td>
+    <td class="stat-box">
+      <span class="stat-value">${n.daysLogged}<span style="font-size:13px;font-weight:400;color:#888888;">/${n.totalDays}</span></span>
+      <span class="stat-label">Days Logged</span>
+    </td>
+  </tr></table>
+  <div style="margin-top:14px;">
+    <div style="font-size:10px;font-weight:700;color:#888888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Macro Split</div>
+    <table style="border-collapse:collapse;">
+      ${macroBar('Protein', n.avgProtein, proteinPct, '#B88C32')}
+      ${macroBar('Carbs',   n.avgCarbs,   carbsPct,   '#4A90D9')}
+      ${macroBar('Fat',     n.avgFat,     fatPct,     '#E67E22')}
+    </table>
+  </div>
+</div>`;
+}
+
 export function buildReportHtml(input: ReportInput): string {
-  const { clientName, trainerName, periodLabel, periodStart, periodEnd, workouts, exercisePRs, bodyProgress, generatedAt } = input;
+  const { clientName, trainerName, periodLabel, periodStart, periodEnd, workouts, exercisePRs, bodyProgress, nutritionSummary, generatedAt } = input;
 
   const totalVolume = workouts.reduce((sum, w) =>
     sum + w.exercises.reduce((es, ex) =>
@@ -308,6 +372,8 @@ export function buildReportHtml(input: ReportInput): string {
 </div>
 
 ${buildBodyProgressHtml(bodyProgress)}
+
+${nutritionSummary ? buildNutritionHtml(nutritionSummary) : ''}
 
 ${exercisePRs.length > 0 ? `
 <div class="section">

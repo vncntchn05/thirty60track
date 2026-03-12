@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, SectionList,
+  View, Text, TextInput, TouchableOpacity, FlatList,
   ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,31 +9,8 @@ import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 
-const PHASE_ORDER = ['Phase 1', 'Phase 2', 'Phase 3', 'Abs'];
-
-function phaseColor(phase: string): string {
-  switch (phase) {
-    case 'Phase 1': return '#4A90D9';
-    case 'Phase 2': return '#E67E22';
-    case 'Phase 3': return colors.primary;
-    default:        return '#27AE60';
-  }
-}
-
-function sortPhases(phases: string[]): string[] {
-  return [...phases].sort((a, b) => {
-    const ai = PHASE_ORDER.indexOf(a);
-    const bi = PHASE_ORDER.indexOf(b);
-    if (ai !== -1 && bi !== -1) return ai - bi;
-    if (ai !== -1) return -1;
-    if (bi !== -1) return 1;
-    return a.localeCompare(b);
-  });
-}
-
-type EditState = { id: string | null; name: string; phase: string; exerciseNames: string[] };
+type EditState = { id: string | null; name: string; exerciseNames: string[] };
 type Theme = ReturnType<typeof useTheme>;
-type Section = { title: string; data: WorkoutTemplate[] };
 
 // ─── Main component ───────────────────────────────────────────────
 
@@ -43,38 +20,14 @@ export function TemplateEditor({ onClose }: { onClose: () => void }) {
   const [editing, setEditing] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
-  const [expandedPhase, setExpandedPhase] = useState<string | null>('Phase 1');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  // ── Section list data (hooks must be before any early returns) ───
-  const sections = useMemo<Section[]>(() => {
-    const phaseMap = new Map<string, WorkoutTemplate[]>();
-    for (const tmpl of templates) {
-      if (!phaseMap.has(tmpl.phase)) phaseMap.set(tmpl.phase, []);
-      phaseMap.get(tmpl.phase)!.push(tmpl);
-    }
-    return sortPhases([...phaseMap.keys()]).map((phase) => ({
-      title: phase,
-      data: phaseMap.get(phase)!,
-    }));
-  }, [templates]);
-
-  const displaySections = useMemo<Section[]>(
-    () => sections.map((s) => ({ ...s, data: expandedPhase === s.title ? s.data : [] })),
-    [sections, expandedPhase],
-  );
 
   async function handleSave() {
     if (!editing) return;
     if (!editing.name.trim()) { Alert.alert('Name required', 'Please enter a template name.'); return; }
     if (editing.exerciseNames.length === 0) { Alert.alert('No exercises', 'Add at least one exercise.'); return; }
     setSaving(true);
-    const payload = {
-      name: editing.name.trim(),
-      phase: editing.phase,
-      category: editing.phase === 'Abs' ? 'Abs' : 'Main',
-      exerciseNames: editing.exerciseNames,
-    };
+    const payload = { name: editing.name.trim(), exerciseNames: editing.exerciseNames };
     const { error } = editing.id
       ? await updateTemplate(editing.id, payload)
       : await createTemplate(payload);
@@ -122,7 +75,7 @@ export function TemplateEditor({ onClose }: { onClose: () => void }) {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: t.textPrimary }]}>Templates</Text>
         <TouchableOpacity
-          onPress={() => setEditing({ id: null, name: '', phase: 'Phase 1', exerciseNames: [] })}
+          onPress={() => setEditing({ id: null, name: '', exerciseNames: [] })}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="add" size={26} color={colors.primary} />
@@ -132,34 +85,10 @@ export function TemplateEditor({ onClose }: { onClose: () => void }) {
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
       ) : (
-        <SectionList<WorkoutTemplate, Section>
-          sections={displaySections}
+        <FlatList<WorkoutTemplate>
+          data={templates}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => {
-            const isOpen = expandedPhase === section.title;
-            const color = phaseColor(section.title);
-            const fullSection = sections.find((s) => s.title === section.title);
-            return (
-              <TouchableOpacity
-                style={[styles.phaseHeader, { backgroundColor: t.surface, borderBottomColor: t.border }]}
-                onPress={() => setExpandedPhase(isOpen ? null : section.title)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.phaseDot, { backgroundColor: color }]} />
-                <Text style={[styles.phaseLabel, { color: t.textPrimary }]}>{section.title}</Text>
-                <Text style={[styles.phaseCount, { color: t.textSecondary }]}>
-                  {fullSection?.data.length ?? 0}
-                </Text>
-                <Ionicons
-                  name={isOpen ? 'chevron-up' : 'chevron-down'}
-                  size={18}
-                  color={t.textSecondary as string}
-                />
-              </TouchableOpacity>
-            );
-          }}
           renderItem={({ item }) => {
             const isConfirming = deletingId === item.id;
             return (
@@ -172,10 +101,7 @@ export function TemplateEditor({ onClose }: { onClose: () => void }) {
                 </View>
                 {isConfirming ? (
                   <>
-                    <TouchableOpacity
-                      onPress={() => setDeletingId(null)}
-                      style={styles.confirmCancelBtn}
-                    >
+                    <TouchableOpacity onPress={() => setDeletingId(null)} style={styles.confirmCancelBtn}>
                       <Text style={styles.confirmCancelText}>Cancel</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -192,7 +118,7 @@ export function TemplateEditor({ onClose }: { onClose: () => void }) {
                 ) : (
                   <>
                     <TouchableOpacity
-                      onPress={() => setEditing({ id: item.id, name: item.name, phase: item.phase, exerciseNames: [...item.exerciseNames] })}
+                      onPress={() => setEditing({ id: item.id, name: item.name, exerciseNames: [...item.exerciseNames] })}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={styles.iconBtn}
                     >
@@ -210,7 +136,7 @@ export function TemplateEditor({ onClose }: { onClose: () => void }) {
               </View>
             );
           }}
-          ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: 'transparent' }} />}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
           ListEmptyComponent={
             <Text style={[styles.emptyText, { color: t.textSecondary }]}>
               No templates yet. Tap + to create one.
@@ -243,7 +169,6 @@ function EditForm({ editing, saving, onChange, onAddExercise, onCancel, onSave, 
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
         <TouchableOpacity onPress={onCancel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="arrow-back" size={24} color={t.textPrimary as string} />
@@ -263,7 +188,6 @@ function EditForm({ editing, saving, onChange, onAddExercise, onCancel, onSave, 
       </View>
 
       <ScrollView contentContainerStyle={styles.formScroll} keyboardShouldPersistTaps="handled">
-        {/* Name */}
         <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Template name *</Text>
         <TextInput
           style={[styles.input, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.surface }]}
@@ -275,30 +199,6 @@ function EditForm({ editing, saving, onChange, onAddExercise, onCancel, onSave, 
           autoFocus={isNew}
         />
 
-        {/* Phase */}
-        <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Phase</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-          {PHASE_ORDER.map((phase) => {
-            const active = editing.phase === phase;
-            return (
-              <TouchableOpacity
-                key={phase}
-                style={[
-                  styles.phaseChip,
-                  { borderColor: active ? phaseColor(phase) : t.border },
-                  active && { backgroundColor: phaseColor(phase) },
-                ]}
-                onPress={() => onChange({ ...editing, phase })}
-              >
-                <Text style={[styles.phaseChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                  {phase}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Exercise list */}
         <View style={styles.exercisesHeader}>
           <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>
             Exercises ({editing.exerciseNames.length})
@@ -356,20 +256,10 @@ const styles = StyleSheet.create({
   headerTitle: { ...typography.heading3, fontWeight: '700' },
   saveHeaderBtn: { ...typography.body, color: colors.primary, fontWeight: '700' },
 
-  list: { paddingBottom: spacing.xxl },
-
-  phaseHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
-    borderBottomWidth: 1,
-  },
-  phaseDot: { width: 10, height: 10, borderRadius: 5 },
-  phaseLabel: { ...typography.body, fontWeight: '700', flex: 1 },
-  phaseCount: { ...typography.bodySmall },
+  list: { padding: spacing.md, paddingBottom: spacing.xxl },
 
   templateRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    marginHorizontal: spacing.md, marginTop: spacing.xs,
     borderRadius: radius.md, padding: spacing.md, borderWidth: 1,
   },
   templateInfo: { flex: 1, gap: 2 },
@@ -393,20 +283,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl, paddingHorizontal: spacing.lg,
   },
 
-  // ── Edit form ──
   formScroll: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xxl },
   fieldLabel: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.sm },
   input: {
     ...typography.body, borderWidth: 1, borderRadius: radius.md,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   },
-  chipRow: { flexGrow: 0, marginTop: spacing.xs },
-  phaseChip: {
-    borderWidth: 1, borderRadius: radius.full,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-    marginRight: spacing.xs,
-  },
-  phaseChipText: { ...typography.bodySmall, fontWeight: '600' },
   exercisesHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginTop: spacing.sm,

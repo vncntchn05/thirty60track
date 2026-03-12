@@ -6,19 +6,14 @@
 
 export type WorkoutTemplate = {
   id: string;
-  phase: string;          // 'Phase 1' | 'Phase 2' | 'Phase 3' | 'Abs'
   name: string;
-  category: 'Main' | 'Abs';
   exerciseNames: string[];
 };
 
 export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
-  // ── Phase 1 ──────────────────────────────────────────────
   {
     id: 'P1-A',
-    phase: 'Phase 1',
     name: 'Workout A: Push Focus',
-    category: 'Main',
     exerciseNames: [
       'Air Squat',
       'Glute Bridge',
@@ -34,9 +29,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P1-B',
-    phase: 'Phase 1',
     name: 'Workout B: Pull Focus',
-    category: 'Main',
     exerciseNames: [
       'Reverse Lunge',
       'Single-Leg Reach (Bulg Squat)',
@@ -52,9 +45,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P1-C',
-    phase: 'Phase 1',
     name: 'Workout C: Stability',
-    category: 'Main',
     exerciseNames: [
       'Box Squat',
       'Step-ups/Weighted',
@@ -70,9 +61,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P1-D',
-    phase: 'Phase 1',
     name: 'Workout D: Lateral/Total',
-    category: 'Main',
     exerciseNames: [
       'Lateral Lunge',
       'Wall Sit',
@@ -86,13 +75,9 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
       'In-Out Jumping Jacks',
     ],
   },
-
-  // ── Phase 2 ──────────────────────────────────────────────
   {
     id: 'P2-A',
-    phase: 'Phase 2',
-    name: 'Workout A: Push Focus',
-    category: 'Main',
+    name: 'Workout A: Push Focus (P2)',
     exerciseNames: [
       'Skater Jumps',
       'Jump Squats',
@@ -108,9 +93,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P2-B',
-    phase: 'Phase 2',
-    name: 'Workout B: Pull Focus',
-    category: 'Main',
+    name: 'Workout B: Pull Focus (P2)',
     exerciseNames: [
       'Box Step-ups',
       'Walking Lunges',
@@ -126,9 +109,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P2-C',
-    phase: 'Phase 2',
-    name: 'Workout C: Shoulder Focus',
-    category: 'Main',
+    name: 'Workout C: Shoulder Focus (P2)',
     exerciseNames: [
       'Rope Ladder Broad Jumps',
       'Lateral Bounds',
@@ -144,9 +125,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P2-D',
-    phase: 'Phase 2',
-    name: 'Workout D: Agility/Total',
-    category: 'Main',
+    name: 'Workout D: Agility/Total (P2)',
     exerciseNames: [
       'Shuttle Runs (yd)',
       'Speed Skaters',
@@ -160,13 +139,9 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
       'Deadlift',
     ],
   },
-
-  // ── Phase 3 ──────────────────────────────────────────────
   {
     id: 'P3-A',
-    phase: 'Phase 3',
-    name: 'Workout A: Chest/Push',
-    category: 'Main',
+    name: 'Workout A: Chest/Push (P3)',
     exerciseNames: [
       'DB Goblet Squat',
       'RDL (Dumbbells)',
@@ -182,9 +157,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P3-B',
-    phase: 'Phase 3',
-    name: 'Workout B: Back/Pull',
-    category: 'Main',
+    name: 'Workout B: Back/Pull (P3)',
     exerciseNames: [
       'DB Split Squat',
       'Leg Press + Leg Machines',
@@ -200,9 +173,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P3-C',
-    phase: 'Phase 3',
-    name: 'Workout C: Shoulders',
-    category: 'Main',
+    name: 'Workout C: Shoulders (P3)',
     exerciseNames: [
       'KB Deadlift',
       'Hamstring Curl',
@@ -218,9 +189,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P3-D',
-    phase: 'Phase 3',
-    name: 'Workout D: Total Body',
-    category: 'Main',
+    name: 'Workout D: Total Body (P3)',
     exerciseNames: [
       'DB Step-ups',
       'Goblet Lateral Lunge',
@@ -234,13 +203,9 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
       "Farmer's Walk",
     ],
   },
-
-  // ── Abs ──────────────────────────────────────────────────
   {
     id: 'Abs-A',
-    phase: 'Abs',
     name: 'Abs: Variation A',
-    category: 'Abs',
     exerciseNames: [
       'Center Decline',
       'Teapots',
@@ -258,9 +223,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'Abs-B',
-    phase: 'Abs',
     name: 'Abs: Variation B',
-    category: 'Abs',
     exerciseNames: [
       'V-Ups',
       'Toe Taps',
@@ -278,9 +241,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'Abs-C',
-    phase: 'Abs',
     name: 'Abs: Variation C',
-    category: 'Abs',
     exerciseNames: [
       'Plank',
       'Deadbugs',
@@ -298,9 +259,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'Abs-D',
-    phase: 'Abs',
     name: 'Abs: Variation D',
-    category: 'Abs',
     exerciseNames: [
       'Decline Russian Twists',
       'Knee to Elbows',
@@ -317,11 +276,3 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
     ],
   },
 ];
-
-// Group templates by phase for display
-export const TEMPLATE_PHASES = ['Phase 1', 'Phase 2', 'Phase 3', 'Abs'] as const;
-export type TemplatePhase = (typeof TEMPLATE_PHASES)[number];
-
-export function getTemplatesByPhase(phase: TemplatePhase): WorkoutTemplate[] {
-  return WORKOUT_TEMPLATES.filter((t) => t.phase === phase);
-}

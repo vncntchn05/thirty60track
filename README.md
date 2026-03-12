@@ -71,7 +71,8 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 
 ### Assigned Workouts
 - [x] Trainers can assign a workout to a client with a title, scheduled date, optional notes, and a full exercise + set prescription
-- [x] **Assign mode in workout builder** — toggle between "Log" and "Assign" at the top of the new workout screen; assign mode sends the workout to the client without creating a session log entry
+- [x] **Assign mode in workout builder** — toggle between "Log" and "Assign" at the top of the new workout screen; assign mode sends the workout to the client without creating a session log entry; exits immediately on success (no confirmation dialog)
+- [x] **Assign to multiple clients** — in assign mode, a checkbox list of all clients is shown; any combination can be selected; the same workout is submitted for all selected clients simultaneously
 - [x] **Client pending workouts** — assigned workouts with status `assigned` appear at the top of the client's Workouts tab as "UPCOMING" cards with a play button
 - [x] Client taps an upcoming workout to open the **Complete Workout** screen — exercises and prescribed sets are pre-filled; client edits actual reps/weight/duration and taps Complete
 - [x] Completing an assigned workout creates a real workout + sets entry in the client's log and marks the assigned workout as `completed`
@@ -81,16 +82,9 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] Unit toggle (lbs / kg / secs) in both the assign builder and the complete screen
 
 ### Workout Templates
-Templates are stored in the database and fully editable from within the app (via the Exercise Library tab → Edit Templates). The app ships with 16 pre-built templates sourced from the Thirty60 program library:
+Templates are stored in the database and fully editable from within the app (via the Exercise Library tab → Edit Templates). The app ships with 16 pre-built templates sourced from the Thirty60 program library: Push Focus, Pull Focus, Stability, Lateral/Total, Shoulder Focus, Agility/Total, Chest/Push, Back/Pull, Total Body, and Abs Variations A–D.
 
-| Phase | Templates |
-|---|---|
-| Phase 1 | Workout A: Push Focus, B: Pull Focus, C: Stability, D: Lateral/Total |
-| Phase 2 | Workout A: Push Focus, B: Pull Focus, C: Shoulder Focus, D: Agility/Total |
-| Phase 3 | Workout A: Chest/Push, B: Back/Pull, C: Shoulders, D: Total Body |
-| Abs | Variation A, B, C, D |
-
-Templates are matched to live exercises in the database when loading a workout. Any unmatched exercises are listed so they can be added manually. Trainers can create, rename, reorder exercises in, and delete templates at any time.
+Templates are displayed as a flat list (no phase grouping). They are matched to live exercises in the database when loading a workout. Any unmatched exercises are listed so they can be added manually. Trainers can create, rename, reorder exercises in, and delete templates at any time.
 
 ### Exercise Library
 - [x] Shared exercise library (150+ exercises seeded across all muscle groups)
@@ -152,6 +146,7 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] **Report Card button** — available on both the trainer's Progress tab (client detail) and the client's own Progress tab
 - [x] **Period selection** — This Week / Last 4 Weeks / Last 12 Weeks / Custom (calendar picker with workout dots, same pattern as chart range picker)
 - [x] **Generated PDF includes:** summary stats (sessions, total sets, volume, new PRs), body progress (start/end/Δ per metric + side-by-side line charts for weight, body fat, and lean mass), and exercise bests with PR flag
+- [x] **Include nutrition checkbox** — optional section in the report showing avg daily calories, protein, carbs, fat, days logged, and a colour-coded macro split bar chart for the selected period
 - [x] **Native share** — PDF file generated via `expo-print`, shared via system share sheet (`expo-sharing`)
 - [x] **Web** — HTML report opens in a new tab and auto-triggers the browser print dialog (Save as PDF); default filename set from `<title>`
 
@@ -164,7 +159,8 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] **Daily macro summary** — calorie ring + protein / carbs / fat progress bars vs. goal; shown at the top of the Nutrition tab
 - [x] **Calorie & macro goals** — trainers set a daily calorie target and protein/carbs/fat percentage split per client; live gram previews while editing; macros must total 100%
 - [x] **Goal card auto-expands** — Daily Goal card starts expanded when no goal has been set yet
-- [x] Date navigation — prev/next day with arrows; capped at today
+- [x] **Date picker calendar** — tap the date label to open a calendar modal; dates with existing logs are highlighted with gold dots; future dates are disabled
+- [x] Date navigation — prev/next day arrows; capped at today
 - [x] Delete log entries — trainers can delete any entry; clients can only delete entries they logged themselves
 - [x] **Client Nutrition tab** — clients have a dedicated Nutrition screen in their tab navigator (same log view, goal read-only)
 - [x] Trainer Nutrition tab — accessible from the client detail screen (Progress / Workouts / Assigned / **Nutrition** / Media); full goal editing enabled
@@ -255,7 +251,8 @@ components/
     IntakeForm.tsx            # Client intake form (first-time and edit modes)
     ReportCardButton.tsx      # Period picker + data fetching + PDF generation trigger
   ui/
-    DatePicker.tsx            # Single date selection component
+    DatePicker.tsx            # Inline single date selection component
+    DatePickerModal.tsx       # Modal single date picker with log-dot indicators and Today shortcut
     DateRangePicker.tsx       # Calendar modal — range selection with workout dot indicators
 
 hooks/
@@ -300,7 +297,7 @@ assets/
   Thirty60_logo.png     # Brand logo used in header and favicon
 
 supabase/
-  schema.sql                # Source-of-truth DDL (migrations 001–014)
+  schema.sql                # Source-of-truth DDL (migrations 001–015)
   seed.sql                  # 150+ exercises across all muscle groups
   seed_test_client.sql      # Full year of realistic test data (youth hockey player)
   migrations/
@@ -350,6 +347,7 @@ Run these in order in the **Supabase SQL Editor**:
 - **012** — `clients: client update own` RLS policy so clients can update their own row
 - **013** — `assigned_workouts`, `assigned_workout_exercises`, `assigned_workout_sets` tables; RLS for both trainers (full CRUD on their clients' assignments) and clients (read + complete their own); `assigned_workouts.status` enum (`assigned` | `completed`); `completed_workout_id` FK back to `workouts`
 - **014** — `nutrition_logs` table (per-meal food entries with USDA food ID, serving size, macros); `nutrition_goals` table (daily calorie target + macro % split per client); RLS for trainers (full CRUD on their clients' data) and clients (read + insert + delete own logs; read own goal)
+- **015** — drops `phase` and `category` columns from `workout_templates`; renames duplicate template names (appends `(P2)` / `(P3)` suffix); replaces `UNIQUE(name, phase)` constraint with `UNIQUE(name)`
 
 **Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 
@@ -379,7 +377,6 @@ Press `i` for iOS simulator, `a` for Android emulator, or `w` for web.
 
 ### Planned
 
-- [ ] **Remove phases from templates** — flatten the template browser; drop the Phase 1/2/3 grouping so templates are listed directly without phase headers
 - [ ] **Weekly hard sets / muscle group monitor** — track weekly set volume per muscle group across all workouts; surface a per-muscle-group summary (e.g. chest: 14 sets this week) and flag when a group is under- or over-trained relative to a target range
 - [ ] **Quick-tap coaching cues (AI)** — one-tap form cues per exercise during a workout; optionally AI-generated based on the exercise and the client's logged history
 - [ ] **Push notifications** — reminders for upcoming assigned workouts; trainer alerts when a client completes a session or logs a new PR
