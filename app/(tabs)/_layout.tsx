@@ -6,9 +6,11 @@ import { colors, useTheme } from '@/constants/theme';
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 function tabIcon(name: IoniconsName, focusedName: IoniconsName) {
-  return ({ color, focused }: { color: string; focused: boolean }) => (
+  const Icon = ({ color, focused }: { color: string; focused: boolean }) => (
     <Ionicons name={focused ? focusedName : name} size={24} color={color} />
   );
+  Icon.displayName = 'TabIcon';
+  return Icon;
 }
 
 function HeaderLogo() {

@@ -10,7 +10,6 @@ import { MealSection } from './MealSection';
 import { AddFoodModal } from './AddFoodModal';
 import { DatePickerModal } from '@/components/ui/DatePickerModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import { MEAL_TYPES } from '@/types';
 import type { MealType, InsertNutritionLog } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -77,7 +76,7 @@ export function NutritionTab({ clientId, canEditGoal }: Props) {
       });
   }, [clientId]);
 
-  const { logs, goal, trainerId: fetchedTrainerId, loading, error, refetch, addLog, deleteLog, saveGoal } = useNutrition(clientId, date);
+  const { logs, goal, trainerId: fetchedTrainerId, loading, error, addLog, deleteLog, saveGoal } = useNutrition(clientId, date);
 
   // Trainers have their own ID directly; clients get trainer_id from the hook (fetched from clients table)
   const trainerId = trainer?.id ?? fetchedTrainerId ?? '';
