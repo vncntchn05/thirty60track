@@ -72,6 +72,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TEST_TRAINER_PASSWORD: ${{ secrets.TEST_TRAINER_PASSWORD }}
+          TEST_CLIENT_PASSWORD: ${{ secrets.TEST_CLIENT_PASSWORD }}
         run: |
           chmod +x scripts/create-test-users.sh
           ./scripts/create-test-users.sh
