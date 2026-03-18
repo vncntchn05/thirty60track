@@ -85,6 +85,36 @@ jobs:
           psql "$SUPABASE_DB_URL" -f supabase/seed.sql
           psql "$SUPABASE_DB_URL" -f supabase/seed_cicd.sql
 
+      - name: Verify auth credentials (debug)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          TEST_TRAINER_PASSWORD: ${{ secrets.TEST_TRAINER_PASSWORD }}
+          TEST_CLIENT_PASSWORD: ${{ secrets.TEST_CLIENT_PASSWORD }}
+        run: |
+          echo "→ Verifying trainer sign-in..."
+          TRAINER_AUTH=$(curl -s -w "\n%{http_code}" -X POST \
+            "${SUPABASE_URL}/auth/v1/token?grant_type=password" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"trainer@thirty60test.dev\",\"password\":\"${TEST_TRAINER_PASSWORD}\"}")
+          TRAINER_AUTH_HTTP=$(echo "$TRAINER_AUTH" | tail -1)
+          echo "  Trainer auth HTTP: $TRAINER_AUTH_HTTP"
+          echo "→ Verifying client sign-in..."
+          CLIENT_AUTH=$(curl -s -w "\n%{http_code}" -X POST \
+            "${SUPABASE_URL}/auth/v1/token?grant_type=password" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"client@thirty60test.dev\",\"password\":\"${TEST_CLIENT_PASSWORD}\"}")
+          CLIENT_AUTH_HTTP=$(echo "$CLIENT_AUTH" | tail -1)
+          CLIENT_AUTH_BODY=$(echo "$CLIENT_AUTH" | head -n -1)
+          echo "  Client auth HTTP: $CLIENT_AUTH_HTTP"
+          if [[ "$CLIENT_AUTH_HTTP" -lt 200 || "$CLIENT_AUTH_HTTP" -ge 300 ]]; then
+            echo "  Client auth body: $CLIENT_AUTH_BODY"
+            echo "ERROR: Client sign-in failed — check TEST_CLIENT_PASSWORD secret" >&2
+            exit 1
+          fi
+
       - name: Run integration tests
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
