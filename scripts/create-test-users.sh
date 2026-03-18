@@ -12,7 +12,9 @@
 set -euo pipefail
 
 TRAINER_ID="aaaaaaaa-0000-4000-a000-000000000001"
+TRAINER_EMAIL="trainer@thirty60test.dev"
 CLIENT_ID="bbbbbbbb-0000-4000-b000-000000000002"
+CLIENT_EMAIL="client@thirty60test.dev"
 AUTH_URL="${SUPABASE_URL}/auth/v1/admin/users"
 
 echo "→ Checking required env vars..."
@@ -21,18 +23,36 @@ echo "→ Checking required env vars..."
 : "${TEST_TRAINER_PASSWORD:?TEST_TRAINER_PASSWORD is not set}"
 : "${TEST_CLIENT_PASSWORD:?TEST_CLIENT_PASSWORD is not set}"
 
-echo "→ Deleting existing test users (if any)..."
-curl -s -o /dev/null -X DELETE "${AUTH_URL}/${TRAINER_ID}" \
-  -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" || true
-curl -s -o /dev/null -X DELETE "${AUTH_URL}/${CLIENT_ID}" \
-  -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" || true
+# Delete any user that has the given email (regardless of UUID).
+# This handles stale users from earlier experiments with different UUIDs.
+delete_by_email() {
+  local email="$1"
+  echo "  Searching for existing user: $email"
+  local resp
+  resp=$(curl -s "${AUTH_URL}?filter=${email}" \
+    -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
+  local ids
+  ids=$(echo "$resp" | jq -r '.users[]?.id // empty' 2>/dev/null || true)
+  if [[ -n "$ids" ]]; then
+    while IFS= read -r id; do
+      echo "  Deleting user id=$id"
+      curl -s -o /dev/null -X DELETE "${AUTH_URL}/${id}" \
+        -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+        -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" || true
+    done <<< "$ids"
+  else
+    echo "  No existing user found."
+  fi
+}
+
+echo "→ Deleting existing trainer user (if any)..."
+delete_by_email "$TRAINER_EMAIL"
 
 echo "→ Creating trainer user (Marcus Webb)..."
 TRAINER_PAYLOAD=$(jq -n \
   --arg id "$TRAINER_ID" \
-  --arg email "trainer@thirty60test.dev" \
+  --arg email "$TRAINER_EMAIL" \
   --arg password "$TEST_TRAINER_PASSWORD" \
   '{id: $id, email: $email, password: $password, email_confirm: true,
     user_metadata: {full_name: "Marcus Webb"}}')
@@ -49,10 +69,13 @@ if [[ "$TRAINER_HTTP" -lt 200 || "$TRAINER_HTTP" -ge 300 ]]; then
   echo "ERROR: Failed to create trainer user" >&2; exit 1
 fi
 
+echo "→ Deleting existing client user (if any)..."
+delete_by_email "$CLIENT_EMAIL"
+
 echo "→ Creating client user (Jordan Reyes)..."
 CLIENT_PAYLOAD=$(jq -n \
   --arg id "$CLIENT_ID" \
-  --arg email "client@thirty60test.dev" \
+  --arg email "$CLIENT_EMAIL" \
   --arg password "$TEST_CLIENT_PASSWORD" \
   '{id: $id, email: $email, password: $password, email_confirm: true,
     user_metadata: {role: "client", full_name: "Jordan Reyes"}}')
