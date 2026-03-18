@@ -93,8 +93,12 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          psql "$SUPABASE_DB_URL" -f supabase/seed.sql
-          psql "$SUPABASE_DB_URL" -f supabase/seed_cicd.sql
+          # GitHub Actions runners lack IPv6 — resolve hostname to IPv4 first
+          DB_HOST=$(echo "$SUPABASE_DB_URL" | sed -E 's|.*@([^:/]+).*|\1|')
+          DB_IPV4=$(getent ahosts "$DB_HOST" | awk '/STREAM/ && /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ {print $1; exit}')
+          echo "Resolved $DB_HOST → $DB_IPV4"
+          PGHOSTADDR="$DB_IPV4" psql "$SUPABASE_DB_URL" -f supabase/seed.sql
+          PGHOSTADDR="$DB_IPV4" psql "$SUPABASE_DB_URL" -f supabase/seed_cicd.sql
 
       - name: Run integration tests
         env:
