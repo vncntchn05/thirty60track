@@ -32,7 +32,10 @@ module.exports = {
       '|react-native-safe-area-context' +
       '))',
   ],
-  testMatch: ['**/__tests__/unit/**/*.test.{ts,tsx}'],
+  testMatch: [
+    '**/__tests__/unit/**/*.test.{ts,tsx}',
+    '**/__tests__/integration/**/*.test.{ts,tsx}',
+  ],
   // Start conservative: only the three files with real unit tests are measured.
   // Raise these thresholds as new tests are added (see TESTING.md).
   coverageThreshold: {
