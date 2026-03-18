@@ -12,7 +12,7 @@
     "test": "jest --runInBand",
     "test:coverage": "NODE_OPTIONS=--max-old-space-size=4096 jest --coverage --watchAll=false --runInBand",
     "test:ci": "NODE_OPTIONS=--max-old-space-size=4096 jest --watchAll=false --forceExit --runInBand",
-    "test:integration": "NODE_OPTIONS=--max-old-space-size=4096 jest --testPathPattern=__tests__/integration --watchAll=false --forceExit --runInBand"
+    "test:integration": "NODE_OPTIONS=--max-old-space-size=4096 jest --testPathPatterns=__tests__/integration --watchAll=false --forceExit --runInBand"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
