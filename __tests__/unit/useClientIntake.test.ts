@@ -39,7 +39,7 @@ async function simulateSaveIntake(
   };
 
   const intakeChain = mockFrom('client_intake');
-  const { data: upserted, error: upsertErr } = await (intakeChain
+  const { error: upsertErr } = await (intakeChain
     .upsert({ client_id: clientId, ...payload }, { onConflict: 'client_id' })
     .select()
     .single() as unknown as Promise<{ data: unknown; error: { message: string } | null }>);
@@ -110,7 +110,6 @@ describe('saveIntake — markComplete=true', () => {
   function setupBothTables() {
     const intakeChain = createQueryMock({ data: { id: 'ci-1' }, error: null });
     const clientsChain = createQueryMock({ error: null });
-    let callCount = 0;
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'client_intake') return intakeChain;

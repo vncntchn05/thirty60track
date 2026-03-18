@@ -31,8 +31,8 @@ const mockFrom = supabase.from as jest.Mock;
 // Testing it in isolation lets us verify all edge-cases without rendering.
 
 function mergeClientsWithStats(
-  clients: Array<{ id: string }>,
-  workouts: Array<{ client_id: string; performed_at: string }>,
+  clients: { id: string }[],
+  workouts: { client_id: string; performed_at: string }[],
 ) {
   const statsMap = new Map<string, { count: number; last: string | null }>();
   for (const w of workouts) {

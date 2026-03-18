@@ -15,6 +15,10 @@
 
 // Load .env.test.local for local runs (no-op in CI where vars come from Secrets)
 import 'dotenv/config';
+// Build a fresh Supabase client using the test project credentials.
+// We do this here (not via @/lib/supabase) so the module mock in other test
+// files cannot interfere.
+import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL       = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY  = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -30,11 +34,6 @@ const hasClientCreds = Boolean(CLIENT_EMAIL && CLIENT_PASSWORD);
 
 const maybeDescribe        = hasCreds       ? describe : describe.skip;
 const maybeDescribeClient  = hasClientCreds ? describe : describe.skip;
-
-// Build a fresh Supabase client using the test project credentials.
-// We do this here (not via @/lib/supabase) so the module mock in other test
-// files cannot interfere.
-import { createClient } from '@supabase/supabase-js';
 
 function buildTestClient() {
   return createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
