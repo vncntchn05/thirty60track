@@ -22,72 +22,28 @@
 -- ============================================================
 
 -- ─── Idempotent cleanup ──────────────────────────────────────
--- Deleting auth users cascades to trainers, clients, workouts, etc.
-DELETE FROM auth.users
-WHERE email IN ('trainer@thirty60test.dev', 'client@thirty60test.dev');
+-- Auth users are created/deleted by scripts/create-test-users.sh via the
+-- Supabase Admin API (GoTrue). Deleting auth users cascades to trainers,
+-- clients, workouts, etc. — so by the time this file runs, the slate is
+-- clean. We delete application rows here only for manual/local runs where
+-- the script was not invoked.
+DELETE FROM assigned_workouts
+  WHERE client_id = 'cccccccc-0000-4000-c000-000000000003';
+DELETE FROM nutrition_logs
+  WHERE client_id = 'cccccccc-0000-4000-c000-000000000003';
+DELETE FROM workouts
+  WHERE client_id = 'cccccccc-0000-4000-c000-000000000003';
+DELETE FROM client_intake
+  WHERE client_id = 'cccccccc-0000-4000-c000-000000000003';
+DELETE FROM nutrition_goals
+  WHERE client_id = 'cccccccc-0000-4000-c000-000000000003';
+DELETE FROM clients
+  WHERE id = 'cccccccc-0000-4000-c000-000000000003';
 
--- ─── 1. Auth users ───────────────────────────────────────────
--- Requires pgcrypto (enabled by default in Supabase).
--- handle_new_user trigger will auto-create the trainers row for Marcus.
--- Jordan passes role:'client' so the trigger skips trainer-row creation.
-INSERT INTO auth.users (
-  id, instance_id, aud, role, email,
-  encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data,
-  created_at, updated_at,
-  confirmation_token, recovery_token,
-  email_change_token_new, email_change
-) VALUES
-(
-  'aaaaaaaa-0000-4000-a000-000000000001',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated', 'authenticated',
-  'trainer@thirty60test.dev',
-  crypt('Thirty60Trainer#1', gen_salt('bf', 10)),
-  '2025-03-16 08:00:00+00',
-  '{"provider":"email","providers":["email"]}',
-  '{"full_name":"Marcus Webb"}',
-  '2025-03-16 08:00:00+00', '2025-03-16 08:00:00+00',
-  '', '', '', ''
-),
-(
-  'bbbbbbbb-0000-4000-b000-000000000002',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated', 'authenticated',
-  'client@thirty60test.dev',
-  crypt('Thirty60Client#1', gen_salt('bf', 10)),
-  '2025-03-17 09:15:00+00',
-  '{"provider":"email","providers":["email"]}',
-  '{"role":"client","full_name":"Jordan Reyes"}',
-  '2025-03-17 09:15:00+00', '2025-03-17 09:15:00+00',
-  '', '', '', ''
-);
-
--- ─── 2. Auth identities ──────────────────────────────────────
-INSERT INTO auth.identities (
-  id, user_id, provider_id, identity_data, provider,
-  last_sign_in_at, created_at, updated_at
-) VALUES
-(
-  'aaaaaaaa-1111-4000-a000-000000000001',
-  'aaaaaaaa-0000-4000-a000-000000000001',
-  'trainer@thirty60test.dev',
-  '{"sub":"aaaaaaaa-0000-4000-a000-000000000001","email":"trainer@thirty60test.dev"}',
-  'email',
-  '2025-03-16 08:00:00+00', '2025-03-16 08:00:00+00', '2025-03-16 08:00:00+00'
-),
-(
-  'bbbbbbbb-1111-4000-b000-000000000002',
-  'bbbbbbbb-0000-4000-b000-000000000002',
-  'client@thirty60test.dev',
-  '{"sub":"bbbbbbbb-0000-4000-b000-000000000002","email":"client@thirty60test.dev"}',
-  'email',
-  '2025-03-17 09:15:00+00', '2025-03-17 09:15:00+00', '2025-03-17 09:15:00+00'
-)
-ON CONFLICT DO NOTHING;
-
--- ─── 3. Client row ───────────────────────────────────────────
--- Updated to current (end-of-year) metrics; workouts track the journey.
+-- ─── 1. Client row ───────────────────────────────────────────
+-- Auth users (trainer + client) must already exist in auth.users.
+-- In CI: created by scripts/create-test-users.sh before this file runs.
+-- Locally: run that script manually, or create via the Supabase dashboard.
 INSERT INTO clients (
   id, trainer_id, auth_user_id,
   full_name, email, phone, date_of_birth, gender,
@@ -116,7 +72,7 @@ INSERT INTO clients (
   NOW()
 );
 
--- ─── 4. Client intake ────────────────────────────────────────
+-- ─── 2. Client intake ────────────────────────────────────────
 INSERT INTO client_intake (
   client_id,
   address,
@@ -141,7 +97,7 @@ INSERT INTO client_intake (
   '2025-03-17 10:30:00+00'
 );
 
--- ─── 5. Nutrition goals (trainer-set; updated at 6-month check-in) ──
+-- ─── 3. Nutrition goals (trainer-set; updated at 6-month check-in) ──
 INSERT INTO nutrition_goals (
   id, client_id, trainer_id,
   calories, protein_pct, carbs_pct, fat_pct,
@@ -156,7 +112,7 @@ INSERT INTO nutrition_goals (
   '2025-09-22 11:00:00+00'
 );
 
--- ─── 6. Bulk workout + nutrition generation (PL/pgSQL) ──────
+-- ─── 4. Bulk workout + nutrition generation (PL/pgSQL) ──────
 DO $$
 DECLARE
   -- Fixed IDs
@@ -755,7 +711,7 @@ BEGIN
 
 END $$;
 
--- ─── 7. Assigned workouts (trainer planning sessions) ────────
+-- ─── 5. Assigned workouts (trainer planning sessions) ────────
 -- A sample of Marcus assigning upcoming sessions to Jordan.
 -- Uses a small window of upcoming dates relative to end of seed period.
 DO $$
