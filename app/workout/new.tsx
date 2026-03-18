@@ -129,10 +129,6 @@ export default function NewWorkoutScreen() {
     setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, linkedToNext: !b.linkedToNext } : b));
   }
 
-  function isInSuperset(bi: number): boolean {
-    return blocks[bi].linkedToNext || (bi > 0 && blocks[bi - 1].linkedToNext);
-  }
-
   function handleSelectTemplate(template: WorkoutTemplate) {
     const matched: ExerciseBlock[] = [];
     const skipped: string[] = [];

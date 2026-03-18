@@ -51,7 +51,7 @@ function RootNavigator() {
     } else if (session && role === 'client' && (inAuthGroup || inTabsGroup)) {
       router.replace('/(client)' as never);
     }
-  }, [session, role, loading, segments]);
+  }, [session, role, loading, segments, router]);
 
   const sharedHeaderOptions = {
     headerStyle: { backgroundColor: t.surface },
@@ -90,7 +90,7 @@ export default function RootLayout() {
         .then(() => { setSkiaAvailable(true); setSkiaReady(true); })
         .catch(() => { setSkiaAvailable(false); setSkiaReady(true); });
     }
-  }, []);
+  }, [isWeb]);
 
   if (!skiaReady) {
     return (

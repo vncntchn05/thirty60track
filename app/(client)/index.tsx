@@ -69,8 +69,6 @@ export default function ClientDashboard() {
     }
   }
 
-  // Total volume of last workout
-  const lastVolume = lastWorkout ? 0 : 0; // sets not loaded here — just show count
 
   if (loading) {
     return (
