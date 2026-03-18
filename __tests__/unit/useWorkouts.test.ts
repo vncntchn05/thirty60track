@@ -45,6 +45,7 @@ function makeSet(exerciseId: string, setNumber: number): Omit<InsertWorkoutSet, 
     weight_kg: 50,
     duration_seconds: null,
     notes: null,
+    superset_group: null,
   };
 }
 

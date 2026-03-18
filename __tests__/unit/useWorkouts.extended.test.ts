@@ -169,7 +169,7 @@ describe('createWorkoutWithSets — sets error propagation', () => {
 
     const result = await createWorkoutWithSets(
       BASE,
-      [{ exercise_id: 'ex-1', set_number: 1, reps: 10, weight_kg: 50, duration_seconds: null, notes: null }],
+      [{ exercise_id: 'ex-1', set_number: 1, reps: 10, weight_kg: 50, duration_seconds: null, notes: null, superset_group: null }],
     );
 
     expect(result.workoutId).toBe('w-err');
