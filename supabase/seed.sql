@@ -180,92 +180,94 @@ ON CONFLICT (name) DO NOTHING;
 
 -- ─── Workout Templates ────────────────────────────────────────────
 -- Run AFTER Migration 004 (workout_templates table) has been applied.
-INSERT INTO workout_templates (name, phase, category, exercise_names) VALUES
+-- Migration 015 dropped the phase and category columns.
+-- Template names that were duplicated across phases get a suffix per that migration.
+INSERT INTO workout_templates (name, exercise_names) VALUES
   -- Phase 1
-  ('Workout A: Push Focus', 'Phase 1', 'Main', ARRAY[
+  ('Workout A: Push Focus', ARRAY[
     'Air Squat', 'Glute Bridge', 'Incline Push-up', 'Floor Press + Mod Push-up',
     'Dips', 'Plank (Variations)', 'Mountain Climbers + Air Squats', 'Cobra Stretch',
     'Bear Crawl', 'Glute Bridge Hold'
   ]),
-  ('Workout B: Pull Focus', 'Phase 1', 'Main', ARRAY[
+  ('Workout B: Pull Focus', ARRAY[
     'Reverse Lunge', 'Single-Leg Reach (Bulg Squat)', 'Pull up/Lat Pulldown',
     'Mid Row', 'RDL', 'Cable Pullover', 'Towel Curls', 'Hammer Curl',
     'Bear Crawl', 'Glute Bridge (Pulsing)'
   ]),
-  ('Workout C: Stability', 'Phase 1', 'Main', ARRAY[
+  ('Workout C: Stability', ARRAY[
     'Box Squat', 'Step-ups/Weighted', 'Landmine', 'Squat Press (DB/Bar)',
     'Cable Squat Row', 'Cable Torso Rotations', 'Scapular Push-ups',
     'Scapular Pull-up', 'Plank Taps', 'BW Back Extensions'
   ]),
-  ('Workout D: Lateral/Total', 'Phase 1', 'Main', ARRAY[
+  ('Workout D: Lateral/Total', ARRAY[
     'Lateral Lunge', 'Wall Sit', 'Plank-to-Pushup', 'Box Jump',
     'Side Planks', 'Ball Squat Toss', 'Single-Leg Step-Up', 'Hip Circles',
     'Mountain Climbers', 'In-Out Jumping Jacks'
   ]),
-  -- Phase 2
-  ('Workout A: Push Focus', 'Phase 2', 'Main', ARRAY[
+  -- Phase 2 (conflicting names suffixed with " (P2)" per Migration 015)
+  ('Workout A: Push Focus (P2)', ARRAY[
     'Skater Jumps', 'Jump Squats', 'Tempo Push-ups', 'Chest Pass (Med Ball)',
     'Plank Jacks', 'Flutter Kicks', 'T-Pushups', 'High Knees (s)',
     'Box Jump', 'Deadbug (Weighted)'
   ]),
-  ('Workout B: Pull Focus', 'Phase 2', 'Main', ARRAY[
+  ('Workout B: Pull Focus (P2)', ARRAY[
     'Box Step-ups', 'Walking Lunges', 'Chin-up Negatives', 'Med Ball Slams',
     'Mountain Climbers', 'Bicycle Crunches', 'Cable Face Pulls', 'Butt Kicks (s)',
     'Single-Leg Hops', 'Plank (Weighted)'
   ]),
-  ('Workout C: Shoulder Focus', 'Phase 2', 'Main', ARRAY[
+  ('Workout C: Shoulder Focus', ARRAY[
     'Rope Ladder Broad Jumps', 'Lateral Bounds', 'Med Ball Overhead Hold',
     'Wall Balls', 'Russian Twists', 'Static Squat Cable Torso Rotations',
     'Pike Push-ups', 'Jumping Jacks (s)', 'Pilates Squat + Squat', 'Side Plank Dips'
   ]),
-  ('Workout D: Agility/Total', 'Phase 2', 'Main', ARRAY[
+  ('Workout D: Agility/Total', ARRAY[
     'Shuttle Runs (yd)', 'Speed Skaters', 'V-Ups/Knee Raises', 'Burpees',
     'Spiderman Push-ups', 'Plank with Knee-to-Elbow', 'Mountain Climber Burpee',
     'Ice Skater Steps', 'Squat Thrusts', 'Deadlift'
   ]),
   -- Phase 3
-  ('Workout A: Chest/Push', 'Phase 3', 'Main', ARRAY[
+  ('Workout A: Chest/Push', ARRAY[
     'DB Goblet Squat', 'RDL (Dumbbells)', 'DB Bench Press', 'DB Incline Press',
     'Deadbug (Weighted)', 'Pallof Press', 'Dips/Band Flyes', 'Inchworm Push-Up',
     'Calf Raise', 'Weighted Sit-up'
   ]),
-  ('Workout B: Back/Pull', 'Phase 3', 'Main', ARRAY[
+  ('Workout B: Back/Pull', ARRAY[
     'DB Split Squat', 'Leg Press + Leg Machines', 'Lat Pulldown', 'Seated Cable Row',
     'Cable Woodchops', 'Plank with Row', 'Cable Face Pulls', 'Bicep Curls',
     'Single-Leg Bridge', 'Reverse Crunch'
   ]),
-  ('Workout C: Shoulders', 'Phase 3', 'Main', ARRAY[
+  ('Workout C: Shoulders', ARRAY[
     'KB Deadlift', 'Hamstring Curl', 'DB Overhead Press', 'Cable/Band Lateral Raise',
     'Hanging Leg Raises', 'Landmine Rotation', 'Burpee DB Press',
     'Diamond + Wide Pushups', 'Wall Sits (Weighted)', 'Windshields/Alternate Knee Raises'
   ]),
-  ('Workout D: Total Body', 'Phase 3', 'Main', ARRAY[
+  ('Workout D: Total Body', ARRAY[
     'DB Step-ups', 'Goblet Lateral Lunge', 'DB Renegade Row', 'Push-up (Weighted)',
     'Medicine Ball Rotational Toss', 'Suitcase Carry (L/R)', 'Hammer Curl',
     'Box Dips (Assist)', 'Lunge with Twist', 'Farmer''s Walk'
   ]),
   -- Abs
-  ('Abs: Variation A', 'Abs', 'Abs', ARRAY[
+  ('Abs: Variation A', ARRAY[
     'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises',
     'Plank', 'Plank Shoulder Taps', 'Deadbugs', 'Plank In and Outs',
     'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps', 'V-Ups'
   ]),
-  ('Abs: Variation B', 'Abs', 'Abs', ARRAY[
+  ('Abs: Variation B', ARRAY[
     'V-Ups', 'Toe Taps', 'Knee to Elbows', 'Decline Russian Twists',
     'Plank In and Outs', 'Deadbugs', 'Plank Shoulder Taps', 'Plank',
     'Knee/Leg Raises', 'Single Leg Decline', 'Teapots', 'Center Decline'
   ]),
-  ('Abs: Variation C', 'Abs', 'Abs', ARRAY[
+  ('Abs: Variation C', ARRAY[
     'Plank', 'Deadbugs', 'V-Ups', 'Center Decline', 'Teapots',
     'Single Leg Decline', 'Knee/Leg Raises', 'Plank Shoulder Taps',
     'Plank In and Outs', 'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps'
   ]),
-  ('Abs: Variation D', 'Abs', 'Abs', ARRAY[
+  ('Abs: Variation D', ARRAY[
     'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps', 'V-Ups',
     'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises',
     'Plank', 'Plank Shoulder Taps', 'Deadbugs', 'Plank In and Outs'
   ])
-ON CONFLICT (name, phase) DO NOTHING;
+ON CONFLICT (name) DO NOTHING;
 
 -- ─── Migration: backfill missing muscle_group values ──────────────
 -- Run this in the Supabase SQL editor to fix existing rows.
