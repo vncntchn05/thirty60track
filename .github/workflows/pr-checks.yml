@@ -89,9 +89,10 @@ jobs:
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          TEST_TRAINER_EMAIL: ${{ secrets.TEST_TRAINER_EMAIL }}
+          # Emails are not sensitive — hardcoded to match create-test-users.sh
+          TEST_TRAINER_EMAIL: trainer@thirty60test.dev
           TEST_TRAINER_PASSWORD: ${{ secrets.TEST_TRAINER_PASSWORD }}
-          TEST_CLIENT_EMAIL: ${{ secrets.TEST_CLIENT_EMAIL }}
+          TEST_CLIENT_EMAIL: client@thirty60test.dev
           TEST_CLIENT_PASSWORD: ${{ secrets.TEST_CLIENT_PASSWORD }}
           # Fixed UUID from seed_cicd.sql — Jordan Reyes's client row
           TEST_CLIENT_ID: cccccccc-0000-4000-c000-000000000003
