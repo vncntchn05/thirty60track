@@ -1,6 +1,8 @@
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { useTrainers } from '@/hooks/useTrainers';
+import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Trainer } from '@/types';
 
@@ -26,6 +28,31 @@ export default function ProfileScreen() {
   const { trainer, signOut } = useAuth();
   const { trainers, loading: trainersLoading, error: trainersError } = useTrainers();
   const t = useTheme();
+  const [resetting, setResetting] = useState(false);
+
+  async function handleResetPassword() {
+    if (!trainer?.email) return;
+    Alert.alert(
+      'Reset Password',
+      `Send a password reset link to ${trainer.email}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            setResetting(true);
+            const { error } = await supabase.auth.resetPasswordForEmail(trainer.email);
+            setResetting(false);
+            if (error) {
+              Alert.alert('Error', error.message);
+            } else {
+              Alert.alert('Email sent', `Check ${trainer.email} for a password reset link.`);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   return (
     <ScrollView
@@ -57,6 +84,17 @@ export default function ProfileScreen() {
           <TrainerRow key={tr.id} trainer={tr} t={t} />
         ))}
       </View>
+
+      <TouchableOpacity
+        style={[styles.resetButton, { backgroundColor: t.surface, borderColor: t.border }]}
+        onPress={handleResetPassword}
+        disabled={resetting}
+      >
+        {resetting
+          ? <ActivityIndicator color={colors.primary} />
+          : <Text style={[styles.resetText, { color: colors.primary }]}>Reset Password</Text>
+        }
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
         <Text style={styles.signOutText}>Sign Out</Text>
@@ -117,6 +155,13 @@ const styles = StyleSheet.create({
   trainerInfo: { flex: 1 },
   trainerName: { ...typography.body, fontWeight: '600' },
   trainerEmail: { ...typography.bodySmall },
+  resetButton: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  resetText: { ...typography.body, fontWeight: '600' },
   signOutButton: {
     backgroundColor: colors.error,
     borderRadius: radius.md,
