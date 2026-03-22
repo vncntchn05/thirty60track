@@ -206,13 +206,13 @@ export type AssignedExercisePayload = {
   exercise_id: string;
   order_index: number;
   superset_group: number | null;
-  sets: Array<{
+  sets: {
     set_number: number;
     reps: number | null;
     weight_kg: number | null;
     duration_seconds: number | null;
     notes: string | null;
-  }>;
+  }[];
 };
 
 export type InsertAssignedWorkout = {

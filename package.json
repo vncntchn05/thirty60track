@@ -12,7 +12,7 @@
     "test": "jest --runInBand",
     "test:coverage": "NODE_OPTIONS=--max-old-space-size=4096 jest --coverage --watchAll=false --runInBand",
     "test:ci": "NODE_OPTIONS=--max-old-space-size=4096 jest --watchAll=false --forceExit --runInBand",
-    "test:integration": "NODE_OPTIONS=--max-old-space-size=4096 jest --testPathPattern=__tests__/integration --watchAll=false --forceExit --runInBand"
+    "test:integration": "NODE_OPTIONS=--max-old-space-size=4096 jest --testPathPatterns=__tests__/integration --watchAll=false --forceExit --runInBand"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
@@ -54,6 +54,7 @@
     "@types/jest": "^30.0.0",
     "@types/react": "~18.2.79",
     "@types/react-native": "^0.73.0",
+    "dotenv": "^16.0.0",
     "eslint": "^8.57.0",
     "eslint-config-expo": "~8.0.1",
     "jest": "^30.3.0",

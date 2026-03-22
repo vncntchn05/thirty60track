@@ -28,6 +28,7 @@ function buildTestClient() {
 maybeDescribe('Workouts integration', () => {
   let sb: SupabaseClient;
   let trainerId: string;
+  let exerciseId: string;
   let createdWorkoutId: string | null = null;
 
   beforeAll(async () => {
@@ -38,6 +39,15 @@ maybeDescribe('Workouts integration', () => {
     });
     if (error || !data.user) throw new Error(`Sign-in failed: ${error?.message}`);
     trainerId = data.user.id;
+
+    // Fetch any exercise to use as a valid exercise_id in set inserts
+    const { data: ex, error: exErr } = await sb
+      .from('exercises')
+      .select('id')
+      .limit(1)
+      .single();
+    if (exErr || !ex) throw new Error(`Could not fetch exercise: ${exErr?.message}`);
+    exerciseId = ex.id;
   });
 
   afterAll(async () => {
@@ -64,10 +74,10 @@ maybeDescribe('Workouts integration', () => {
     expect(workout?.client_id).toBe(TEST_CLIENT_ID);
     createdWorkoutId = workout?.id ?? null;
 
-    // Insert two sets
+    // Insert two sets using a real exercise_id (exercise_id is NOT NULL)
     const { error: sErr } = await sb.from('workout_sets').insert([
-      { workout_id: createdWorkoutId!, exercise_id: null, set_number: 1, reps: 10, weight_kg: 60, duration_seconds: null, notes: null },
-      { workout_id: createdWorkoutId!, exercise_id: null, set_number: 2, reps: 8,  weight_kg: 65, duration_seconds: null, notes: null },
+      { workout_id: createdWorkoutId!, exercise_id: exerciseId, set_number: 1, reps: 10, weight_kg: 60, duration_seconds: null, notes: null },
+      { workout_id: createdWorkoutId!, exercise_id: exerciseId, set_number: 2, reps: 8,  weight_kg: 65, duration_seconds: null, notes: null },
     ]);
 
     expect(sErr).toBeNull();

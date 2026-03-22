@@ -143,7 +143,7 @@ describe('insertSetsOrdered (via createWorkoutWithSets)', () => {
 
     await createWorkoutWithSets(BASE_WORKOUT, sets);
 
-    const insertedRows = workoutSetsInsertSpy.mock.calls[0][0] as Array<{ workout_id: string }>;
+    const insertedRows = workoutSetsInsertSpy.mock.calls[0][0] as { workout_id: string }[];
     expect(insertedRows.every((r) => r.workout_id === 'w-test')).toBe(true);
   });
 
@@ -160,9 +160,9 @@ describe('insertSetsOrdered (via createWorkoutWithSets)', () => {
 
     expect(workoutSetsInsertSpy).toHaveBeenCalledTimes(2);
 
-    const call1Ids = (workoutSetsInsertSpy.mock.calls[0][0] as Array<{ exercise_id: string }>)
+    const call1Ids = (workoutSetsInsertSpy.mock.calls[0][0] as { exercise_id: string }[])
       .map((r) => r.exercise_id);
-    const call2Ids = (workoutSetsInsertSpy.mock.calls[1][0] as Array<{ exercise_id: string }>)
+    const call2Ids = (workoutSetsInsertSpy.mock.calls[1][0] as { exercise_id: string }[])
       .map((r) => r.exercise_id);
 
     // Each call should contain only one unique exercise_id

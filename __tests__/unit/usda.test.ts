@@ -114,7 +114,7 @@ function buildUsdaResponse(overrides: {
   description?: string;
   brandOwner?: string;
   brandName?: string;
-  nutrients?: Array<{ nutrientId: number; nutrientName: string; unitName: string; value: number }>;
+  nutrients?: { nutrientId: number; nutrientName: string; unitName: string; value: number }[];
 }) {
   return {
     foods: [

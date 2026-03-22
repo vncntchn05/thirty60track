@@ -13,6 +13,7 @@ import {
   completeAssignedWorkout,
 } from '@/hooks/useAssignedWorkouts';
 import { supabase } from '@/lib/supabase';
+import { createWorkoutWithSets } from '@/hooks/useWorkouts';
 import { createQueryMock } from '../helpers/supabase-mock';
 
 jest.mock('@/lib/supabase', () => ({
@@ -30,8 +31,6 @@ jest.mock('@/lib/supabase', () => ({
 jest.mock('@/hooks/useWorkouts', () => ({
   createWorkoutWithSets: jest.fn(),
 }));
-
-import { createWorkoutWithSets } from '@/hooks/useWorkouts';
 
 const mockFrom  = supabase.from as jest.Mock;
 const mockCWWS  = createWorkoutWithSets as jest.Mock;
@@ -383,7 +382,7 @@ describe('completeAssignedWorkout', () => {
 
 describe('sortExercises (order_index ordering)', () => {
   // Replicate the internal sortExercises function
-  function sortExercises(data: { exercises?: Array<{ order_index: number }> }) {
+  function sortExercises(data: { exercises?: { order_index: number }[] }) {
     return {
       ...data,
       exercises: [...(data.exercises ?? [])].sort((a, b) => a.order_index - b.order_index),

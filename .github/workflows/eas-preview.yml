@@ -1,8 +1,7 @@
 name: EAS Preview Build
 
 on:
-  pull_request:
-    branches: [main]
+  workflow_dispatch:  # run manually only — requires EAS_TOKEN secret and paid Expo account
 
 concurrency:
   group: eas-preview-${{ github.ref }}
