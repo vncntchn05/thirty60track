@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, ActivityIndicator,
+  StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePendingAssignedWorkoutsForClient } from '@/hooks/useAssignedWorkouts';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { AssignedWorkoutWithDetails } from '@/types';
 
@@ -59,9 +61,34 @@ function AssignedCard({ item, onStart, t }: AssignedCardProps) {
 export default function AssignedTabScreen() {
   const router = useRouter();
   const t = useTheme();
-  const { clientId } = useAuth();
+  const { clientId, user, signOut } = useAuth();
+  const [resetting, setResetting] = useState(false);
 
   const { assignedWorkouts, loading, error } = usePendingAssignedWorkoutsForClient(clientId ?? '');
+
+  async function handleResetPassword() {
+    if (!user?.email) return;
+    Alert.alert(
+      'Reset Password',
+      `Send a password reset link to ${user.email}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            setResetting(true);
+            const { error: err } = await supabase.auth.resetPasswordForEmail(user.email!);
+            setResetting(false);
+            if (err) {
+              Alert.alert('Error', err.message);
+            } else {
+              Alert.alert('Email sent', `Check ${user.email} for a password reset link.`);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
@@ -98,6 +125,22 @@ export default function AssignedTabScreen() {
             : null
         }
       />
+
+      <View style={[styles.footer, { borderTopColor: t.border, backgroundColor: t.surface }]}>
+        <TouchableOpacity
+          style={[styles.footerBtn, { borderColor: t.border }]}
+          onPress={handleResetPassword}
+          disabled={resetting}
+        >
+          {resetting
+            ? <ActivityIndicator color={colors.primary} />
+            : <Text style={[styles.footerBtnText, { color: colors.primary }]}>Reset Password</Text>
+          }
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.signOutBtn} onPress={signOut}>
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -123,4 +166,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.sm,
   },
   startBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+  footer: {
+    padding: spacing.md, gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  footerBtn: {
+    borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center',
+  },
+  footerBtnText: { ...typography.body, fontWeight: '600' },
+  signOutBtn: {
+    backgroundColor: colors.error, borderRadius: radius.md,
+    paddingVertical: spacing.md, alignItems: 'center',
+  },
+  signOutText: { ...typography.body, fontWeight: '600', color: colors.textInverse },
 });
