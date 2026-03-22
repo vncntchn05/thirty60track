@@ -184,7 +184,7 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] FAB (floating action button) with label
 - [x] Safe back navigation — falls back to home if no navigation history (works on web direct links)
 - [x] **Name-based client URLs** — web routes use `/client/john-doe` instead of UUIDs; slug lookup with UUID fallback for backward compatibility
-- [x] **404 redirect** — unmatched routes redirect to the home screen
+- [x] **404 handling** — unmatched routes show a "Page not found" screen; with the Render SPA rewrite rule in place, refreshing any valid URL stays on that page instead of redirecting home
 - [x] Five-tab layout on client detail screen (Progress / Workouts / Assigned / Nutrition / Media)
 - [x] Skia web initialization with CanvasKit CDN (charts work on web)
 - [x] Lazy-loaded chart section (CanvasKit loads before charts render)
@@ -240,7 +240,7 @@ app/
   exercise/[id].tsx                     # Exercise detail — form notes + tutorial link (editable)
   client/[id].tsx                       # Trainer: client detail — info+intake card, body metrics, charts, workouts, assigned, media
   client/new.tsx                        # Add client form (duplicate name guard)
-  +not-found.tsx                        # 404 handler — redirects to home
+  +not-found.tsx                        # 404 handler — shows "Page not found" (does not redirect; Render rewrite rule serves index.html so this only fires for genuinely missing routes)
   workout/[id].tsx                      # Workout detail — view/edit sets, body metrics, supersets, delete
   workout/new.tsx                       # Trainer: log or assign a workout; mode toggle at top
   workout/assigned/[id].tsx             # Trainer: edit assigned workout — full exercise builder + delete with confirmation bar
