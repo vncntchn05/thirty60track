@@ -75,12 +75,25 @@ export default function SignupScreen() {
         options: { data: { full_name: fullName.trim(), role: 'client' } },
       });
       if (authErr) {
-        setError(formatSignUpError(authErr.message));
+        const lower = authErr.message.toLowerCase();
+        if (lower.includes('already registered') || lower.includes('user already exists')) {
+          // Auth user exists but client has no password (e.g. invited via dashboard).
+          // Send a password reset so they can set one and sign in — detectRole will auto-link.
+          await supabase.auth.resetPasswordForEmail(email.trim());
+          setError(
+            'An account already exists for this email. We\'ve sent you a link to set your password — check your inbox, then sign in.'
+          );
+        } else {
+          setError(formatSignUpError(authErr.message));
+        }
         setLoading(false);
         return;
       }
       if (data.user?.identities?.length === 0) {
-        setError('An account with this email already exists. Please sign in instead.');
+        await supabase.auth.resetPasswordForEmail(email.trim());
+        setError(
+          'An account already exists for this email. We\'ve sent you a link to set your password — check your inbox, then sign in.'
+        );
         setLoading(false);
         return;
       }
@@ -139,8 +152,11 @@ export default function SignupScreen() {
 
   function formatSignUpError(message: string): string {
     const lower = message.toLowerCase();
+    if (lower.includes('already registered') || lower.includes('user already exists')) {
+      return 'An account with this email already exists. Please sign in instead.';
+    }
     if (lower.includes('rate limit') || lower.includes('email rate') || lower.includes('over_email_send_rate_limit')) {
-      return 'Too many signup attempts — Supabase has temporarily limited confirmation emails. Please wait a few minutes and try again, or ask your trainer to disable email confirmation in the Supabase dashboard.';
+      return 'Too many signup attempts — Supabase has temporarily limited confirmation emails. Please wait a few minutes and try again.';
     }
     return message;
   }
