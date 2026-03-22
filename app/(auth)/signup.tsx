@@ -37,7 +37,7 @@ export default function SignupScreen() {
     const { data: clientRow } = await supabase
       .from('clients')
       .select('id, auth_user_id')
-      .eq('email', emailAddr)
+      .ilike('email', emailAddr)
       .single();
 
     if (!clientRow) {

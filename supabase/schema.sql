@@ -648,16 +648,16 @@ DECLARE
   v_email   TEXT;
   v_id      UUID;
 BEGIN
-  -- Resolve the caller's email from auth.users
-  SELECT email INTO v_email FROM auth.users WHERE id = auth.uid();
+  -- Resolve the caller's email from auth.users (lowercased for case-insensitive matching)
+  SELECT LOWER(email) INTO v_email FROM auth.users WHERE id = auth.uid();
   IF v_email IS NULL THEN
     RETURN NULL;
   END IF;
 
-  -- Find an unlinked client row for this email
+  -- Find an unlinked client row for this email (case-insensitive)
   SELECT id INTO v_id
   FROM clients
-  WHERE email = v_email
+  WHERE LOWER(email) = v_email
     AND auth_user_id IS NULL
   LIMIT 1;
 
