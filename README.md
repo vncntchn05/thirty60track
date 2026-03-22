@@ -61,6 +61,7 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] Notes per workout
 - [x] View workout detail (sets grouped by exercise)
 - [x] Edit existing workout — add exercises, edit sets, update notes, edit body metrics
+- [x] **Unsaved changes guard** — editing a set, the workout header, or an add-set form and tapping back shows an in-screen bar with Save and Discard options; back gesture is disabled while changes are pending
 - [x] Delete workout (confirmation bar)
 - [x] Delete individual sets
 - [x] Body metrics on past workouts sync back to the client profile
@@ -72,14 +73,18 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 ### Assigned Workouts
 - [x] Trainers can assign a workout to a client with a title, scheduled date, optional notes, and a full exercise + set prescription
 - [x] **Assign mode in workout builder** — toggle between "Log" and "Assign" at the top of the new workout screen; assign mode sends the workout to the client without creating a session log entry; exits immediately on success (no confirmation dialog)
+- [x] **Unsaved changes guard on new workout** — if exercises or inputs have been filled in and the user navigates away, an in-screen Save/Discard bar appears; back gesture disabled while dirty
 - [x] **Assign to multiple clients** — in assign mode, a checkbox list of all clients is shown; any combination can be selected; the same workout is submitted for all selected clients simultaneously
 - [x] **Client pending workouts** — assigned workouts with status `assigned` appear at the top of the client's Workouts tab as "UPCOMING" cards with a play button
 - [x] Client taps an upcoming workout to open the **Complete Workout** screen — exercises and prescribed sets are pre-filled; client edits actual reps/weight/duration and taps Complete
 - [x] Completing an assigned workout creates a real workout + sets entry in the client's log and marks the assigned workout as `completed`
 - [x] **Assigned tab on client detail** — trainers see all assigned workouts (pending and completed) for a client; edit or delete any entry
 - [x] **Edit assigned workout** — full exercise builder pre-populated with prescribed exercises and sets; supports template loading, superset linking, and unit toggle
+- [x] **Unsaved changes guard on edit assigned workout** — navigating away with unsaved edits shows an in-screen Save/Discard bar; back gesture disabled while dirty
+- [x] **Any trainer can complete an assigned workout** — a "Complete" button appears on the edit screen for pending workouts; any trainer (not just the assigning trainer) can fill in actual values and log the session on behalf of the client; logged-by attribution is set to `trainer` automatically
 - [x] Delete assigned workout with confirmation bar (child sets and exercises deleted first to satisfy RLS)
 - [x] Unit toggle (lbs / kg / secs) in both the assign builder and the complete screen
+- [x] **Cross-trainer access** — all trainers can view, edit, and complete any client's assigned workouts (migration 016 broadened RLS from per-trainer to any-authenticated-trainer)
 
 ### Workout Templates
 Templates are stored in the database and fully editable from within the app (via the Exercise Library tab → Edit Templates). The app ships with 16 pre-built templates sourced from the Thirty60 program library: Push Focus, Pull Focus, Stability, Lateral/Total, Shoulder Focus, Agility/Total, Chest/Push, Back/Pull, Total Body, and Abs Variations A–D.
@@ -352,6 +357,7 @@ Run these in order in the **Supabase SQL Editor**:
 - **013** — `assigned_workouts`, `assigned_workout_exercises`, `assigned_workout_sets` tables; RLS for both trainers (full CRUD on their clients' assignments) and clients (read + complete their own); `assigned_workouts.status` enum (`assigned` | `completed`); `completed_workout_id` FK back to `workouts`
 - **014** — `nutrition_logs` table (per-meal food entries with USDA food ID, serving size, macros); `nutrition_goals` table (daily calorie target + macro % split per client); RLS for trainers (full CRUD on their clients' data) and clients (read + insert + delete own logs; read own goal)
 - **015** — drops `phase` and `category` columns from `workout_templates`; renames duplicate template names (appends `(P2)` / `(P3)` suffix); replaces `UNIQUE(name, phase)` constraint with `UNIQUE(name)`
+- **016** — broadens assigned workout RLS from per-trainer (`trainer_id = auth.uid()`) to any authenticated trainer (`EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid())`); enables cross-trainer collaboration on client assigned workouts
 
 **Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 

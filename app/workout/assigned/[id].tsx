@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, StyleSheet, ActivityIndicator, Alert,
+  ScrollView, StyleSheet, ActivityIndicator, Alert, BackHandler,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { TemplatePicker } from '@/components/workout/TemplatePicker';
@@ -47,7 +47,9 @@ function formatDate(iso: string) {
 export default function EditAssignedWorkoutScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const t = useTheme();
+  const [isDirty, setIsDirty] = useState(false);
   const { exercises: allExercises } = useExercises();
   const { assignedWorkout, loading, error } = useAssignedWorkoutDetail(id);
 
@@ -60,15 +62,18 @@ export default function EditAssignedWorkoutScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showUnsavedBar, setShowUnsavedBar] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
 
   async function performDelete() {
     setIsDeleting(true);
     const { error: delErr } = await deleteAssignedWorkout(id ?? '');
     setIsDeleting(false);
     if (delErr) { setDeleteError(delErr); return; }
+    setIsDirty(false);
     router.back();
   }
 
@@ -109,14 +114,17 @@ export default function EditAssignedWorkoutScreen() {
   }, [assignedWorkout, initialized]);
 
   function updateBlockUnit(bi: number, unit: WeightUnit) {
+    setIsDirty(true);
     setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, unit } : b));
   }
 
   function addExercise(exercise: Exercise) {
+    setIsDirty(true);
     setBlocks((prev) => [...prev, EMPTY_BLOCK(exercise)]);
   }
 
   function removeBlock(bi: number) {
+    setIsDirty(true);
     setBlocks((prev) => {
       const next = prev.filter((_, i) => i !== bi);
       if (bi > 0 && prev[bi - 1].linkedToNext && bi === prev.length - 1) {
@@ -127,12 +135,14 @@ export default function EditAssignedWorkoutScreen() {
   }
 
   function addSet(bi: number) {
+    setIsDirty(true);
     setBlocks((prev) =>
       prev.map((b, i) => i === bi ? { ...b, sets: [...b.sets, { ...EMPTY_SET }] } : b)
     );
   }
 
   function updateSet(bi: number, si: number, field: keyof SetRow, value: string) {
+    setIsDirty(true);
     setBlocks((prev) =>
       prev.map((b, i) =>
         i === bi ? { ...b, sets: b.sets.map((s, j) => j === si ? { ...s, [field]: value } : s) } : b
@@ -141,12 +151,14 @@ export default function EditAssignedWorkoutScreen() {
   }
 
   function removeSet(bi: number, si: number) {
+    setIsDirty(true);
     setBlocks((prev) =>
       prev.map((b, i) => i === bi ? { ...b, sets: b.sets.filter((_, j) => j !== si) } : b)
     );
   }
 
   function toggleLink(bi: number) {
+    setIsDirty(true);
     setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, linkedToNext: !b.linkedToNext } : b));
   }
 
@@ -161,6 +173,7 @@ export default function EditAssignedWorkoutScreen() {
       else skipped.push(name);
     }
     const apply = () => {
+      setIsDirty(true);
       setBlocks(matched);
       setShowTemplatePicker(false);
       if (skipped.length > 0) {
@@ -185,8 +198,12 @@ export default function EditAssignedWorkoutScreen() {
     }
   }
 
-  async function handleSave() {
-    if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before saving.'); return; }
+  // Returns null on success, error string on failure
+  const performSave = useCallback(async (): Promise<string | null> => {
+    if (blocks.length === 0) {
+      Alert.alert('No exercises', 'Add at least one exercise before saving.');
+      return 'no exercises';
+    }
 
     let groupCounter = 0;
     const blockGroups: (number | null)[] = new Array(blocks.length).fill(null);
@@ -219,9 +236,42 @@ export default function EditAssignedWorkoutScreen() {
       exercises,
     });
     setSaving(false);
-    if (saveErr) Alert.alert('Error', saveErr);
-    else router.back();
-  }
+    if (saveErr) { Alert.alert('Error', saveErr); return saveErr; }
+    setIsDirty(false);
+    return null;
+  }, [blocks, id, title, scheduledDate, workoutNotes]);
+
+  const handleSave = useCallback(async () => {
+    const err = await performSave();
+    if (!err) router.back();
+  }, [performSave, router]);
+
+  const handleBackPress = useCallback(() => {
+    if (!isDirty) { router.back(); return; }
+    setShowUnsavedBar(true);
+  }, [isDirty, router]);
+
+  // Keep header back button and gesture guard in sync with dirty state
+  useEffect(() => {
+    navigation.setOptions({
+      gestureEnabled: !isDirty,
+      headerLeft: () => (
+        <TouchableOpacity onPress={handleBackPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+          <Ionicons name="chevron-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [isDirty, handleBackPress, navigation]);
+
+  // Android hardware back
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!isDirty) return false;
+      handleBackPress();
+      return true;
+    });
+    return () => sub.remove();
+  }, [isDirty, handleBackPress]);
 
   // ── Template picker ──
   if (showTemplatePicker) {
@@ -278,11 +328,6 @@ export default function EditAssignedWorkoutScreen() {
           headerStyle: { backgroundColor: t.surface },
           headerTintColor: t.textPrimary,
           headerTitleStyle: { fontWeight: '700' as const },
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
-              <Ionicons name="chevron-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          ),
           headerRight: () => (
             <TouchableOpacity
               onPress={() => { setConfirmingDelete(true); setDeleteError(null); }}
@@ -302,7 +347,7 @@ export default function EditAssignedWorkoutScreen() {
             placeholder="e.g. Upper Body A"
             placeholderTextColor={t.textSecondary}
             value={title}
-            onChangeText={setTitle}
+            onChangeText={(v) => { setIsDirty(true); setTitle(v); }}
           />
           <TouchableOpacity
             style={styles.dateTouchable}
@@ -324,7 +369,7 @@ export default function EditAssignedWorkoutScreen() {
           {showCalendar && scheduledDate && (
             <DatePicker
               value={scheduledDate}
-              onChange={(d) => { setScheduledDate(d); setShowCalendar(false); }}
+              onChange={(d) => { setIsDirty(true); setScheduledDate(d); setShowCalendar(false); }}
             />
           )}
           <TextInput
@@ -332,7 +377,7 @@ export default function EditAssignedWorkoutScreen() {
             placeholder="Instructions for client (optional)"
             placeholderTextColor={t.textSecondary}
             value={workoutNotes}
-            onChangeText={setWorkoutNotes}
+            onChangeText={(v) => { setIsDirty(true); setWorkoutNotes(v); }}
             multiline
           />
         </View>
@@ -451,14 +496,58 @@ export default function EditAssignedWorkoutScreen() {
         </View>
       </ScrollView>
 
-      {!confirmingDelete && (
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? <ActivityIndicator color={colors.textInverse} /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
-        </TouchableOpacity>
+      {showUnsavedBar && (
+        <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
+          <Text style={[styles.deleteBarText, { color: t.textPrimary }]}>You have unsaved changes.</Text>
+          <View style={styles.deleteBarButtons}>
+            <TouchableOpacity
+              onPress={() => { setShowUnsavedBar(false); setIsDirty(false); router.back(); }}
+              style={[styles.deleteCancelBtn, { borderColor: t.border }]}
+            >
+              <Text style={[styles.deleteCancelText, { color: t.textSecondary }]}>Discard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { setShowUnsavedBar(false); handleSave(); }}
+              style={styles.saveSuccessBtn}
+            >
+              <Text style={styles.deleteConfirmText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {!confirmingDelete && !showUnsavedBar && (
+        <View style={styles.footerRow}>
+          <TouchableOpacity
+            style={[styles.saveBtn, styles.footerFlex, saving && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? <ActivityIndicator color={colors.textInverse} /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
+          </TouchableOpacity>
+          {assignedWorkout?.status === 'assigned' && (
+            <TouchableOpacity
+              style={[styles.completeBtn]}
+              onPress={() => {
+                if (isDirty) {
+                  Alert.alert(
+                    'Unsaved Changes',
+                    'You have unsaved changes. Save before completing?',
+                    [
+                      { text: 'Discard & Continue', style: 'destructive', onPress: () => { setIsDirty(false); router.push(`/workout/assigned/complete/${id}` as never); } },
+                      { text: 'Save & Continue', onPress: async () => { const err = await performSave(); if (!err) router.push(`/workout/assigned/complete/${id}` as never); } },
+                    ],
+                  );
+                } else {
+                  router.push(`/workout/assigned/complete/${id}` as never);
+                }
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={18} color={colors.textInverse} />
+              <Text style={styles.saveBtnText}>Complete</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
       {confirmingDelete && (
@@ -560,7 +649,10 @@ const styles = StyleSheet.create({
     borderColor: colors.primary, gap: spacing.xs,
   },
   addExerciseBtnText: { ...typography.body, color: colors.primary, fontWeight: '600' },
+  footerRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.md, marginVertical: spacing.md },
+  footerFlex: { flex: 1, margin: 0 },
   saveBtn: { margin: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
+  completeBtn: { backgroundColor: colors.success, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
   deleteBar: { borderTopWidth: 1, padding: spacing.md, gap: spacing.sm },
@@ -570,6 +662,7 @@ const styles = StyleSheet.create({
   deleteCancelBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, borderWidth: 1 },
   deleteCancelText: { ...typography.body },
   deleteConfirmBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.error },
+  saveSuccessBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.primary },
   deleteConfirmText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
   supersetConnector: {
     flexDirection: 'row', alignItems: 'center',

@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, StyleSheet, ActivityIndicator, Alert,
+  ScrollView, StyleSheet, ActivityIndicator, Alert, BackHandler,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { TemplatePicker } from '@/components/workout/TemplatePicker';
@@ -59,6 +59,9 @@ function getTomorrow(): string {
 export default function NewWorkoutScreen() {
   const { clientId } = useLocalSearchParams<{ clientId: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
+  const [isDirty, setIsDirty] = useState(false);
+  const [showUnsavedBar, setShowUnsavedBar] = useState(false);
   const { user } = useAuth();
   const t = useTheme();
   const { exercises: allExercises } = useExercises();
@@ -87,10 +90,12 @@ export default function NewWorkoutScreen() {
   const [saving, setSaving] = useState(false);
 
   function addExercise(exercise: Exercise) {
+    setIsDirty(true);
     setBlocks((prev) => [...prev, EMPTY_BLOCK(exercise)]);
   }
 
   function removeBlock(bi: number) {
+    setIsDirty(true);
     setBlocks((prev) => {
       const next = prev.filter((_, i) => i !== bi);
       // If the removed block was linked to next, unlink the previous block
@@ -102,16 +107,19 @@ export default function NewWorkoutScreen() {
   }
 
   function addSet(bi: number) {
+    setIsDirty(true);
     setBlocks((prev) =>
       prev.map((b, i) => i === bi ? { ...b, sets: [...b.sets, { ...EMPTY_SET }] } : b)
     );
   }
 
   function updateBlockUnit(bi: number, unit: WeightUnit) {
+    setIsDirty(true);
     setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, unit } : b));
   }
 
   function updateSet(bi: number, si: number, field: keyof SetRow, value: string) {
+    setIsDirty(true);
     setBlocks((prev) =>
       prev.map((b, i) =>
         i === bi ? { ...b, sets: b.sets.map((s, j) => j === si ? { ...s, [field]: value } : s) } : b
@@ -120,12 +128,14 @@ export default function NewWorkoutScreen() {
   }
 
   function removeSet(bi: number, si: number) {
+    setIsDirty(true);
     setBlocks((prev) =>
       prev.map((b, i) => i === bi ? { ...b, sets: b.sets.filter((_, j) => j !== si) } : b)
     );
   }
 
   function toggleLink(bi: number) {
+    setIsDirty(true);
     setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, linkedToNext: !b.linkedToNext } : b));
   }
 
@@ -145,6 +155,7 @@ export default function NewWorkoutScreen() {
     }
 
     const apply = () => {
+      setIsDirty(true);
       setBlocks(matched);
       setShowTemplatePicker(false);
       if (skipped.length > 0) {
@@ -170,7 +181,7 @@ export default function NewWorkoutScreen() {
     }
   }
 
-  async function handleAssign() {
+  const handleAssign = useCallback(async () => {
     if (!user) { Alert.alert('Not signed in', 'Please sign in to assign workouts.'); return; }
     if (assignedClients.size === 0) { Alert.alert('No clients selected', 'Select at least one client to assign this workout to.'); return; }
     if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before assigning.'); return; }
@@ -214,6 +225,7 @@ export default function NewWorkoutScreen() {
       if (firstError) {
         Alert.alert('Error saving assigned workout', firstError);
       } else {
+        setIsDirty(false);
         router.back();
       }
     } catch (e) {
@@ -221,9 +233,9 @@ export default function NewWorkoutScreen() {
     } finally {
       setSaving(false);
     }
-  }
+  }, [user, assignedClients, blocks, workoutTitle, scheduledDate, workoutNotes, router]);
 
-  async function handleSave() {
+  const handleSave = useCallback(async () => {
     if (!user || !clientId) return;
     if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before saving.'); return; }
 
@@ -268,9 +280,45 @@ export default function NewWorkoutScreen() {
       [...workedOutWith],
     );
     setSaving(false);
-    if (error) Alert.alert('Error', error);
-    else router.back();
-  }
+    if (error) {
+      Alert.alert('Error', error);
+    } else {
+      setIsDirty(false);
+      router.back();
+    }
+  }, [user, clientId, blocks, date, workoutNotes, bodyWeight, bodyFat, workedOutWith, router]);
+
+  const handleBackPress = useCallback(() => {
+    if (!isDirty) { router.back(); return; }
+    setShowUnsavedBar(true);
+  }, [isDirty, router]);
+
+  // Keep header buttons and gesture guard in sync with dirty state
+  useEffect(() => {
+    navigation.setOptions({
+      gestureEnabled: !isDirty,
+      headerLeft: () => (
+        <TouchableOpacity onPress={handleBackPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+          <Ionicons name="chevron-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      ),
+      headerRight: () => (
+        <TouchableOpacity onPress={handleBackPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="home-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [isDirty, handleBackPress, navigation]);
+
+  // Android hardware back
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!isDirty) return false;
+      handleBackPress();
+      return true;
+    });
+    return () => sub.remove();
+  }, [isDirty, handleBackPress]);
 
   // ── Template picker ───────────────────────────────────────────────
   if (showTemplatePicker) {
@@ -308,16 +356,6 @@ export default function NewWorkoutScreen() {
       <Stack.Screen
         options={{
           title: mode === 'log' ? 'Log Workout' : 'Assign Workout',
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
-              <Ionicons name="chevron-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          ),
-          headerRight: () => (
-            <TouchableOpacity onPress={() => router.replace('/(tabs)/' as never)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="home-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          ),
         }}
       />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -358,7 +396,7 @@ export default function NewWorkoutScreen() {
               {showCalendar && (
                 <DatePicker
                   value={date}
-                  onChange={(d) => { setDate(d); setShowCalendar(false); }}
+                  onChange={(d) => { setIsDirty(true); setDate(d); setShowCalendar(false); }}
                 />
               )}
               <View style={styles.metricsRow}>
@@ -370,7 +408,7 @@ export default function NewWorkoutScreen() {
                     placeholderTextColor={t.textSecondary}
                     keyboardType="decimal-pad"
                     value={bodyWeight}
-                    onChangeText={setBodyWeight}
+                    onChangeText={(v) => { setIsDirty(true); setBodyWeight(v); }}
                   />
                 </View>
                 <View style={styles.metricCol}>
@@ -381,7 +419,7 @@ export default function NewWorkoutScreen() {
                     placeholderTextColor={t.textSecondary}
                     keyboardType="decimal-pad"
                     value={bodyFat}
-                    onChangeText={setBodyFat}
+                    onChangeText={(v) => { setIsDirty(true); setBodyFat(v); }}
                   />
                 </View>
               </View>
@@ -394,7 +432,7 @@ export default function NewWorkoutScreen() {
                 placeholder="e.g. Upper Body A"
                 placeholderTextColor={t.textSecondary}
                 value={workoutTitle}
-                onChangeText={setWorkoutTitle}
+                onChangeText={(v) => { setIsDirty(true); setWorkoutTitle(v); }}
               />
               <TouchableOpacity
                 style={styles.dateTouchable}
@@ -414,7 +452,7 @@ export default function NewWorkoutScreen() {
               {showScheduledCalendar && (
                 <DatePicker
                   value={scheduledDate}
-                  onChange={(d) => { setScheduledDate(d); setShowScheduledCalendar(false); }}
+                  onChange={(d) => { setIsDirty(true); setScheduledDate(d); setShowScheduledCalendar(false); }}
                 />
               )}
             </>
@@ -425,7 +463,7 @@ export default function NewWorkoutScreen() {
             placeholder={mode === 'log' ? 'Workout notes (optional)' : 'Instructions for client (optional)'}
             placeholderTextColor={t.textSecondary}
             value={workoutNotes}
-            onChangeText={setWorkoutNotes}
+            onChangeText={(v) => { setIsDirty(true); setWorkoutNotes(v); }}
             multiline
           />
         </View>
@@ -442,11 +480,11 @@ export default function NewWorkoutScreen() {
                 <TouchableOpacity
                   key={c.id}
                   style={styles.groupRow}
-                  onPress={() => setAssignedClients((prev) => {
+                  onPress={() => { setIsDirty(true); setAssignedClients((prev) => {
                     const next = new Set(prev);
                     if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
                     return next;
-                  })}
+                  }); }}
                 >
                   <Ionicons
                     name={selected ? 'checkbox' : 'square-outline'}
@@ -470,11 +508,11 @@ export default function NewWorkoutScreen() {
                 <TouchableOpacity
                   key={c.id}
                   style={styles.groupRow}
-                  onPress={() => setWorkedOutWith((prev) => {
+                  onPress={() => { setIsDirty(true); setWorkedOutWith((prev) => {
                     const next = new Set(prev);
                     if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
                     return next;
-                  })}
+                  }); }}
                 >
                   <Ionicons
                     name={selected ? 'checkbox' : 'square-outline'}
@@ -606,15 +644,35 @@ export default function NewWorkoutScreen() {
         </View>
       </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-        onPress={mode === 'log' ? handleSave : handleAssign}
-        disabled={saving}
-      >
-        {saving
-          ? <ActivityIndicator color={colors.textInverse} />
-          : <Text style={styles.saveBtnText}>{mode === 'log' ? 'Save Workout' : 'Assign Workout'}</Text>}
-      </TouchableOpacity>
+      {showUnsavedBar ? (
+        <View style={[styles.unsavedBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
+          <Text style={[styles.unsavedBarText, { color: t.textPrimary }]}>You have unsaved changes.</Text>
+          <View style={styles.unsavedBarButtons}>
+            <TouchableOpacity
+              onPress={() => { setShowUnsavedBar(false); setIsDirty(false); router.back(); }}
+              style={[styles.unsavedCancelBtn, { borderColor: t.border }]}
+            >
+              <Text style={[styles.unsavedCancelText, { color: t.textSecondary }]}>Discard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { setShowUnsavedBar(false); (mode === 'log' ? handleSave : handleAssign)(); }}
+              style={styles.unsavedSaveBtn}
+            >
+              <Text style={styles.unsavedSaveText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+          onPress={mode === 'log' ? handleSave : handleAssign}
+          disabled={saving}
+        >
+          {saving
+            ? <ActivityIndicator color={colors.textInverse} />
+            : <Text style={styles.saveBtnText}>{mode === 'log' ? 'Save Workout' : 'Assign Workout'}</Text>}
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -735,6 +793,13 @@ const styles = StyleSheet.create({
   saveBtn: { margin: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+  unsavedBar: { borderTopWidth: 1, padding: spacing.md, gap: spacing.sm },
+  unsavedBarText: { ...typography.body },
+  unsavedBarButtons: { flexDirection: 'row', gap: spacing.sm },
+  unsavedCancelBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, borderWidth: 1 },
+  unsavedCancelText: { ...typography.body },
+  unsavedSaveBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.primary },
+  unsavedSaveText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
   groupSection: {
     marginHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1,
     padding: spacing.md, gap: spacing.sm,

@@ -616,3 +616,22 @@ ALTER TABLE workout_templates ADD CONSTRAINT workout_templates_name_key UNIQUE (
 
 ALTER TABLE workout_templates DROP COLUMN IF EXISTS phase;
 ALTER TABLE workout_templates DROP COLUMN IF EXISTS category;
+
+-- ─── Migration 016: All trainers can manage any client's assigned workouts ──
+-- Previously each policy restricted to trainer_id = auth.uid() (the assigning
+-- trainer only). Now any authenticated trainer can read, edit, and complete any
+-- client's assigned workout, enabling cross-trainer collaboration.
+
+DROP POLICY IF EXISTS "trainer_all_assigned_workouts"   ON assigned_workouts;
+DROP POLICY IF EXISTS "trainer_all_assigned_exercises"  ON assigned_workout_exercises;
+DROP POLICY IF EXISTS "trainer_all_assigned_sets"       ON assigned_workout_sets;
+
+-- Any trainer: full CRUD on all assigned workouts
+CREATE POLICY "any_trainer_all_assigned_workouts" ON assigned_workouts
+  FOR ALL USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+CREATE POLICY "any_trainer_all_assigned_exercises" ON assigned_workout_exercises
+  FOR ALL USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+CREATE POLICY "any_trainer_all_assigned_sets" ON assigned_workout_sets
+  FOR ALL USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));

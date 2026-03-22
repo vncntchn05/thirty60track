@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   StyleSheet, Text, View, SectionList, ActivityIndicator,
-  TouchableOpacity, TextInput, Alert,
+  TouchableOpacity, TextInput, Alert, BackHandler,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useWorkoutDetail } from '@/hooks/useWorkouts';
 import { useClients } from '@/hooks/useClients';
@@ -51,6 +51,7 @@ function parseOptionalFloat(v: string): number | null {
 export default function WorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const t = useTheme();
   const { user } = useAuth();
   const { clients } = useClients();
@@ -81,7 +82,7 @@ export default function WorkoutDetailScreen() {
     setPendingUnit('lbs');
   }, []);
 
-  const cancelAdd = useCallback(() => setPendingExercise(null), []);
+  const cancelAdd = useCallback(() => { setPendingExercise(null); setIsDirty(false); }, []);
 
   async function handleAddSet() {
     if (!pendingExercise) return;
@@ -93,8 +94,42 @@ export default function WorkoutDetailScreen() {
     });
     setSavingSet(false);
     if (err) Alert.alert('Error', err);
-    else setPendingExercise(null);
+    else { setPendingExercise(null); setIsDirty(false); }
   }
+
+  const [isDirty, setIsDirty] = useState(false);
+  const subSaveRef = useRef<(() => Promise<void>) | null>(null);
+
+  function handleSubDirtyChange(dirty: boolean, save?: () => Promise<void>) {
+    setIsDirty(dirty);
+    subSaveRef.current = dirty && save ? save : null;
+  }
+  const [showUnsavedBar, setShowUnsavedBar] = useState(false);
+
+  const handleBackPress = useCallback(() => {
+    if (!isDirty) { if (router.canGoBack()) router.back(); else router.replace('/(tabs)' as never); return; }
+    setShowUnsavedBar(true);
+  }, [isDirty, router]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      gestureEnabled: !isDirty,
+      headerLeft: () => (
+        <TouchableOpacity onPress={handleBackPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+          <Ionicons name="chevron-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [isDirty, handleBackPress, navigation]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!isDirty) return false;
+      setShowUnsavedBar(true);
+      return true;
+    });
+    return () => sub.remove();
+  }, [isDirty]);
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -197,11 +232,6 @@ export default function WorkoutDetailScreen() {
     <View style={[styles.container, { backgroundColor: t.background }]}>
       <Stack.Screen
         options={{
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
-              <Ionicons name="chevron-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          ),
           headerRight: () => (
             <View style={styles.headerBtns}>
               <TouchableOpacity onPress={() => router.replace('/(tabs)/' as never)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -229,6 +259,7 @@ export default function WorkoutDetailScreen() {
               bodyFatPercent={workout.body_fat_percent}
               trainerName={workout.logged_by_role === 'trainer' ? (workout.trainer?.full_name ?? null) : (workout.client?.full_name ?? null)}
               onSave={updateWorkout}
+              onDirtyChange={handleSubDirtyChange}
               t={t}
             />
             <GroupCard
@@ -295,6 +326,7 @@ export default function WorkoutDetailScreen() {
             supersetColor={section.supersetGroup !== null ? getSupersetColor(section.supersetGroup) : null}
             onDelete={() => { setDeleteSetId(item.id); setDeleteError(null); }}
             onSave={(payload) => updateSet(item.id, payload)}
+            onDirtyChange={handleSubDirtyChange}
             t={t}
           />
         )}
@@ -306,7 +338,7 @@ export default function WorkoutDetailScreen() {
                 label={`Add set to ${section.title}`}
                 form={pendingForm}
                 unit={pendingUnit}
-                onChange={setPendingForm}
+                onChange={(f) => { setPendingForm(f); setIsDirty(true); }}
                 onUnitChange={setPendingUnit}
                 onSave={handleAddSet}
                 onCancel={cancelAdd}
@@ -333,7 +365,7 @@ export default function WorkoutDetailScreen() {
                 label="Add first set"
                 form={pendingForm}
                 unit={pendingUnit}
-                onChange={setPendingForm}
+                onChange={(f) => { setPendingForm(f); setIsDirty(true); }}
                 onUnitChange={setPendingUnit}
                 onSave={handleAddSet}
                 onCancel={cancelAdd}
@@ -344,6 +376,27 @@ export default function WorkoutDetailScreen() {
           ) : null
         }
       />
+
+      {/* ── Unsaved changes bar ── */}
+      {showUnsavedBar && (
+        <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
+          <Text style={[styles.deleteBarText, { color: t.textPrimary }]}>You have unsaved changes.</Text>
+          <View style={styles.deleteBarButtons}>
+            <TouchableOpacity
+              onPress={() => { setShowUnsavedBar(false); setIsDirty(false); setPendingExercise(null); if (router.canGoBack()) router.back(); else router.replace('/(tabs)' as never); }}
+              style={[styles.deleteCancelBtn, { borderColor: t.border }]}
+            >
+              <Text style={[styles.deleteCancelText, { color: t.textSecondary }]}>Discard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={async () => { setShowUnsavedBar(false); if (subSaveRef.current) { await subSaveRef.current(); } else { await handleAddSet(); } if (router.canGoBack()) router.back(); else router.replace('/(tabs)' as never); }}
+              style={styles.saveSuccessBtn}
+            >
+              <Text style={styles.deleteConfirmText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* ── Delete confirmation bar (workout or set) ── */}
       {(confirmingDelete || deleteSetId) && (
@@ -375,7 +428,7 @@ export default function WorkoutDetailScreen() {
       )}
 
       {/* FAB — add a new exercise to this workout */}
-      {!confirmingDelete && !deleteSetId && (
+      {!confirmingDelete && !deleteSetId && !showUnsavedBar && (
         <TouchableOpacity
           style={styles.fab}
           onPress={openPickerForNewExercise}
@@ -565,10 +618,11 @@ type WorkoutHeaderProps = {
   bodyFatPercent: number | null;
   trainerName: string | null;
   onSave: (p: UpdateWorkout) => Promise<{ error: string | null }>;
+  onDirtyChange?: (dirty: boolean, save?: () => Promise<void>) => void;
   t: Theme;
 };
 
-function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, trainerName, onSave, t }: WorkoutHeaderProps) {
+function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, trainerName, onSave, onDirtyChange, t }: WorkoutHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dateVal, setDateVal] = useState(performedAt);
@@ -576,10 +630,18 @@ function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, train
   const [weightVal, setWeightVal] = useState(bodyWeightKg != null ? String(bodyWeightKg) : '');
   const [bfVal, setBfVal] = useState(bodyFatPercent != null ? String(bodyFatPercent) : '');
 
+  // Always keep a fresh reference to handleSave to avoid stale closures in onDirtyChange callback
+  const handleSaveRef = useRef<() => Promise<void>>();
+
   const [y, m, d] = performedAt.split('-').map(Number);
   const displayDate = new Date(y, m - 1, d).toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
+
+  function cancelEdit() {
+    setEditing(false);
+    onDirtyChange?.(false);
+  }
 
   function startEdit() {
     setDateVal(performedAt);
@@ -587,6 +649,7 @@ function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, train
     setWeightVal(bodyWeightKg != null ? String(bodyWeightKg) : '');
     setBfVal(bodyFatPercent != null ? String(bodyFatPercent) : '');
     setEditing(true);
+    onDirtyChange?.(true, () => handleSaveRef.current?.());
   }
 
   async function handleSave() {
@@ -599,8 +662,9 @@ function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, train
     });
     setSaving(false);
     if (error) Alert.alert('Error', error);
-    else setEditing(false);
+    else { setEditing(false); onDirtyChange?.(false); }
   }
+  handleSaveRef.current = handleSave;
 
   const hasMetrics = bodyWeightKg != null || bodyFatPercent != null;
 
@@ -610,7 +674,7 @@ function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, train
         <View style={styles.headerRow}>
           <Text style={[styles.cardLabel, { color: t.textSecondary }]}>Date</Text>
           <View style={styles.editActions}>
-            <TouchableOpacity onPress={() => setEditing(false)} style={styles.cancelBtn}>
+            <TouchableOpacity onPress={cancelEdit} style={styles.cancelBtn}>
               <Text style={[styles.cancelBtnText, { color: t.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -701,10 +765,11 @@ type SetRowProps = {
   supersetColor: string | null;
   onDelete: () => void;
   onSave: (p: UpdateWorkoutSet) => Promise<{ error: string | null }>;
+  onDirtyChange?: (dirty: boolean, save?: () => Promise<void>) => void;
   t: Theme;
 };
 
-function SetRow({ set, supersetColor, onDelete, onSave, t }: SetRowProps) {
+function SetRow({ set, supersetColor, onDelete, onSave, onDirtyChange, t }: SetRowProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const initUnit: WeightUnit = set.duration_seconds != null ? 'secs' : set.weight_kg != null ? 'kg' : 'lbs';
@@ -715,6 +780,13 @@ function SetRow({ set, supersetColor, onDelete, onSave, t }: SetRowProps) {
   const [unit, setUnit] = useState<WeightUnit>(initUnit);
   const [notesVal, setNotesVal] = useState(set.notes ?? '');
 
+  const handleSaveRef = useRef<() => Promise<void>>();
+
+  function cancelEdit() {
+    setEditing(false);
+    onDirtyChange?.(false);
+  }
+
   function startEdit() {
     setRepsVal(set.reps != null ? String(set.reps) : '');
     setAmountVal(set.duration_seconds != null ? String(set.duration_seconds)
@@ -722,6 +794,7 @@ function SetRow({ set, supersetColor, onDelete, onSave, t }: SetRowProps) {
     setUnit(set.duration_seconds != null ? 'secs' : set.weight_kg != null ? 'kg' : 'lbs');
     setNotesVal(set.notes ?? '');
     setEditing(true);
+    onDirtyChange?.(true, () => handleSaveRef.current?.());
   }
 
   async function handleSave() {
@@ -733,8 +806,9 @@ function SetRow({ set, supersetColor, onDelete, onSave, t }: SetRowProps) {
     });
     setSaving(false);
     if (error) Alert.alert('Error', error);
-    else setEditing(false);
+    else { setEditing(false); onDirtyChange?.(false); }
   }
+  handleSaveRef.current = handleSave;
 
   const parts: string[] = [];
   if (set.reps != null) parts.push(`${set.reps} reps`);
@@ -751,7 +825,7 @@ function SetRow({ set, supersetColor, onDelete, onSave, t }: SetRowProps) {
         <View style={styles.setEditHeader}>
           <Text style={[styles.setNumber, { color: t.textSecondary }]}>Set {set.set_number}</Text>
           <View style={styles.editActions}>
-            <TouchableOpacity onPress={() => setEditing(false)} style={styles.cancelBtn}>
+            <TouchableOpacity onPress={cancelEdit} style={styles.cancelBtn}>
               <Text style={[styles.cancelBtnText, { color: t.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -964,6 +1038,7 @@ const styles = StyleSheet.create({
   deleteCancelBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary },
   deleteCancelText: { ...typography.body },
   deleteConfirmBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.error },
+  saveSuccessBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.primary },
   deleteConfirmText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
 
   // ── Worked out with card ──

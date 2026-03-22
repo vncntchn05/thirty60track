@@ -209,10 +209,14 @@ export async function deleteAssignedWorkout(id: string): Promise<{ error: string
  *   1. Creates a real workouts + workout_sets entry from clientActualSets.
  *   2. Marks assigned_workout as completed.
  * The assigned_workout_sets template is never modified.
+ *
+ * @param loggedByRole  'client' when the client completes their own workout;
+ *                      'trainer' when a trainer logs it on the client's behalf.
  */
 export async function completeAssignedWorkout(
   assignedWorkoutId: string,
   clientActualSets: Omit<InsertWorkoutSet, 'workout_id'>[],
+  loggedByRole: 'trainer' | 'client' = 'client',
 ): Promise<{ workoutId: string | null; error: string | null }> {
   // Fetch the assigned workout to get client_id and trainer_id
   const { data: aw, error: fetchErr } = await supabase
@@ -234,7 +238,7 @@ export async function completeAssignedWorkout(
       notes: null,
       body_weight_kg: null,
       body_fat_percent: null,
-      logged_by_role: 'client',
+      logged_by_role: loggedByRole,
       logged_by_user_id: user?.id ?? null,
     },
     clientActualSets,

@@ -6,6 +6,7 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAssignedWorkoutDetail, completeAssignedWorkout } from '@/hooks/useAssignedWorkouts';
+import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { InsertWorkoutSet } from '@/types';
 
@@ -46,6 +47,8 @@ export default function CompleteAssignedWorkoutScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useTheme();
+  const { role } = useAuth();
+  const isTrainer = role === 'trainer';
   const { assignedWorkout, loading, error } = useAssignedWorkoutDetail(id);
   const [blocks, setBlocks] = useState<ExecuteBlock[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -134,11 +137,17 @@ export default function CompleteAssignedWorkoutScreen() {
 
     setCompleting(true);
     setCompleteError(null);
-    const { error: completeErr } = await completeAssignedWorkout(id, clientActualSets);
+    const { error: completeErr } = await completeAssignedWorkout(
+      id,
+      clientActualSets,
+      isTrainer ? 'trainer' : 'client',
+    );
     setCompleting(false);
 
     if (completeErr) {
       setCompleteError(completeErr);
+    } else if (isTrainer) {
+      router.replace(`/client/${assignedWorkout.client_id}` as never);
     } else {
       router.replace('/(client)' as never);
     }
@@ -274,7 +283,9 @@ export default function CompleteAssignedWorkoutScreen() {
       {confirming ? (
         <View style={[styles.confirmBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
           <Text style={[styles.confirmBarText, { color: t.textPrimary }]}>
-            Save this workout to your log?
+            {isTrainer
+              ? 'Log this workout for the client?'
+              : 'Save this workout to your log?'}
           </Text>
           {completeError ? (
             <Text style={styles.confirmBarError}>{completeError}</Text>
@@ -300,7 +311,7 @@ export default function CompleteAssignedWorkoutScreen() {
       ) : (
         <TouchableOpacity
           style={[styles.completeBtn, completing && styles.completeBtnDisabled]}
-          onPress={() => { setConfirming(true); setCompleteError(null); }}
+          onPress={() => { if (isTrainer) { setCompleteError(null); performComplete(); } else { setConfirming(true); setCompleteError(null); } }}
         >
           <Ionicons name="checkmark-circle" size={20} color={colors.textInverse} />
           <Text style={styles.completeBtnText}>Complete Workout</Text>
