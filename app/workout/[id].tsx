@@ -649,7 +649,7 @@ function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, train
     setWeightVal(bodyWeightKg != null ? String(bodyWeightKg) : '');
     setBfVal(bodyFatPercent != null ? String(bodyFatPercent) : '');
     setEditing(true);
-    onDirtyChange?.(true, () => handleSaveRef.current?.());
+    onDirtyChange?.(true, async () => { await handleSaveRef.current?.(); });
   }
 
   async function handleSave() {
@@ -794,7 +794,7 @@ function SetRow({ set, supersetColor, onDelete, onSave, onDirtyChange, t }: SetR
     setUnit(set.duration_seconds != null ? 'secs' : set.weight_kg != null ? 'kg' : 'lbs');
     setNotesVal(set.notes ?? '');
     setEditing(true);
-    onDirtyChange?.(true, () => handleSaveRef.current?.());
+    onDirtyChange?.(true, async () => { await handleSaveRef.current?.(); });
   }
 
   async function handleSave() {

@@ -146,7 +146,7 @@ export default function CompleteAssignedWorkoutScreen() {
 
     if (completeErr) {
       setCompleteError(completeErr);
-    } else if (isTrainer) {
+    } else if (isTrainer && assignedWorkout) {
       router.replace(`/client/${assignedWorkout.client_id}` as never);
     } else {
       router.replace('/(client)' as never);
