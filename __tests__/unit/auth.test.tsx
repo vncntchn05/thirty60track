@@ -19,6 +19,7 @@ import { createQueryMock } from '../helpers/supabase-mock';
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn(),
+    rpc: jest.fn(),
     auth: {
       signInWithPassword: jest.fn(),
       signOut: jest.fn().mockResolvedValue({ error: null }),
@@ -105,35 +106,13 @@ describe('detectRole — client path', () => {
 });
 
 describe('detectRole — auto-link recovery path', () => {
-  it('links auth_user_id and sets role to "client" when found by email', async () => {
-    let clientCallCount = 0;
-    const updateMock = jest.fn().mockReturnThis();
-    const eqAfterUpdateMock = jest.fn().mockResolvedValue({ error: null });
-
-    (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: { id: 'new-uid', email: 'client@test.com' } },
-    });
-
+  it('links auth_user_id via RPC and sets role to "client"', async () => {
     (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
       if (table === 'trainers') return createQueryMock({ data: null });
-      if (table === 'clients') {
-        clientCallCount++;
-        if (clientCallCount === 1) {
-          // First query: .eq('auth_user_id', userId) → not found
-          return createQueryMock({ data: null });
-        }
-        if (clientCallCount === 2) {
-          // Second query: .eq('email').is('auth_user_id', null) → found
-          return createQueryMock({ data: { id: 'client-99' } });
-        }
-        // Third call: the .update({ auth_user_id }).eq(id) chain
-        const updateChain: Record<string, jest.Mock> = {};
-        updateChain.update = updateMock.mockReturnValue(updateChain);
-        updateChain.eq = eqAfterUpdateMock;
-        return updateChain;
-      }
+      if (table === 'clients') return createQueryMock({ data: null }); // auth_user_id lookup misses
       return createQueryMock({ data: null });
     });
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({ data: 'client-99', error: null });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -150,13 +129,10 @@ describe('detectRole — auto-link recovery path', () => {
 
 describe('detectRole — neither role found', () => {
   it('calls signOut when the user exists in auth but has no trainer or client row', async () => {
-    (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: { id: 'orphan-uid', email: 'nobody@test.com' } },
-    });
-
     (mockSupabase.from as jest.Mock).mockImplementation(() =>
       createQueryMock({ data: null }),
     );
+    (mockSupabase.rpc as jest.Mock).mockResolvedValue({ data: null, error: null });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
