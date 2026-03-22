@@ -23,9 +23,11 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] Sign out from profile screen
 - [x] **Role-based routing** — role inferred from DB on login; client and trainer accounts use separate navigators automatically
 - [x] **Signup role toggle** — client/trainer toggle on signup only; login is role-agnostic
-- [x] **Client signup flow** — trainers add clients by email; clients sign up and are auto-linked to their profile
+- [x] **Client signup flow** — trainers add clients by email; clients sign up and are auto-linked to their profile via a `SECURITY DEFINER` RPC (`link_client_to_auth_user`) that bypasses the RLS catch-22 where `auth.uid() = auth_user_id` is always false when `auth_user_id IS NULL`
+- [x] **Existing-account recovery on signup** — if a client already has a Supabase auth user (e.g. from a previous failed attempt), signup silently signs them in with the provided password and completes linking; if the password is wrong a generic "account exists" error is shown
 - [x] **Rate limit handling** — exponential backoff on 429 token refresh errors; friendly error message when signup email is rate-limited
-- [x] **Auth recovery** — if a client account exists but `auth_user_id` was never written (signup race condition), the next sign-in auto-links the account by email
+- [x] **Auth recovery** — if a client account exists but `auth_user_id` was never written (signup race condition), the next sign-in auto-links the account via the `link_client_to_auth_user` RPC
+- [x] **Change Password (in-app)** — trainers and clients can change their password directly from the Profile screen; a modal collects the current password (verified via re-authentication), new password, and confirmation; no email involved
 
 ### Client Management
 - [x] Client list dashboard with workout count and last session date
@@ -114,7 +116,7 @@ Clients have their own separate tab navigator with distinct screens:
 - [x] **Progress tab** — same frequency/volume/body composition/exercise charts as the trainer view; includes Performance Report Card button
 - [x] **Nutrition tab** — log daily meals, search USDA + Open Food Facts food databases, scan product barcodes, view macro summary vs. daily goal (goal set by trainer)
 - [x] **Media tab** — view photo/video gallery
-- [x] **Profile tab** — view personal info and body metrics (trainer-managed); edit health & fitness intake info
+- [x] **Profile tab** — view personal info and body metrics (trainer-managed); edit health & fitness intake info; change password in-app
 - [x] Correct logged-by name shown on all workouts (trainer name for trainer-logged; client name for client-logged) in both list and detail views
 - [x] Back button on workout detail returns to Workouts tab (not home)
 
@@ -178,7 +180,7 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] Design token system (`constants/theme.ts`) — colors, spacing, typography, radius
 - [x] Thirty60 logo in app header and browser favicon
 - [x] Tab navigation (Clients, Exercises, Profile)
-- [x] Profile screen shows list of all other trainers on the platform
+- [x] Profile screen shows list of all other trainers on the platform; Change Password button
 - [x] FAB (floating action button) with label
 - [x] Safe back navigation — falls back to home if no navigation history (works on web direct links)
 - [x] **Name-based client URLs** — web routes use `/client/john-doe` instead of UUIDs; slug lookup with UUID fallback for backward compatibility
@@ -259,6 +261,7 @@ components/
     IntakeForm.tsx            # Client intake form (first-time and edit modes)
     ReportCardButton.tsx      # Period picker + data fetching + PDF generation trigger
   ui/
+    ChangePasswordModal.tsx   # In-app change password sheet (re-authenticates with current password, then updateUser)
     DatePicker.tsx            # Inline single date selection component
     DatePickerModal.tsx       # Modal single date picker with log-dot indicators and Today shortcut
     DateRangePicker.tsx       # Calendar modal — range selection with workout dot indicators
@@ -305,14 +308,29 @@ assets/
     Roboto-Regular.ttf  # Bundled font for Skia chart axis labels
   Thirty60_logo.png     # Brand logo used in header and favicon
 
+public/
+  _redirects                # Render/Netlify SPA fallback — all paths serve index.html (prevents 404 on page refresh)
+  favicon.png
+
 supabase/
-  schema.sql                # Source-of-truth DDL (migrations 001–015)
+  schema.sql                # Source-of-truth DDL (migrations 001–017)
   seed.sql                  # 150+ exercises across all muscle groups
   seed_test_client.sql      # Full year of realistic test data (youth hockey player)
   migrations/
     012_client_intake.sql   # client_intake table + RLS policies
     013_assigned_workouts.sql # assigned_workouts, assigned_workout_exercises, assigned_workout_sets + RLS
 ```
+
+---
+
+## Web Deployment (Render)
+
+The app is built as a single-page application (`"output": "single"` in `app.json`). `public/_redirects` tells Render to serve `index.html` for every path, which lets Expo Router handle client-side navigation on page refresh.
+
+**Build command:** `npx expo export -p web`
+**Publish directory:** `dist`
+
+No additional Render configuration is needed — the `_redirects` file is copied into `dist/` automatically during export.
 
 ---
 
@@ -337,7 +355,7 @@ cp .env.example .env.local
 Run these in order in the **Supabase SQL Editor**:
 
 ```
-1. supabase/schema.sql          — creates all tables, triggers, RLS policies, and migrations 001–013
+1. supabase/schema.sql          — creates all tables, triggers, RLS policies, and migrations 001–017
 2. supabase/seed.sql            — populates the exercise library (150+ exercises)
 ```
 
@@ -358,6 +376,7 @@ Run these in order in the **Supabase SQL Editor**:
 - **014** — `nutrition_logs` table (per-meal food entries with USDA food ID, serving size, macros); `nutrition_goals` table (daily calorie target + macro % split per client); RLS for trainers (full CRUD on their clients' data) and clients (read + insert + delete own logs; read own goal)
 - **015** — drops `phase` and `category` columns from `workout_templates`; renames duplicate template names (appends `(P2)` / `(P3)` suffix); replaces `UNIQUE(name, phase)` constraint with `UNIQUE(name)`
 - **016** — broadens assigned workout RLS from per-trainer (`trainer_id = auth.uid()`) to any authenticated trainer (`EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid())`); enables cross-trainer collaboration on client assigned workouts
+- **017** — `link_client_to_auth_user()` SECURITY DEFINER function; resolves the RLS catch-22 where a newly signed-up client cannot update their own `auth_user_id` (the UPDATE policy requires `auth.uid() = auth_user_id` which is always false when the column is NULL); the function looks up the caller's email from `auth.users`, finds the matching unlinked client row, and writes `auth_user_id = auth.uid()` with elevated privileges
 
 **Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 
