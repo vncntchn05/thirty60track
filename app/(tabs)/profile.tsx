@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { useTrainers } from '@/hooks/useTrainers';
-import { supabase } from '@/lib/supabase';
+import { ChangePasswordModal } from '@/components/ui/ChangePasswordModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Trainer } from '@/types';
 
@@ -28,31 +28,7 @@ export default function ProfileScreen() {
   const { trainer, signOut } = useAuth();
   const { trainers, loading: trainersLoading, error: trainersError } = useTrainers();
   const t = useTheme();
-  const [resetting, setResetting] = useState(false);
-
-  async function handleResetPassword() {
-    if (!trainer?.email) return;
-    Alert.alert(
-      'Reset Password',
-      `Send a password reset link to ${trainer.email}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send',
-          onPress: async () => {
-            setResetting(true);
-            const { error } = await supabase.auth.resetPasswordForEmail(trainer.email);
-            setResetting(false);
-            if (error) {
-              Alert.alert('Error', error.message);
-            } else {
-              Alert.alert('Email sent', `Check ${trainer.email} for a password reset link.`);
-            }
-          },
-        },
-      ],
-    );
-  }
+  const [changingPassword, setChangingPassword] = useState(false);
 
   return (
     <ScrollView
@@ -87,18 +63,20 @@ export default function ProfileScreen() {
 
       <TouchableOpacity
         style={[styles.resetButton, { backgroundColor: t.surface, borderColor: t.border }]}
-        onPress={handleResetPassword}
-        disabled={resetting}
+        onPress={() => setChangingPassword(true)}
       >
-        {resetting
-          ? <ActivityIndicator color={colors.primary} />
-          : <Text style={[styles.resetText, { color: colors.primary }]}>Reset Password</Text>
-        }
+        <Text style={[styles.resetText, { color: colors.primary }]}>Change Password</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
+
+      <ChangePasswordModal
+        visible={changingPassword}
+        email={trainer?.email ?? ''}
+        onClose={() => setChangingPassword(false)}
+      />
     </ScrollView>
   );
 }

@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { useClientProfile } from '@/hooks/useClientProfile';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { IntakeForm } from '@/components/client/IntakeForm';
-import { supabase } from '@/lib/supabase';
+import { ChangePasswordModal } from '@/components/ui/ChangePasswordModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
 function MetricRow({ label, value }: { label: string; value: string | null }) {
@@ -23,29 +23,7 @@ export default function ClientProfileScreen() {
   const { client, loading, refresh } = useClientProfile();
   const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const [editingIntake, setEditingIntake] = useState(false);
-  const [resetting, setResetting] = useState(false);
-
-  async function handleResetPassword() {
-    const email = client?.email;
-    if (!email) return;
-    Alert.alert(
-      'Reset Password',
-      `Send a password reset link to ${email}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send',
-          onPress: async () => {
-            setResetting(true);
-            const { error: err } = await supabase.auth.resetPasswordForEmail(email);
-            setResetting(false);
-            if (err) Alert.alert('Error', err.message);
-            else Alert.alert('Email sent', `Check ${email} for a password reset link.`);
-          },
-        },
-      ],
-    );
-  }
+  const [changingPassword, setChangingPassword] = useState(false);
 
   if (loading) {
     return (
@@ -101,16 +79,12 @@ export default function ClientProfileScreen() {
         <MetricRow label="Occupation"     value={intake?.occupation ?? null} />
       </View>
 
-      {/* Reset password */}
+      {/* Change password */}
       <TouchableOpacity
         style={[styles.resetBtn, { borderColor: t.border, backgroundColor: t.surface }]}
-        onPress={handleResetPassword}
-        disabled={resetting}
+        onPress={() => setChangingPassword(true)}
       >
-        {resetting
-          ? <ActivityIndicator color={colors.primary} />
-          : <Text style={[styles.resetText, { color: colors.primary }]}>Reset Password</Text>
-        }
+        <Text style={[styles.resetText, { color: colors.primary }]}>Change Password</Text>
       </TouchableOpacity>
 
       {/* Sign out */}
@@ -120,6 +94,12 @@ export default function ClientProfileScreen() {
       >
         <Text style={[styles.signOutText, { color: colors.error }]}>Sign Out</Text>
       </TouchableOpacity>
+
+      <ChangePasswordModal
+        visible={changingPassword}
+        email={client?.email ?? ''}
+        onClose={() => setChangingPassword(false)}
+      />
 
       {/* Intake edit modal */}
       {client && (
