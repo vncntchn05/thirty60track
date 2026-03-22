@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Alert } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { useClientProfile } from '@/hooks/useClientProfile';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { IntakeForm } from '@/components/client/IntakeForm';
+import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
 function MetricRow({ label, value }: { label: string; value: string | null }) {
@@ -22,6 +23,29 @@ export default function ClientProfileScreen() {
   const { client, loading, refresh } = useClientProfile();
   const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const [editingIntake, setEditingIntake] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  async function handleResetPassword() {
+    const email = client?.email;
+    if (!email) return;
+    Alert.alert(
+      'Reset Password',
+      `Send a password reset link to ${email}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            setResetting(true);
+            const { error: err } = await supabase.auth.resetPasswordForEmail(email);
+            setResetting(false);
+            if (err) Alert.alert('Error', err.message);
+            else Alert.alert('Email sent', `Check ${email} for a password reset link.`);
+          },
+        },
+      ],
+    );
+  }
 
   if (loading) {
     return (
@@ -77,6 +101,18 @@ export default function ClientProfileScreen() {
         <MetricRow label="Occupation"     value={intake?.occupation ?? null} />
       </View>
 
+      {/* Reset password */}
+      <TouchableOpacity
+        style={[styles.resetBtn, { borderColor: t.border, backgroundColor: t.surface }]}
+        onPress={handleResetPassword}
+        disabled={resetting}
+      >
+        {resetting
+          ? <ActivityIndicator color={colors.primary} />
+          : <Text style={[styles.resetText, { color: colors.primary }]}>Reset Password</Text>
+        }
+      </TouchableOpacity>
+
       {/* Sign out */}
       <TouchableOpacity
         style={[styles.signOutBtn, { borderColor: colors.error }]}
@@ -120,10 +156,15 @@ const styles = StyleSheet.create({
   },
   metricLabel: { ...typography.body },
   metricValue: { ...typography.body, fontWeight: '600' },
-  signOutBtn: {
+  resetBtn: {
     borderWidth: 1, borderRadius: radius.md,
     paddingVertical: spacing.md, alignItems: 'center',
     marginTop: spacing.md,
+  },
+  resetText: { ...typography.body, fontWeight: '600' },
+  signOutBtn: {
+    borderWidth: 1, borderRadius: radius.md,
+    paddingVertical: spacing.md, alignItems: 'center',
   },
   signOutText: { ...typography.body, fontWeight: '600' },
 });
