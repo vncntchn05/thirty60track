@@ -635,3 +635,41 @@ CREATE POLICY "any_trainer_all_assigned_exercises" ON assigned_workout_exercises
 
 CREATE POLICY "any_trainer_all_assigned_sets" ON assigned_workout_sets
   FOR ALL USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+-- ─── Migration 017: client self-link RPC ──────────────────────────
+-- The UPDATE policies on clients require auth.uid() = auth_user_id, but at
+-- signup time auth_user_id IS NULL so the check is always false — the update
+-- silently fails.  This SECURITY DEFINER function runs as the DB owner and can
+-- write auth_user_id directly.  It only touches unlinked rows matching the
+-- caller's own email, so it cannot be abused to claim someone else's row.
+CREATE OR REPLACE FUNCTION link_client_to_auth_user()
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_email   TEXT;
+  v_id      UUID;
+BEGIN
+  -- Resolve the caller's email from auth.users
+  SELECT email INTO v_email FROM auth.users WHERE id = auth.uid();
+  IF v_email IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Find an unlinked client row for this email
+  SELECT id INTO v_id
+  FROM clients
+  WHERE email = v_email
+    AND auth_user_id IS NULL
+  LIMIT 1;
+
+  IF v_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  UPDATE clients
+  SET auth_user_id = auth.uid()
+  WHERE id = v_id
+    AND auth_user_id IS NULL;
+
+  RETURN v_id;
+END;
+$$;

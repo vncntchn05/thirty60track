@@ -30,6 +30,43 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
+  // Call the SECURITY DEFINER RPC to write auth_user_id on the client row,
+  // then sign out and back in so detectRole runs cleanly with the link in place.
+  async function linkClientAndEnter(emailAddr: string, pwd: string) {
+    // First verify a client row exists for this email (gives a useful error if not)
+    const { data: clientRow } = await supabase
+      .from('clients')
+      .select('id, auth_user_id')
+      .eq('email', emailAddr)
+      .single();
+
+    if (!clientRow) {
+      await supabase.auth.signOut();
+      setError('No client account found for this email. Ask your trainer to add you first.');
+      return;
+    }
+
+    if (clientRow.auth_user_id) {
+      // Already linked — just re-enter (detectRole will handle it on sign-in)
+      await supabase.auth.signOut();
+      await supabase.auth.signInWithPassword({ email: emailAddr, password: pwd });
+      return;
+    }
+
+    // Use SECURITY DEFINER RPC to bypass the RLS catch-22:
+    // auth.uid() = auth_user_id is always false when auth_user_id IS NULL.
+    const { data: linkedId, error: rpcErr } = await supabase.rpc('link_client_to_auth_user');
+
+    if (rpcErr || !linkedId) {
+      await supabase.auth.signOut();
+      setError('Failed to link your account. Please try again.');
+      return;
+    }
+
+    await supabase.auth.signOut();
+    await supabase.auth.signInWithPassword({ email: emailAddr, password: pwd });
+  }
+
   async function handleSignUp() {
     setError(null);
 
@@ -74,77 +111,49 @@ export default function SignupScreen() {
         password,
         options: { data: { full_name: fullName.trim(), role: 'client' } },
       });
-      if (authErr) {
-        const lower = authErr.message.toLowerCase();
-        if (lower.includes('already registered') || lower.includes('user already exists')) {
-          // Auth user exists but client has no password (e.g. invited via dashboard).
-          // Send a password reset so they can set one and sign in — detectRole will auto-link.
+
+      // Detect "user already exists" — either as an error (email confirm OFF) or
+      // as a silent fake-success with empty identities (email confirm ON).
+      const alreadyExists =
+        (authErr && (authErr.message.toLowerCase().includes('already registered') ||
+                     authErr.message.toLowerCase().includes('user already exists'))) ||
+        (!authErr && data.user?.identities?.length === 0);
+
+      if (alreadyExists) {
+        // The auth user exists from a previous (possibly invisible) signup attempt.
+        // Try signing in with the password they just entered — if that works, complete linking.
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email: email.trim(), password,
+        });
+
+        if (signInErr || !signInData.user) {
+          // Wrong password or unconfirmed — they genuinely have no usable credentials.
+          // Send a reset link so they can set a password and come back to sign in.
           await supabase.auth.resetPasswordForEmail(email.trim());
           setError(
-            'An account already exists for this email. We\'ve sent you a link to set your password — check your inbox, then sign in.'
+            "An account already exists for this email. We've sent you a link to set your password — check your inbox, then sign in."
           );
-        } else {
-          setError(formatSignUpError(authErr.message));
+          setLoading(false);
+          return;
         }
+
+        // Signed in successfully — link and enter
+        await linkClientAndEnter(email.trim(), password);
         setLoading(false);
         return;
       }
-      if (data.user?.identities?.length === 0) {
-        await supabase.auth.resetPasswordForEmail(email.trim());
-        setError(
-          'An account already exists for this email. We\'ve sent you a link to set your password — check your inbox, then sign in.'
-        );
+
+      if (authErr) {
+        setError(formatSignUpError(authErr.message));
         setLoading(false);
         return;
       }
 
       if (data.user) {
-        // Find the client row matching this email (ignore link status — email may have been updated by trainer)
-        const { data: clientRow, error: clientErr } = await supabase
-          .from('clients')
-          .select('id, auth_user_id')
-          .eq('email', email.trim())
-          .single();
-
-        if (clientErr || !clientRow) {
-          await supabase.auth.signOut();
-          setError('No client account found for this email. Ask your trainer to add you first.');
-          setLoading(false);
-          return;
-        }
-
-        if (clientRow.auth_user_id && clientRow.auth_user_id !== data.user.id) {
-          await supabase.auth.signOut();
-          setError('This email is already linked to an account. Please sign in instead.');
-          setLoading(false);
-          return;
-        }
-
-        // Link (or re-link) the client row to the new auth user
-        const { error: linkErr } = await supabase
-          .from('clients')
-          .update({ auth_user_id: data.user.id })
-          .eq('id', clientRow.id);
-
-        if (linkErr) {
-          await supabase.auth.signOut();
-          setError('Failed to link your account. Please try again.');
-          setLoading(false);
-          return;
-        }
-
-        if (data.session) {
-          // Email confirmation is disabled — the SIGNED_IN auth event already fired before
-          // linking completed, so detectRole missed the client row. Sign out and back in
-          // now that the link is in place so detectRole runs cleanly.
-          await supabase.auth.signOut();
-          await supabase.auth.signInWithPassword({ email: email.trim(), password });
-          setLoading(false);
-          return;
-        }
+        await linkClientAndEnter(email.trim(), password);
+      } else {
+        setConfirmed(true);
       }
-
-      setConfirmed(true);
     }
 
     setLoading(false);

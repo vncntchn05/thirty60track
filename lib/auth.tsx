@@ -75,27 +75,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // 3. Recovery: client exists in auth but auth_user_id was never written (e.g. signup race
-    //    condition when email confirmation is disabled). Find by email and auto-link.
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email) {
-      const { data: clientByEmail } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('email', user.email)
-        .is('auth_user_id', null)
-        .single();
-
-      if (clientByEmail) {
-        await supabase
-          .from('clients')
-          .update({ auth_user_id: userId })
-          .eq('id', clientByEmail.id);
-        setTrainer(null);
-        setRole('client');
-        setClientId(clientByEmail.id);
-        setLoading(false);
-        return;
-      }
+    //    condition when email confirmation is disabled). Use the SECURITY DEFINER RPC to link —
+    //    a direct UPDATE would fail RLS because auth.uid() = auth_user_id is false when NULL.
+    const { data: linkedId } = await supabase.rpc('link_client_to_auth_user');
+    if (linkedId) {
+      setTrainer(null);
+      setRole('client');
+      setClientId(linkedId);
+      setLoading(false);
+      return;
     }
 
     // 4. Neither — sign out and clear state
