@@ -220,6 +220,7 @@ describe('useNutrition fetch guard', () => {
   });
 
   it('fetch early-returns when date is falsy', () => {
+    // Use runtime variables to avoid TS2872 "always truthy" on string literals
     const clientId: string = 'c-1';
     const date: string = '';
     const shouldFetch = Boolean(clientId && date);

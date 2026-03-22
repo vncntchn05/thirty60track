@@ -54,6 +54,8 @@ export type UsdaFood = {
   name: string;
   brand: string | null;
   per100g: UsdaMacros;
+  /** Which database this food came from — used to badge results in the UI. */
+  source?: 'usda' | 'off';
 };
 
 // ─── In-memory cache ────────────────────────────────────────────
