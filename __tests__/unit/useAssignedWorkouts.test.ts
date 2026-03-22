@@ -318,7 +318,7 @@ describe('completeAssignedWorkout', () => {
     });
 
     const clientSets = [
-      { exercise_id: 'ex-1', set_number: 1, reps: 10, weight_kg: 50, duration_seconds: null, notes: null },
+      { exercise_id: 'ex-1', set_number: 1, reps: 10, weight_kg: 50, duration_seconds: null, notes: null, superset_group: null },
     ];
 
     await completeAssignedWorkout('aw-1', clientSets);

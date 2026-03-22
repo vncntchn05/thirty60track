@@ -107,7 +107,7 @@ Clients have their own separate tab navigator with distinct screens:
 - [x] **Self-log workouts** — clients can log their own workouts (exercises + sets + body metrics) with per-exercise unit toggle
 - [x] **Complete assigned workouts** — pre-filled prescribed sets; client fills in actual values and confirms via a bottom confirmation bar; saved to workout log automatically
 - [x] **Progress tab** — same frequency/volume/body composition/exercise charts as the trainer view; includes Performance Report Card button
-- [x] **Nutrition tab** — log daily meals, search USDA food database, view macro summary vs. daily goal (goal set by trainer)
+- [x] **Nutrition tab** — log daily meals, search USDA + Open Food Facts food databases, scan product barcodes, view macro summary vs. daily goal (goal set by trainer)
 - [x] **Media tab** — view photo/video gallery
 - [x] **Profile tab** — view personal info and body metrics (trainer-managed); edit health & fitness intake info
 - [x] Correct logged-by name shown on all workouts (trainer name for trainer-logged; client name for client-logged) in both list and detail views
@@ -153,8 +153,9 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 ### Nutrition Tracking
 
 - [x] **Daily nutrition log** — trainers and clients can log meals per day (Breakfast / Lunch / Dinner / Snack)
-- [x] **USDA food search** — search the USDA FoodData Central database by name; selecting a result auto-fills calorie and macro values scaled to the entered serving size
-- [x] **Manual entry** — add food manually without a USDA lookup (name + serving size + macros)
+- [x] **Unified food search** — queries USDA FoodData Central and Open Food Facts simultaneously; results interleaved with a source badge per item; in-memory cache per query to avoid redundant API calls
+- [x] **Barcode scanning** — Scan tab in the Add Food modal; camera scans EAN-8, EAN-13, UPC-A, UPC-E barcodes; Open Food Facts lookup pre-fills the form; "product not found" message with retry option; requires camera permission (prompted on first use)
+- [x] **Manual entry** — add food manually without any lookup (name + serving size + macros)
 - [x] **Serving size scaling** — changing the serving size in the add-food form instantly recalculates all macros
 - [x] **Daily macro summary** — calorie ring + protein / carbs / fat progress bars vs. goal; shown at the top of the Nutrition tab
 - [x] **Calorie & macro goals** — trainers set a daily calorie target and protein/carbs/fat percentage split per client; live gram previews while editing; macros must total 100%
@@ -164,6 +165,8 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] Delete log entries — trainers can delete any entry; clients can only delete entries they logged themselves
 - [x] **Client Nutrition tab** — clients have a dedicated Nutrition screen in their tab navigator (same log view, goal read-only)
 - [x] Trainer Nutrition tab — accessible from the client detail screen (Progress / Workouts / Assigned / **Nutrition** / Media); full goal editing enabled
+- [x] **Open Food Facts integration** — food search queries both USDA FoodData Central and Open Food Facts in parallel; results are interleaved with a source badge ("USDA" or "Open Food Facts") so users know where each item came from
+- [x] **Barcode scanning** — dedicated Scan tab in the Add Food modal; uses the device camera to scan EAN-8, EAN-13, UPC-A, and UPC-E barcodes; product looked up via Open Food Facts API and macros pre-filled automatically; graceful "product not found" state with retry; camera permission prompt on first use
 
 ### UI & Theme
 - [x] **Forced dark theme** — deep charcoal (`#111111`) background, `#1C1C1C` surfaces, gold (`#B88C32`) accents across iOS, Android, and Web
@@ -279,13 +282,14 @@ lib/
   slugify.ts               # Name → URL slug helpers (clientSlug, slugify)
   generateReportPdf.ts     # HTML report builder + SVG chart generator + expo-print/sharing wrapper
   usda.ts                  # USDA FoodData Central search client; in-memory cache; per-100g macro scaling
+  off.ts                   # Open Food Facts client; barcode lookup + text search; in-memory cache
 
 components/
   nutrition/
     NutritionTab.tsx       # Date nav + daily summary + goal editor + meal sections + add food modal
     DailySummary.tsx       # Calorie ring + protein/carbs/fat progress bars vs. goal
     GoalEditor.tsx         # Collapsible calorie target + macro % split editor (trainer only)
-    AddFoodModal.tsx       # Bottom sheet — USDA food search or manual entry; serving size scaling
+    AddFoodModal.tsx       # Bottom sheet — unified USDA+OFF search, barcode scanner, or manual entry; serving size scaling
     MealSection.tsx        # Per-meal log entries with calorie subtotal + delete
 
 types/
@@ -314,7 +318,7 @@ supabase/
 git clone <repo-url>
 cd thirty60track
 npm install
-npx expo install expo-image-picker expo-av expo-print expo-sharing expo-file-system
+npx expo install expo-image-picker expo-av expo-print expo-sharing expo-file-system expo-camera
 ```
 
 ### 2. Configure environment
@@ -372,6 +376,7 @@ Press `i` for iOS simulator, `a` for Android emulator, or `w` for web.
 | `EXPO_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
 | `EXPO_PUBLIC_USDA_API_KEY` | USDA FoodData Central API key (optional — falls back to `DEMO_KEY` at 30 req/hr; get a free key at api.nal.usda.gov) |
+| *(none needed)* | Open Food Facts requires no API key — the barcode and search endpoints are publicly accessible |
 
 ## Future Features
 

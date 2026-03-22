@@ -14,14 +14,18 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.thirty60track.app"
+      "bundleIdentifier": "com.thirty60track.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera is used to scan food barcodes for nutrition tracking."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#111111"
       },
-      "package": "com.thirty60track.app"
+      "package": "com.thirty60track.app",
+      "permissions": ["android.permission.CAMERA"]
     },
     "web": {
       "bundler": "metro",
