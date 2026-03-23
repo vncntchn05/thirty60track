@@ -138,12 +138,12 @@ maybeDescribe('Nutrition integration', () => {
       .from('nutrition_goals')
       .upsert(
         {
-          client_id:     CLIENT_ID,
-          trainer_id:    trainerId,
-          daily_calories: 2000,
-          protein_pct:   30,
-          carbs_pct:     45,
-          fat_pct:       25,
+          client_id:   CLIENT_ID,
+          trainer_id:  trainerId,
+          calories:    2000,
+          protein_pct: 30,
+          carbs_pct:   45,
+          fat_pct:     25,
         },
         { onConflict: 'client_id' },
       );
@@ -154,18 +154,18 @@ maybeDescribe('Nutrition integration', () => {
   it('upserted goal is retrievable and macros sum to 100', async () => {
     const { data, error } = await sb
       .from('nutrition_goals')
-      .select('daily_calories, protein_pct, carbs_pct, fat_pct')
+      .select('calories, protein_pct, carbs_pct, fat_pct')
       .eq('client_id', CLIENT_ID!)
       .single();
 
     expect(error).toBeNull();
-    expect(data?.daily_calories).toBeGreaterThan(0);
+    expect(data?.calories).toBeGreaterThan(0);
     expect(data!.protein_pct + data!.carbs_pct + data!.fat_pct).toBe(100);
   });
 
   it('goal upsert updates existing row rather than creating a duplicate', async () => {
     await sb.from('nutrition_goals').upsert(
-      { client_id: CLIENT_ID, trainer_id: trainerId, daily_calories: 2500, protein_pct: 35, carbs_pct: 40, fat_pct: 25 },
+      { client_id: CLIENT_ID, trainer_id: trainerId, calories: 2500, protein_pct: 35, carbs_pct: 40, fat_pct: 25 },
       { onConflict: 'client_id' },
     );
 
