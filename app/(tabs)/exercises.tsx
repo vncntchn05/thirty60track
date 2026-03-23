@@ -6,7 +6,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useExercises } from '@/hooks/useExercises';
+import { resolveGroupsFromQuery } from '@/lib/muscleSearch';
 import { TemplateEditor } from '@/components/workout/TemplateEditor';
+import { DbExerciseSection } from '@/components/workout/DbExerciseSection';
+import { fetchExerciseDb, searchDbExercises, mapDbExercise } from '@/lib/exerciseDb';
+import type { DbExercise } from '@/lib/exerciseDb';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Exercise, ExerciseCategory } from '@/types';
 
@@ -65,14 +69,48 @@ export default function ExercisesScreen() {
   const [formCategory, setFormCategory] = useState<ExerciseCategory>('strength');
   const [saving, setSaving] = useState(false);
 
+  // ── External DB ────────────────────────────────────────────────
+  const [dbAll, setDbAll] = useState<DbExercise[]>([]);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [addingFromDb, setAddingFromDb] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!query.trim() || dbAll.length > 0 || dbLoading) return;
+    setDbLoading(true);
+    fetchExerciseDb()
+      .then(setDbAll)
+      .catch(() => {})
+      .finally(() => setDbLoading(false));
+  }, [query, dbAll.length, dbLoading]);
+
+  const existingNames = useMemo(
+    () => new Set(exercises.map((e) => e.name.toLowerCase())),
+    [exercises],
+  );
+
+  const dbResults = useMemo(
+    () => searchDbExercises(dbAll, query, existingNames),
+    [dbAll, query, existingNames],
+  );
+
+  async function handleAddFromDb(dbEx: DbExercise) {
+    setAddingFromDb(dbEx.id);
+    await createExercise(mapDbExercise(dbEx));
+    setAddingFromDb(null);
+  }
+
   const fullSections = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const resolvedGroups = q ? resolveGroupsFromQuery(q) : [];
     const base = q
-      ? exercises.filter(
-          (e) =>
+      ? exercises.filter((e) => {
+          const mg = (e.muscle_group ?? '').toLowerCase();
+          return (
             e.name.toLowerCase().includes(q) ||
-            (e.muscle_group ?? '').toLowerCase().includes(q),
-        )
+            mg.includes(q) ||
+            resolvedGroups.some((g) => mg.includes(g))
+          );
+        })
       : exercises;
     return buildSections(base, groupBy);
   }, [exercises, query, groupBy]);
@@ -277,9 +315,21 @@ export default function ExercisesScreen() {
           </Text>
         }
         ListFooterComponent={
-          totalFiltered > 0
-            ? <Text style={[styles.countText, { color: t.textSecondary }]}>{totalFiltered} exercise{totalFiltered !== 1 ? 's' : ''}</Text>
-            : null
+          <>
+            {totalFiltered > 0 && (
+              <Text style={[styles.countText, { color: t.textSecondary }]}>
+                {totalFiltered} exercise{totalFiltered !== 1 ? 's' : ''}
+              </Text>
+            )}
+            {query.trim() !== '' && (
+              <DbExerciseSection
+                results={dbResults}
+                loading={dbLoading}
+                addingId={addingFromDb}
+                onAdd={handleAddFromDb}
+              />
+            )}
+          </>
         }
       />
 

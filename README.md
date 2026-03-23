@@ -40,6 +40,7 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] Delete client (confirmation alert before deletion)
 - [x] **Full intake form in trainer view** — all intake fields (emergency contact, occupation, health history, fitness goals) are viewable and editable directly in the Client Info card above body metrics; no separate tab
 - [x] **Health alert banner** — red warning at the top of the client detail page if current injuries or chronic conditions are on file; hidden when neither is set
+- [x] **Linked client indicator** — a green checkmark appears next to the client's name in the client list when the client has signed up and linked their account (`auth_user_id` is populated); unlinked clients show no indicator
 
 ### Media Gallery
 - [x] Per-client photo and video gallery (Media tab on client detail screen)
@@ -98,6 +99,8 @@ Templates are displayed as a flat list (no phase grouping). They are matched to 
 - [x] Dedicated **Exercises tab** — browse, search, and manage the full library
 - [x] Group exercises by muscle group or category (collapsible sections)
 - [x] **Add custom exercises** — name, muscle group, and category (strength / cardio / flexibility / other)
+- [x] **Muscle synonym search** — searching "biceps", "quads", "lats", etc. resolves to the matching broad muscle group (Arms, Legs, Back…) so exercises surface even when the group label doesn't match the query exactly
+- [x] **External exercise database** — search the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (~800 exercises, public domain) directly from the exercise library and the in-workout picker; results show only exercises not already in the library; tapping Add imports the exercise (name, muscle group, category) into the local library; in the workout picker, Add also immediately selects the exercise; database is fetched once per session and cached in memory
 - [x] Exercise search when logging a workout
 - [x] Exercises auto-inserted by workout templates when missing from the library
 - [x] **Exercise detail page** — tap any exercise to open its detail screen
@@ -253,7 +256,8 @@ components/
     VolumeChart.tsx           # Bar chart — total volume per session + axis labels
     ExerciseProgressChart.tsx # Line chart — weight or reps over time + tooltip + axis labels
   workout/
-    ExercisePicker.tsx        # Searchable exercise picker
+    ExercisePicker.tsx        # Searchable exercise picker (local library + external DB results)
+    DbExerciseSection.tsx     # "FROM DATABASE" result rows with Add button; shared by exercises tab and picker
     TemplatePicker.tsx        # Phase-grouped template browser
     TemplateEditor.tsx        # Create / edit / delete workout templates
   client/
@@ -291,6 +295,8 @@ lib/
   generateReportPdf.ts     # HTML report builder + SVG chart generator + expo-print/sharing wrapper
   usda.ts                  # USDA FoodData Central search client; in-memory cache; per-100g macro scaling
   off.ts                   # Open Food Facts client; barcode lookup + text search; in-memory cache
+  muscleSearch.ts          # Muscle synonym map + resolveGroupsFromQuery (e.g. "biceps" → "arms")
+  exerciseDb.ts            # free-exercise-db fetch + session cache + muscle/category mapping + search
 
 components/
   nutrition/

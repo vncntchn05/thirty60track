@@ -109,7 +109,12 @@ function ClientRow({ client }: { client: ClientWithStats }) {
         <Text style={styles.avatarText}>{initials}</Text>
       </View>
       <View style={styles.rowInfo}>
-        <Text style={[styles.clientName, { color: t.textPrimary }]}>{client.full_name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={[styles.clientName, { color: t.textPrimary }]}>{client.full_name}</Text>
+          {client.auth_user_id ? (
+            <Ionicons name="checkmark" size={16} color={colors.success} />
+          ) : null}
+        </View>
         {client.email ? (
           <Text style={[styles.clientMeta, { color: t.textSecondary }]}>{client.email}</Text>
         ) : null}
@@ -162,6 +167,7 @@ const styles = StyleSheet.create({
   rowInfo: { flex: 1, gap: 2 },
   clientName: { ...typography.body, fontWeight: '600' },
   clientMeta: { ...typography.bodySmall },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   statsRow: { flexDirection: 'row', gap: spacing.xs, marginTop: 2 },
   statText: { ...typography.bodySmall },
   emptyText: { ...typography.body, textAlign: 'center', marginTop: spacing.xl },

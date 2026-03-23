@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   ActivityIndicator, StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useExercises } from '@/hooks/useExercises';
+import { resolveGroupsFromQuery } from '@/lib/muscleSearch';
+import { DbExerciseSection } from '@/components/workout/DbExerciseSection';
+import { fetchExerciseDb, searchDbExercises, mapDbExercise } from '@/lib/exerciseDb';
+import type { DbExercise } from '@/lib/exerciseDb';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Exercise, ExerciseCategory } from '@/types';
 
@@ -42,6 +46,38 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // ── External DB ────────────────────────────────────────────────
+  const [dbAll, setDbAll] = useState<DbExercise[]>([]);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [addingFromDb, setAddingFromDb] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!query.trim() || dbAll.length > 0 || dbLoading) return;
+    setDbLoading(true);
+    fetchExerciseDb()
+      .then(setDbAll)
+      .catch(() => {})
+      .finally(() => setDbLoading(false));
+  }, [query, dbAll.length, dbLoading]);
+
+  const existingNames = useMemo(
+    () => new Set(exercises.map((e) => e.name.toLowerCase())),
+    [exercises],
+  );
+
+  const dbResults = useMemo(
+    () => searchDbExercises(dbAll, query, existingNames),
+    [dbAll, query, existingNames],
+  );
+
+  async function handleAddFromDb(dbEx: DbExercise) {
+    setAddingFromDb(dbEx.id);
+    const { exercise, error } = await createExercise(mapDbExercise(dbEx));
+    setAddingFromDb(null);
+    if (error) { setCreateError(error); return; }
+    if (exercise) onSelect(exercise);
+  }
+
   function openCreate() {
     setNewName(query.trim());
     setNewMuscle('');
@@ -63,9 +99,16 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
     if (exercise) onSelect(exercise);
   }
 
-  const filtered = exercises.filter((e) =>
-    e.name.toLowerCase().includes(query.toLowerCase())
-  );
+  const q = query.toLowerCase();
+  const resolvedGroups = q ? resolveGroupsFromQuery(q) : [];
+  const filtered = exercises.filter((e) => {
+    const mg = (e.muscle_group ?? '').toLowerCase();
+    return (
+      e.name.toLowerCase().includes(q) ||
+      mg.includes(q) ||
+      resolvedGroups.some((g) => mg.includes(g))
+    );
+  });
 
   // ── Create exercise form ─────────────────────────────────────────
   if (creating) {
@@ -217,6 +260,16 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
             <Text style={[styles.emptyText, { color: t.textSecondary }]}>
               No exercises found. Tap "Create" above to add one.
             </Text>
+          }
+          ListFooterComponent={
+            query.trim() !== '' ? (
+              <DbExerciseSection
+                results={dbResults}
+                loading={dbLoading}
+                addingId={addingFromDb}
+                onAdd={handleAddFromDb}
+              />
+            ) : null
           }
         />
       )}
