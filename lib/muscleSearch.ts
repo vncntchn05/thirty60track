@@ -14,6 +14,7 @@ const MUSCLE_SYNONYMS: Record<string, string[]> = {
  * via synonym lookup. E.g. "biceps" → ["arms"], "quads" → ["legs"].
  */
 export function resolveGroupsFromQuery(q: string): string[] {
+  if (!q) return [];
   const matches: string[] = [];
   for (const [group, synonyms] of Object.entries(MUSCLE_SYNONYMS)) {
     if (group.includes(q) || synonyms.some((s) => s.includes(q) || q.includes(s))) {

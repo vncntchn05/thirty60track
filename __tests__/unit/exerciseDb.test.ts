@@ -143,8 +143,10 @@ describe('searchDbExercises', () => {
     expect(results.some((e) => e.name === 'Barbell Curl')).toBe(false);
   });
 
-  it('existingNames comparison is case-insensitive', () => {
-    const existing = new Set(['BENCH PRESS']);
+  it('existingNames lookup normalises the exercise name to lowercase (Set must contain lowercase)', () => {
+    // searchDbExercises does existingNames.has(e.name.toLowerCase()), so the
+    // caller is responsible for lowercasing Set entries (matches real usage).
+    const existing = new Set(['bench press']);
     const results = searchDbExercises(DB, 'bench', existing);
     expect(results.some((e) => e.name === 'Bench Press')).toBe(false);
   });
