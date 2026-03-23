@@ -37,25 +37,42 @@ module.exports = {
     '**/__tests__/unit/**/*.test.{ts,tsx}',
     '**/__tests__/integration/**/*.test.{ts,tsx}',
   ],
-  // Start conservative: only the three files with real unit tests are measured.
-  // Raise these thresholds as new tests are added (see TESTING.md).
+  // Thresholds raised as new tests were added. Keep these moving upward —
+  // never lower them. Pure-function modules (muscleSearch, exerciseDb, off)
+  // carry high coverage and pull the aggregate up.
   coverageThreshold: {
     global: {
-      branches: 30,
-      functions: 35,
-      lines: 40,
-      statements: 35,
+      branches: 35,
+      functions: 45,
+      lines: 50,
+      statements: 45,
     },
   },
   // Only collect coverage for files that have corresponding unit tests.
   // Expand this list as new unit tests are added rather than leaving untested
   // files drag the global percentage down to a meaningless number.
   collectCoverageFrom: [
+    // lib — pure functions and clients
     'lib/slugify.ts',
     'lib/auth.tsx',
     'lib/usda.ts',
+    'lib/off.ts',
+    'lib/muscleSearch.ts',
+    'lib/exerciseDb.ts',
     'lib/generateReportPdf.ts',
+    // hooks — all hooks with dedicated unit tests
     'hooks/useWorkouts.ts',
+    'hooks/useClients.ts',
+    'hooks/useExercises.ts',
+    'hooks/useWorkoutTemplates.ts',
+    'hooks/useAssignedWorkouts.ts',
+    'hooks/useClientIntake.ts',
+    'hooks/useClientProfile.ts',
+    'hooks/useClientWorkouts.ts',
+    'hooks/useClientProgress.ts',
+    'hooks/useNutrition.ts',
+    'hooks/useTrainers.ts',
+    // constants
     'constants/workoutTemplates.ts',
   ],
 };
