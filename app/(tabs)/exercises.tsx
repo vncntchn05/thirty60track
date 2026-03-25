@@ -82,6 +82,10 @@ export default function ExercisesScreen() {
   const [dbAll, setDbAll] = useState<DbExercise[]>([]);
   const [dbLoading, setDbLoading] = useState(false);
   const [addingFromDb, setAddingFromDb] = useState<string | null>(null);
+  const [pendingDbEx, setPendingDbEx] = useState<DbExercise | null>(null);
+  const [dbImportEquipment, setDbImportEquipment] = useState<EquipmentType | null>(null);
+  const [dbImportHelpUrl, setDbImportHelpUrl] = useState('');
+  const [dbImportNotes, setDbImportNotes] = useState('');
 
   useEffect(() => {
     if (!query.trim() || dbAll.length > 0 || dbLoading) return;
@@ -102,9 +106,23 @@ export default function ExercisesScreen() {
     [dbAll, query, existingNames],
   );
 
-  async function handleAddFromDb(dbEx: DbExercise) {
-    setAddingFromDb(dbEx.id);
-    await createExercise(mapDbExercise(dbEx));
+  function handleAddFromDb(dbEx: DbExercise) {
+    setDbImportEquipment(null);
+    setDbImportHelpUrl('');
+    setDbImportNotes('');
+    setPendingDbEx(dbEx);
+  }
+
+  async function handleConfirmImport() {
+    if (!pendingDbEx) return;
+    setAddingFromDb(pendingDbEx.id);
+    setPendingDbEx(null);
+    await createExercise({
+      ...mapDbExercise(pendingDbEx),
+      equipment: dbImportEquipment,
+      form_notes: dbImportNotes.trim() || null,
+      help_url: dbImportHelpUrl.trim() || null,
+    });
     setAddingFromDb(null);
   }
 
@@ -197,6 +215,72 @@ export default function ExercisesScreen() {
     return (
       <View style={[styles.centered, { backgroundColor: t.background }]}>
         <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (pendingDbEx) {
+    return (
+      <View style={[styles.container, { backgroundColor: t.background }]}>
+        <View style={[styles.importHeader, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+          <TouchableOpacity onPress={() => setPendingDbEx(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="arrow-back" size={24} color={t.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.importHeaderText}>
+            <Text style={[styles.importTitle, { color: t.textPrimary }]}>{pendingDbEx.name}</Text>
+            {pendingDbEx.primaryMuscles[0] ? (
+              <Text style={[styles.importMuscle, { color: t.textSecondary }]}>
+                {pendingDbEx.primaryMuscles[0]}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        <ScrollView style={styles.importBody} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.importBodyContent}>
+          <Text style={[styles.formLabel, { color: t.textSecondary }]}>Equipment</Text>
+          <View style={styles.importChipWrap}>
+            {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
+              const active = dbImportEquipment === eq;
+              return (
+                <TouchableOpacity
+                  key={eq}
+                  style={[styles.categoryChip, { borderColor: active ? colors.primary : t.border }, active && { backgroundColor: colors.primary }]}
+                  onPress={() => setDbImportEquipment(active ? null : eq)}
+                >
+                  <Text style={[styles.categoryChipText, { color: active ? colors.textInverse : t.textSecondary }]}>{eq}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={[styles.formLabel, { color: t.textSecondary }]}>Tutorial URL</Text>
+          <TextInput
+            style={[styles.formInput, { borderColor: t.border, color: t.textPrimary }]}
+            placeholder="https://youtu.be/…"
+            placeholderTextColor={t.textSecondary as string}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            value={dbImportHelpUrl}
+            onChangeText={setDbImportHelpUrl}
+          />
+
+          <Text style={[styles.formLabel, { color: t.textSecondary }]}>Form Notes</Text>
+          <TextInput
+            style={[styles.formInput, styles.formNotesInput, { borderColor: t.border, color: t.textPrimary }]}
+            placeholder="Coaching cues, setup tips…"
+            placeholderTextColor={t.textSecondary as string}
+            autoCapitalize="sentences"
+            multiline
+            textAlignVertical="top"
+            value={dbImportNotes}
+            onChangeText={setDbImportNotes}
+          />
+
+          <TouchableOpacity onPress={handleConfirmImport} style={styles.saveBtn}>
+            <Text style={styles.saveBtnText}>Add to Library</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
     );
   }
@@ -581,6 +665,17 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '600' },
+
+  importHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    padding: spacing.md, borderBottomWidth: 1,
+  },
+  importHeaderText: { flex: 1 },
+  importTitle: { ...typography.heading3 },
+  importMuscle: { ...typography.bodySmall, marginTop: 2, textTransform: 'capitalize' },
+  importBody: { flex: 1 },
+  importBodyContent: { padding: spacing.lg, gap: spacing.sm },
+  importChipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 
   emptyText: { ...typography.body, textAlign: 'center', marginTop: spacing.xl, marginHorizontal: spacing.lg },
   errorText: { ...typography.body, color: colors.error, textAlign: 'center', paddingHorizontal: spacing.lg },

@@ -65,6 +65,7 @@ export default function ExerciseDetailScreen() {
   if (loading) {
     return (
       <View style={[styles.centered, { backgroundColor: t.background }]}>
+        <Stack.Screen options={{ headerShown: false }} />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -73,80 +74,67 @@ export default function ExerciseDetailScreen() {
   if (error || !exercise) {
     return (
       <View style={[styles.centered, { backgroundColor: t.background }]}>
-        <Text style={[styles.errorText]}>{error ?? 'Exercise not found.'}</Text>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Text style={styles.errorText}>{error ?? 'Exercise not found.'}</Text>
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
-      <Stack.Screen
-        options={{
-          title: exercise.name,
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as never)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.headerBtn}
-            >
-              <Ionicons name="chevron-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-
-        {/* ── Info card (read-only) ── */}
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
-          <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{exercise.name}</Text>
-          <View style={styles.badges}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+        <TouchableOpacity
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as never)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={t.textPrimary} />
+        </TouchableOpacity>
+        <View style={styles.headerText}>
+          <Text style={[styles.headerTitle, { color: t.textPrimary }]}>{exercise.name}</Text>
+          <View style={styles.headerMeta}>
             {exercise.muscle_group ? (
-              <View style={[styles.badge, { backgroundColor: t.background, borderColor: t.border }]}>
-                <Text style={[styles.badgeText, { color: t.textSecondary }]}>{exercise.muscle_group}</Text>
-              </View>
+              <Text style={[styles.headerSub, { color: t.textSecondary }]}>{exercise.muscle_group}</Text>
             ) : null}
-            <View style={[styles.badge, { backgroundColor: t.background, borderColor: t.border }]}>
-              <Text style={[styles.badgeText, { color: colors.primary }]}>
-                {CATEGORY_LABEL[exercise.category as ExerciseCategory] ?? exercise.category}
-              </Text>
-            </View>
-            {exercise.equipment ? (
-              <View style={[styles.badge, { backgroundColor: t.background, borderColor: t.border }]}>
-                <Text style={[styles.badgeText, { color: t.textSecondary }]}>{exercise.equipment}</Text>
-              </View>
-            ) : null}
+            <Text style={[styles.headerSub, { color: colors.primary }]}>
+              {CATEGORY_LABEL[exercise.category as ExerciseCategory] ?? exercise.category}
+            </Text>
           </View>
         </View>
+      </View>
 
-        {/* ── Equipment selector ── */}
-        <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>Equipment</Text>
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
-          <View style={styles.equipmentRow}>
-            {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
-              const active = equipment === eq;
-              return (
-                <TouchableOpacity
-                  key={eq}
-                  style={[
-                    styles.equipmentChip,
-                    { borderColor: active ? colors.primary : t.border },
-                    active && { backgroundColor: colors.primary },
-                  ]}
-                  onPress={() => setEquipment(active ? null : eq)}
-                >
-                  <Text style={[styles.equipmentChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                    {eq}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+      {/* Body */}
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.bodyContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Equipment</Text>
+        <View style={styles.chipWrap}>
+          {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
+            const active = equipment === eq;
+            return (
+              <TouchableOpacity
+                key={eq}
+                style={[
+                  styles.chip,
+                  { borderColor: active ? colors.primary : t.border },
+                  active && { backgroundColor: colors.primary },
+                ]}
+                onPress={() => setEquipment(active ? null : eq)}
+              >
+                <Text style={[styles.chipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                  {eq}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* ── Tutorial link ── */}
-        <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>Tutorial Link</Text>
-        <View style={[styles.card, styles.urlRow, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Tutorial URL</Text>
+        <View style={[styles.urlRow, { borderColor: t.border }]}>
           <Ionicons name="logo-youtube" size={20} color="#FF0000" />
           <TextInput
             style={[styles.urlInput, { color: t.textPrimary }]}
@@ -165,33 +153,29 @@ export default function ExerciseDetailScreen() {
           ) : null}
         </View>
 
-        {/* ── Form notes ── */}
-        <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>Form Notes</Text>
-        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
-          <TextInput
-            style={[styles.notesInput, { color: t.textPrimary }]}
-            value={formNotes}
-            onChangeText={setFormNotes}
-            placeholder={'1. Setup\n2. Brace core and take a deep breath\n3. Execute the movement\n…'}
-            placeholderTextColor={t.textSecondary as string}
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
+        <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Form Notes</Text>
+        <TextInput
+          style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
+          value={formNotes}
+          onChangeText={setFormNotes}
+          placeholder={'1. Setup\n2. Brace core and take a deep breath\n3. Execute the movement\n…'}
+          placeholderTextColor={t.textSecondary as string}
+          multiline
+          textAlignVertical="top"
+        />
 
+        {isDirty ? (
+          <TouchableOpacity
+            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving
+              ? <ActivityIndicator color={colors.textInverse} />
+              : <Text style={styles.saveBtnText}>Save Changes</Text>}
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
-
-      {isDirty ? (
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving
-            ? <ActivityIndicator color={colors.textInverse} />
-            : <Text style={styles.saveBtnText}>Save Changes</Text>}
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }
@@ -199,38 +183,36 @@ export default function ExerciseDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  headerBtn: { marginRight: spacing.sm },
-  scroll: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xxl + 56 },
 
-  sectionLabel: {
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    padding: spacing.md, borderBottomWidth: 1,
+  },
+  headerText: { flex: 1 },
+  headerTitle: { ...typography.heading3 },
+  headerMeta: { flexDirection: 'row', gap: spacing.sm, marginTop: 2, flexWrap: 'wrap' },
+  headerSub: { ...typography.bodySmall, textTransform: 'capitalize' },
+
+  body: { flex: 1 },
+  bodyContent: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxl },
+
+  fieldLabel: {
     ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5,
-    marginTop: spacing.sm, paddingHorizontal: spacing.xs,
+    marginTop: spacing.xs,
   },
 
-  card: {
-    borderRadius: radius.md, borderWidth: 1,
-    padding: spacing.md, gap: spacing.sm,
-  },
-
-  // ── Info card ──
-  exerciseName: { ...typography.heading3 },
-  badges: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
-  badge: {
-    borderRadius: radius.full, borderWidth: 1,
-    paddingHorizontal: spacing.sm, paddingVertical: 3,
-  },
-  badgeText: { ...typography.label },
-
-  // ── Equipment ──
-  equipmentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  equipmentChip: {
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: {
     borderWidth: 1, borderRadius: radius.full,
-    paddingHorizontal: spacing.sm, paddingVertical: 4,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
   },
-  equipmentChipText: { ...typography.label, fontWeight: '600' },
+  chipText: { ...typography.bodySmall, fontWeight: '600' },
 
-  // ── URL row ──
-  urlRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  urlRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    borderWidth: 1, borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+  },
   urlInput: { ...typography.body, flex: 1 },
   watchBtn: {
     backgroundColor: colors.primary, borderRadius: radius.sm,
@@ -238,13 +220,14 @@ const styles = StyleSheet.create({
   },
   watchBtnText: { ...typography.label, color: colors.textInverse, fontWeight: '700' },
 
-  // ── Form notes ──
-  notesInput: { ...typography.body, minHeight: 200, lineHeight: 22 },
+  notesInput: {
+    ...typography.body, borderWidth: 1, borderRadius: radius.md,
+    padding: spacing.md, minHeight: 200, lineHeight: 22,
+  },
 
-  // ── Save button ──
   saveBtn: {
-    margin: spacing.md, backgroundColor: colors.primary,
-    borderRadius: radius.md, padding: spacing.md, alignItems: 'center',
+    backgroundColor: colors.primary, borderRadius: radius.md,
+    padding: spacing.md, alignItems: 'center', marginTop: spacing.sm,
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
