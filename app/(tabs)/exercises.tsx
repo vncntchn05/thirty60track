@@ -226,6 +226,8 @@ export default function ExercisesScreen() {
       </View>
 
       {/* Equipment filter chips */}
+      <View style={[styles.filterRowWrapper, { borderBottomColor: t.border }]}>
+        <Text style={[styles.filterLabel, { color: t.textSecondary }]}>Equipment</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -251,6 +253,7 @@ export default function ExercisesScreen() {
           );
         })}
       </ScrollView>
+      </View>
 
       {/* Group-by control */}
       <View style={[styles.groupBar, { borderBottomColor: t.border }]}>
@@ -548,7 +551,9 @@ const styles = StyleSheet.create({
     ...typography.body, borderWidth: 1, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, height: 44,
   },
-  filterRow: { flexGrow: 0, marginHorizontal: spacing.md, marginTop: spacing.sm, marginBottom: spacing.xs },
+  filterRowWrapper: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, paddingVertical: spacing.xs },
+  filterLabel: { ...typography.label, marginLeft: spacing.md, marginRight: spacing.xs },
+  filterRow: { flex: 1 },
   filterRowContent: { gap: spacing.xs, paddingRight: spacing.md, paddingVertical: spacing.xs },
   filterChip: {
     borderWidth: 1, borderRadius: radius.full,

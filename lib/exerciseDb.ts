@@ -64,11 +64,17 @@ export function mapDbExercise(e: DbExercise): {
   name: string;
   muscle_group: string | null;
   category: ExerciseCategory;
+  equipment: null;
+  form_notes: null;
+  help_url: null;
 } {
   return {
     name: e.name,
     muscle_group: MUSCLE_TO_GROUP[e.primaryMuscles[0] ?? ''] ?? null,
     category: CATEGORY_MAP[e.category] ?? 'other',
+    equipment: null,
+    form_notes: null,
+    help_url: null,
   };
 }
 
