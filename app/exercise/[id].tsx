@@ -7,7 +7,8 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useExercise } from '@/hooks/useExercises';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { ExerciseCategory } from '@/types';
+import type { ExerciseCategory, EquipmentType } from '@/types';
+import { EQUIPMENT_TYPES } from '@/types';
 
 const CATEGORY_LABEL: Record<ExerciseCategory, string> = {
   strength: 'Strength',
@@ -24,6 +25,7 @@ export default function ExerciseDetailScreen() {
 
   const [formNotes, setFormNotes] = useState('');
   const [helpUrl, setHelpUrl] = useState('');
+  const [equipment, setEquipment] = useState<EquipmentType | null>(null);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
@@ -31,12 +33,14 @@ export default function ExerciseDetailScreen() {
   if (exercise && !initialized) {
     setFormNotes(exercise.form_notes ?? '');
     setHelpUrl(exercise.help_url ?? '');
+    setEquipment(exercise.equipment ?? null);
     setInitialized(true);
   }
 
   const isDirty = exercise && (
     formNotes !== (exercise.form_notes ?? '') ||
-    helpUrl !== (exercise.help_url ?? '')
+    helpUrl !== (exercise.help_url ?? '') ||
+    equipment !== (exercise.equipment ?? null)
   );
 
   async function handleSave() {
@@ -44,6 +48,7 @@ export default function ExerciseDetailScreen() {
     const { error: err } = await updateExercise({
       form_notes: formNotes.trim() || null,
       help_url: helpUrl.trim() || null,
+      equipment,
     });
     setSaving(false);
     if (err) Alert.alert('Error', err);
@@ -106,6 +111,36 @@ export default function ExerciseDetailScreen() {
                 {CATEGORY_LABEL[exercise.category as ExerciseCategory] ?? exercise.category}
               </Text>
             </View>
+            {exercise.equipment ? (
+              <View style={[styles.badge, { backgroundColor: t.background, borderColor: t.border }]}>
+                <Text style={[styles.badgeText, { color: t.textSecondary }]}>{exercise.equipment}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {/* ── Equipment selector ── */}
+        <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>Equipment</Text>
+        <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
+          <View style={styles.equipmentRow}>
+            {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
+              const active = equipment === eq;
+              return (
+                <TouchableOpacity
+                  key={eq}
+                  style={[
+                    styles.equipmentChip,
+                    { borderColor: active ? colors.primary : t.border },
+                    active && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setEquipment(active ? null : eq)}
+                >
+                  <Text style={[styles.equipmentChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                    {eq}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -185,6 +220,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm, paddingVertical: 3,
   },
   badgeText: { ...typography.label },
+
+  // ── Equipment ──
+  equipmentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  equipmentChip: {
+    borderWidth: 1, borderRadius: radius.full,
+    paddingHorizontal: spacing.sm, paddingVertical: 4,
+  },
+  equipmentChipText: { ...typography.label, fontWeight: '600' },
 
   // ── URL row ──
   urlRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

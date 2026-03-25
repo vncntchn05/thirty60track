@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Exercise, ExerciseCategory, UpdateExercise } from '@/types';
+import type { Exercise, ExerciseCategory, EquipmentType, UpdateExercise } from '@/types';
 
-const EXERCISE_FIELDS = 'id, name, muscle_group, category, form_notes, help_url, created_at';
+const EXERCISE_FIELDS = 'id, name, muscle_group, category, equipment, form_notes, help_url, created_at';
 
 /** Load the shared exercise library and expose a mutation to add new entries. */
 export function useExercises() {
@@ -26,6 +26,9 @@ export function useExercises() {
     name: string;
     muscle_group: string | null;
     category: ExerciseCategory;
+    equipment: EquipmentType | null;
+    form_notes: string | null;
+    help_url: string | null;
   }): Promise<{ exercise: Exercise | null; error: string | null }> {
     const { data, error: err } = await supabase
       .from('exercises')

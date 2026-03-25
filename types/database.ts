@@ -56,17 +56,31 @@ export type UpdateClientIntake = Partial<Omit<ClientIntake, 'id' | 'client_id' |
 
 export type ExerciseCategory = 'strength' | 'cardio' | 'flexibility' | 'other';
 
+export const EQUIPMENT_TYPES = {
+  Barbell:    'Barbell',
+  Dumbbell:   'Dumbbell',
+  Cable:      'Cable',
+  Machine:    'Machine',
+  Bodyweight: 'Bodyweight',
+  Kettlebell: 'Kettlebell',
+  Band:       'Band',
+  Other:      'Other',
+} as const;
+
+export type EquipmentType = typeof EQUIPMENT_TYPES[keyof typeof EQUIPMENT_TYPES];
+
 export type Exercise = {
   id: string;
   name: string;
   muscle_group: string | null;
   category: ExerciseCategory;
+  equipment: EquipmentType | null;
   form_notes: string | null;
   help_url: string | null;
   created_at: string;
 };
 
-export type UpdateExercise = Partial<Pick<Exercise, 'form_notes' | 'help_url'>>;
+export type UpdateExercise = Partial<Pick<Exercise, 'form_notes' | 'help_url' | 'equipment'>>;
 
 export type Workout = {
   id: string;

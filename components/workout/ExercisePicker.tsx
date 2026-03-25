@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  ActivityIndicator, StyleSheet,
+  ActivityIndicator, StyleSheet, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useExercises } from '@/hooks/useExercises';
@@ -10,7 +10,12 @@ import { DbExerciseSection } from '@/components/workout/DbExerciseSection';
 import { fetchExerciseDb, searchDbExercises, mapDbExercise } from '@/lib/exerciseDb';
 import type { DbExercise } from '@/lib/exerciseDb';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { Exercise, ExerciseCategory } from '@/types';
+import type { Exercise, ExerciseCategory, EquipmentType } from '@/types';
+import { EQUIPMENT_TYPES } from '@/types';
+
+const EQUIPMENT_FILTERS: Array<EquipmentType | 'All'> = [
+  'All', 'Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Band', 'Other',
+];
 
 const CATEGORIES: { value: ExerciseCategory; label: string }[] = [
   { value: 'strength',    label: 'Strength' },
@@ -43,6 +48,10 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
   const [newName, setNewName] = useState('');
   const [newMuscle, setNewMuscle] = useState('');
   const [newCategory, setNewCategory] = useState<ExerciseCategory>('strength');
+  const [newEquipment, setNewEquipment] = useState<EquipmentType | null>(null);
+  const [newFormNotes, setNewFormNotes] = useState('');
+  const [newHelpUrl, setNewHelpUrl] = useState('');
+  const [equipmentFilter, setEquipmentFilter] = useState<EquipmentType | 'All'>('All');
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -82,6 +91,9 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
     setNewName(query.trim());
     setNewMuscle('');
     setNewCategory('strength');
+    setNewEquipment(null);
+    setNewFormNotes('');
+    setNewHelpUrl('');
     setCreateError(null);
     setCreating(true);
   }
@@ -93,6 +105,9 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
       name: newName.trim(),
       muscle_group: newMuscle.trim() || null,
       category: newCategory,
+      equipment: newEquipment,
+      form_notes: newFormNotes.trim() || null,
+      help_url: newHelpUrl.trim() || null,
     });
     setSaving(false);
     if (error) { setCreateError(error); return; }
@@ -101,14 +116,16 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
 
   const q = query.toLowerCase();
   const resolvedGroups = q ? resolveGroupsFromQuery(q) : [];
-  const filtered = exercises.filter((e) => {
-    const mg = (e.muscle_group ?? '').toLowerCase();
-    return (
-      e.name.toLowerCase().includes(q) ||
-      mg.includes(q) ||
-      resolvedGroups.some((g) => mg.includes(g))
-    );
-  });
+  const filtered = exercises
+    .filter((e) => equipmentFilter === 'All' || e.equipment === equipmentFilter)
+    .filter((e) => {
+      const mg = (e.muscle_group ?? '').toLowerCase();
+      return (
+        e.name.toLowerCase().includes(q) ||
+        mg.includes(q) ||
+        resolvedGroups.some((g) => mg.includes(g))
+      );
+    });
 
   // ── Create exercise form ─────────────────────────────────────────
   if (creating) {
@@ -124,7 +141,7 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
           <Text style={[styles.headerTitle, { color: t.textPrimary }]}>New Exercise</Text>
         </View>
 
-        <View style={styles.form}>
+        <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
           {createError
             ? <Text style={styles.errorText}>{createError}</Text>
             : null}
@@ -178,6 +195,55 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
             })}
           </View>
 
+          <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Equipment</Text>
+          <View style={styles.categoryRow}>
+            {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
+              const active = newEquipment === eq;
+              return (
+                <TouchableOpacity
+                  key={eq}
+                  style={[
+                    styles.categoryChip,
+                    { borderColor: t.border },
+                    active && styles.categoryChipActive,
+                  ]}
+                  onPress={() => setNewEquipment(active ? null : eq)}
+                >
+                  <Text style={[
+                    styles.categoryChipText,
+                    { color: t.textSecondary },
+                    active && styles.categoryChipTextActive,
+                  ]}>
+                    {eq}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Tutorial URL</Text>
+          <TextInput
+            style={[styles.input, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.surface }]}
+            value={newHelpUrl}
+            onChangeText={setNewHelpUrl}
+            placeholder="https://youtu.be/…"
+            placeholderTextColor={t.textSecondary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+
+          <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Form Notes</Text>
+          <TextInput
+            style={[styles.input, styles.notesInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.surface }]}
+            value={newFormNotes}
+            onChangeText={setNewFormNotes}
+            placeholder={'Coaching cues, setup tips…'}
+            placeholderTextColor={t.textSecondary}
+            multiline
+            textAlignVertical="top"
+          />
+
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
             onPress={handleCreate}
@@ -187,7 +253,7 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
               ? <ActivityIndicator color={colors.textInverse} />
               : <Text style={styles.saveBtnText}>Add to Library & Select</Text>}
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
     );
   }
@@ -213,6 +279,34 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
           autoCapitalize="none"
         />
       </View>
+
+      {/* Equipment filter chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={[styles.filterRow, { borderBottomColor: t.border }]}
+        contentContainerStyle={styles.filterRowContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {EQUIPMENT_FILTERS.map((eq) => {
+          const active = equipmentFilter === eq;
+          return (
+            <TouchableOpacity
+              key={eq}
+              style={[
+                styles.filterChip,
+                { borderColor: active ? colors.primary : t.border },
+                active && { backgroundColor: colors.primary },
+              ]}
+              onPress={() => setEquipmentFilter(eq)}
+            >
+              <Text style={[styles.filterChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                {eq}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
@@ -249,6 +343,9 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
                 <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{item.name}</Text>
                 {item.muscle_group
                   ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.muscle_group}</Text>
+                  : null}
+                {item.equipment
+                  ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.equipment}</Text>
                   : null}
               </View>
               {existingIds?.has(item.id)
@@ -312,6 +409,15 @@ const styles = StyleSheet.create({
   alreadyIn: { ...typography.bodySmall, fontStyle: 'italic' },
   emptyText: { ...typography.body, textAlign: 'center', marginTop: spacing.xl },
 
+  // ── Equipment filter chips ──
+  filterRow: { flexGrow: 0, borderBottomWidth: 1 },
+  filterRowContent: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, gap: spacing.xs },
+  filterChip: {
+    borderWidth: 1, borderRadius: radius.full,
+    paddingHorizontal: spacing.md, paddingVertical: 4,
+  },
+  filterChipText: { ...typography.label, fontWeight: '600' },
+
   // ── Create form ──
   form: { padding: spacing.lg, gap: spacing.sm },
   errorText: { ...typography.bodySmall, color: colors.error },
@@ -328,6 +434,7 @@ const styles = StyleSheet.create({
   categoryChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   categoryChipText: { ...typography.bodySmall, fontWeight: '600' },
   categoryChipTextActive: { color: colors.textInverse },
+  notesInput: { minHeight: 120, lineHeight: 22 },
   saveBtn: {
     backgroundColor: colors.primary, borderRadius: radius.md,
     padding: spacing.md, alignItems: 'center', marginTop: spacing.md,

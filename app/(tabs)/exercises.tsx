@@ -12,7 +12,8 @@ import { DbExerciseSection } from '@/components/workout/DbExerciseSection';
 import { fetchExerciseDb, searchDbExercises, mapDbExercise } from '@/lib/exerciseDb';
 import type { DbExercise } from '@/lib/exerciseDb';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { Exercise, ExerciseCategory } from '@/types';
+import type { Exercise, ExerciseCategory, EquipmentType } from '@/types';
+import { EQUIPMENT_TYPES } from '@/types';
 
 const CATEGORIES: ExerciseCategory[] = ['strength', 'cardio', 'flexibility', 'other'];
 
@@ -22,6 +23,10 @@ const CATEGORY_LABEL: Record<ExerciseCategory, string> = {
   flexibility: 'Flexibility',
   other: 'Other',
 };
+
+const EQUIPMENT_FILTERS: Array<EquipmentType | 'All'> = [
+  'All', 'Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Band', 'Other',
+];
 
 type GroupBy = 'none' | 'muscle' | 'category';
 // count = full count, used in header when section is collapsed
@@ -67,6 +72,10 @@ export default function ExercisesScreen() {
   const [formName, setFormName] = useState('');
   const [formMuscle, setFormMuscle] = useState('');
   const [formCategory, setFormCategory] = useState<ExerciseCategory>('strength');
+  const [formEquipment, setFormEquipment] = useState<EquipmentType | null>(null);
+  const [formNotes, setFormNotes] = useState('');
+  const [formHelpUrl, setFormHelpUrl] = useState('');
+  const [equipmentFilter, setEquipmentFilter] = useState<EquipmentType | 'All'>('All');
   const [saving, setSaving] = useState(false);
 
   // ── External DB ────────────────────────────────────────────────
@@ -102,7 +111,7 @@ export default function ExercisesScreen() {
   const fullSections = useMemo(() => {
     const q = query.trim().toLowerCase();
     const resolvedGroups = q ? resolveGroupsFromQuery(q) : [];
-    const base = q
+    let base = q
       ? exercises.filter((e) => {
           const mg = (e.muscle_group ?? '').toLowerCase();
           return (
@@ -112,8 +121,11 @@ export default function ExercisesScreen() {
           );
         })
       : exercises;
+    if (equipmentFilter !== 'All') {
+      base = base.filter((e) => e.equipment === equipmentFilter);
+    }
     return buildSections(base, groupBy);
-  }, [exercises, query, groupBy]);
+  }, [exercises, query, groupBy, equipmentFilter]);
 
   // Collapse all sections by default whenever groupBy changes to a grouped mode
   useEffect(() => {
@@ -147,6 +159,9 @@ export default function ExercisesScreen() {
     setFormName('');
     setFormMuscle('');
     setFormCategory('strength');
+    setFormEquipment(null);
+    setFormNotes('');
+    setFormHelpUrl('');
     setShowForm(true);
   }
 
@@ -157,6 +172,9 @@ export default function ExercisesScreen() {
       name: formName.trim(),
       muscle_group: formMuscle.trim() || null,
       category: formCategory,
+      equipment: formEquipment,
+      form_notes: formNotes.trim() || null,
+      help_url: formHelpUrl.trim() || null,
     });
     setSaving(false);
     if (err) Alert.alert('Error', err);
@@ -207,6 +225,33 @@ export default function ExercisesScreen() {
         )}
       </View>
 
+      {/* Equipment filter chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterRow}
+        contentContainerStyle={styles.filterRowContent}
+      >
+        {EQUIPMENT_FILTERS.map((eq) => {
+          const active = equipmentFilter === eq;
+          return (
+            <TouchableOpacity
+              key={eq}
+              style={[
+                styles.filterChip,
+                { borderColor: active ? colors.primary : t.border },
+                active && { backgroundColor: colors.primary },
+              ]}
+              onPress={() => setEquipmentFilter(eq)}
+            >
+              <Text style={[styles.filterChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                {eq}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {/* Group-by control */}
       <View style={[styles.groupBar, { borderBottomColor: t.border }]}>
         <Text style={[styles.groupByLabel, { color: t.textSecondary }]}>Group by</Text>
@@ -235,6 +280,7 @@ export default function ExercisesScreen() {
       {showForm && (
         <View style={[styles.formCard, { backgroundColor: t.surface, borderColor: t.border }]}>
           <Text style={[styles.formTitle, { color: t.textPrimary }]}>New Exercise</Text>
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
           <TextInput
             style={[styles.formInput, { borderColor: t.border, color: t.textPrimary }]}
             placeholder="Exercise name *"
@@ -269,6 +315,45 @@ export default function ExercisesScreen() {
               );
             })}
           </ScrollView>
+          <Text style={[styles.formLabel, { color: t.textSecondary }]}>Equipment</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+            {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
+              const active = formEquipment === eq;
+              return (
+                <TouchableOpacity
+                  key={eq}
+                  style={[styles.categoryChip, { borderColor: active ? colors.primary : t.border }, active && { backgroundColor: colors.primary }]}
+                  onPress={() => setFormEquipment(active ? null : eq)}
+                >
+                  <Text style={[styles.categoryChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                    {eq}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <Text style={[styles.formLabel, { color: t.textSecondary }]}>Tutorial URL</Text>
+          <TextInput
+            style={[styles.formInput, { borderColor: t.border, color: t.textPrimary }]}
+            placeholder="https://youtu.be/…"
+            placeholderTextColor={t.textSecondary as string}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            value={formHelpUrl}
+            onChangeText={setFormHelpUrl}
+          />
+          <Text style={[styles.formLabel, { color: t.textSecondary }]}>Form Notes</Text>
+          <TextInput
+            style={[styles.formInput, styles.formNotesInput, { borderColor: t.border, color: t.textPrimary }]}
+            placeholder={'Coaching cues, setup tips…'}
+            placeholderTextColor={t.textSecondary as string}
+            autoCapitalize="sentences"
+            multiline
+            textAlignVertical="top"
+            value={formNotes}
+            onChangeText={setFormNotes}
+          />
           <View style={styles.formActions}>
             <TouchableOpacity onPress={() => setShowForm(false)} style={[styles.cancelBtn, { borderColor: t.border }]}>
               <Text style={[styles.cancelBtnText, { color: t.textSecondary }]}>Cancel</Text>
@@ -279,6 +364,7 @@ export default function ExercisesScreen() {
                 : <Text style={styles.saveBtnText}>Add Exercise</Text>}
             </TouchableOpacity>
           </View>
+          </ScrollView>
         </View>
       )}
 
@@ -286,6 +372,7 @@ export default function ExercisesScreen() {
       <SectionList<Exercise, Section>
         sections={displaySections}
         keyExtractor={(item) => item.id}
+        style={styles.sectionList}
         contentContainerStyle={styles.list}
         stickySectionHeadersEnabled={groupBy !== 'none'}
         renderSectionHeader={({ section }) => {
@@ -378,6 +465,11 @@ function ExerciseRow({ exercise, groupBy, t }: { exercise: Exercise; groupBy: Gr
           </Text>
         </View>
       )}
+      {exercise.equipment ? (
+        <View style={[styles.categoryBadge, { backgroundColor: t.background, borderColor: t.border }]}>
+          <Text style={[styles.categoryBadgeText, { color: t.textSecondary }]}>{exercise.equipment}</Text>
+        </View>
+      ) : null}
       <Ionicons name="chevron-forward" size={16} color={t.textSecondary as string} />
     </TouchableOpacity>
   );
@@ -419,6 +511,7 @@ const styles = StyleSheet.create({
   },
   sectionCount: { ...typography.label },
 
+  sectionList: { flex: 1 },
   list: { paddingTop: spacing.xs, paddingBottom: spacing.xxl + 56 },
   separator: { height: spacing.xs },
 
@@ -445,14 +538,25 @@ const styles = StyleSheet.create({
   formCard: {
     margin: spacing.md, marginBottom: 0,
     borderRadius: radius.md, borderWidth: 1,
-    padding: spacing.md, gap: spacing.sm,
+    padding: spacing.md,
+    maxHeight: '70%',
   },
+  formScroll: { gap: spacing.sm, paddingBottom: spacing.xs },
   formTitle: { ...typography.body, fontWeight: '700' },
   formLabel: { ...typography.label },
   formInput: {
     ...typography.body, borderWidth: 1, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, height: 44,
   },
+  filterRow: { flexGrow: 0, marginHorizontal: spacing.md, marginTop: spacing.sm, marginBottom: spacing.xs },
+  filterRowContent: { gap: spacing.xs, paddingRight: spacing.md, paddingVertical: spacing.xs },
+  filterChip: {
+    borderWidth: 1, borderRadius: radius.full,
+    paddingHorizontal: spacing.md, paddingVertical: 4,
+  },
+  filterChipText: { ...typography.label, fontWeight: '600' },
+
+  formNotesInput: { minHeight: 100, height: 'auto', lineHeight: 22 },
   chipRow: { flexGrow: 0 },
   categoryChip: {
     borderWidth: 1, borderRadius: radius.full,
