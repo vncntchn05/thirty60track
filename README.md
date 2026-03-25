@@ -98,13 +98,16 @@ Templates are displayed as a flat list (no phase grouping). They are matched to 
 - [x] Shared exercise library (150+ exercises seeded across all muscle groups)
 - [x] Dedicated **Exercises tab** — browse, search, and manage the full library
 - [x] Group exercises by muscle group or category (collapsible sections)
-- [x] **Add custom exercises** — name, muscle group, and category (strength / cardio / flexibility / other)
+- [x] **Equipment filter chips** — horizontal chip row (All / Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other) filters the list in real time; works alongside the group-by selector and search
+- [x] **Add custom exercises** — name, muscle group, category (strength / cardio / flexibility / other), equipment type, tutorial URL, and form notes; all fields available inline in the Exercises tab and in the in-workout picker
 - [x] **Muscle synonym search** — searching "biceps", "quads", "lats", etc. resolves to the matching broad muscle group (Arms, Legs, Back…) so exercises surface even when the group label doesn't match the query exactly
 - [x] **External exercise database** — search the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (~800 exercises, public domain) directly from the exercise library and the in-workout picker; results show only exercises not already in the library; tapping Add imports the exercise (name, muscle group, category) into the local library; in the workout picker, Add also immediately selects the exercise; database is fetched once per session and cached in memory
 - [x] Exercise search when logging a workout
+- [x] **In-workout picker equipment filter** — same equipment chip row in the exercise picker modal when logging or assigning a workout
 - [x] Exercises auto-inserted by workout templates when missing from the library
 - [x] **Exercise detail page** — tap any exercise to open its detail screen
-- [x] **Form notes** — free-text step-by-step instructions per exercise (editable by any trainer)
+- [x] **Equipment badge** — equipment type shown as a badge on each exercise row and in the detail screen info card; editable via chip selector on the detail page
+- [x] **Form notes** — free-text step-by-step coaching cues per exercise (editable by any trainer; all 100 seeded exercises pre-populated)
 - [x] **Tutorial link** — YouTube URL per exercise with one-tap Watch button; 4 core lifts pre-seeded (Bench Press, Squat, Deadlift, Lat Pulldown)
 
 ### Client Portal
@@ -202,7 +205,7 @@ clients                     — belong to one trainer; includes gender, body met
 client_intake               — one row per client; full intake form data (health history, emergency contact, goals…)
 workouts                    — one session per client per date; stores optional body metrics + logged_by_role/user_id
 workout_sets                — one row per set (reps, weight_kg, duration_seconds, notes, superset_group)
-exercises                   — shared library; authenticated read + insert
+exercises                   — shared library; authenticated read + insert; `equipment` column (Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other / NULL)
 workout_templates           — editable program templates stored in DB; authenticated CRUD
 client_media                — image/video metadata per client (storage_path, media_type, taken_at, notes)
 assigned_workouts           — trainer-assigned workout prescriptions per client (title, scheduled_date, status)
@@ -323,8 +326,10 @@ supabase/
   seed.sql                  # 150+ exercises across all muscle groups
   seed_test_client.sql      # Full year of realistic test data (youth hockey player)
   migrations/
-    012_client_intake.sql   # client_intake table + RLS policies
-    013_assigned_workouts.sql # assigned_workouts, assigned_workout_exercises, assigned_workout_sets + RLS
+    012_client_intake.sql        # client_intake table + RLS policies
+    013_assigned_workouts.sql    # assigned_workouts, assigned_workout_exercises, assigned_workout_sets + RLS
+    014_exercise_form_notes.sql  # populates form_notes for all 100 seeded exercises
+    015_exercise_equipment.sql   # adds equipment column; classifies all 100 seeded exercises by type
 ```
 
 ---
@@ -383,6 +388,8 @@ Run these in order in the **Supabase SQL Editor**:
 - **015** — drops `phase` and `category` columns from `workout_templates`; renames duplicate template names (appends `(P2)` / `(P3)` suffix); replaces `UNIQUE(name, phase)` constraint with `UNIQUE(name)`
 - **016** — broadens assigned workout RLS from per-trainer (`trainer_id = auth.uid()`) to any authenticated trainer (`EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid())`); enables cross-trainer collaboration on client assigned workouts
 - **017** — `link_client_to_auth_user()` SECURITY DEFINER function; resolves the RLS catch-22 where a newly signed-up client cannot update their own `auth_user_id` (the UPDATE policy requires `auth.uid() = auth_user_id` which is always false when the column is NULL); the function looks up the caller's email from `auth.users`, finds the matching unlinked client row, and writes `auth_user_id = auth.uid()` with elevated privileges
+- **018** — populates `form_notes` for all 100 seeded exercises with detailed coaching cues (setup, execution, common cues per exercise)
+- **019** — adds `equipment TEXT` column to `exercises`; classifies all 100 seeded exercises (Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other)
 
 **Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 
