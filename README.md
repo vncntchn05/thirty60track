@@ -10,6 +10,7 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 | Language | TypeScript (strict) |
 | Backend | Supabase (Postgres + Auth + RLS) |
 | Charts | Victory Native XL + React Native Skia |
+| Body Map | react-native-body-highlighter (SVG body diagram) |
 | Styling | React Native StyleSheet |
 
 ---
@@ -98,10 +99,11 @@ Templates are displayed as a flat list (no phase grouping). They are matched to 
 - [x] Shared exercise library (150+ exercises seeded across all muscle groups)
 - [x] Dedicated **Exercises tab** — browse, search, and manage the full library
 - [x] Group exercises by muscle group or category (collapsible sections)
+- [x] **Interactive body map** — SVG body diagram (powered by `react-native-body-highlighter`) occupies the left half of the exercise library screen; tap any muscle region to filter by that muscle group; hover highlights the region in light gold before selecting; selected region turns full gold and dims all others; Front/Back toggle switches diagram view; tap the selected label's × to clear; the body map column auto-sizes to fill available space via `onLayout`
 - [x] **Equipment filter chips** — horizontal chip row (All / Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other) filters the list in real time; works alongside the group-by selector and search
 - [x] **Add custom exercises** — name, muscle group, category (strength / cardio / flexibility / other), equipment type, tutorial URL, and form notes; all fields available inline in the Exercises tab and in the in-workout picker
 - [x] **Muscle synonym search** — searching "biceps", "quads", "lats", etc. resolves to the matching broad muscle group (Arms, Legs, Back…) so exercises surface even when the group label doesn't match the query exactly
-- [x] **External exercise database** — search the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (~800 exercises, public domain) directly from the exercise library and the in-workout picker; results show only exercises not already in the library; tapping Add imports the exercise (name, muscle group, category) into the local library; in the workout picker, Add also immediately selects the exercise; database is fetched once per session and cached in memory
+- [x] **External exercise database** — search the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (~800 exercises, public domain) directly from the exercise library and the in-workout picker; results show only exercises not already in the library; tapping Add imports the exercise (name, muscle group, category) into the local library; in the workout picker, Add also immediately selects the exercise; database is fetched once per session and cached in memory; the "FROM DATABASE" section is always visible (not just when searching) and shows up to 20 results that aren't already in the library
 - [x] Exercise search when logging a workout
 - [x] **In-workout picker equipment filter** — same equipment chip row in the exercise picker modal when logging or assigning a workout
 - [x] Exercises auto-inserted by workout templates when missing from the library
@@ -268,6 +270,7 @@ components/
     IntakeForm.tsx            # Client intake form (first-time and edit modes)
     ReportCardButton.tsx      # Period picker + data fetching + PDF generation trigger
   ui/
+    BodyMap.tsx               # Interactive SVG body diagram (react-native-body-highlighter); tap/hover to filter by muscle group; Front/Back toggle; hover = light gold, selected = full gold, others dimmed
     ChangePasswordModal.tsx   # In-app change password sheet (re-authenticates with current password, then updateUser)
     DatePicker.tsx            # Inline single date selection component
     DatePickerModal.tsx       # Modal single date picker with log-dot indicators and Today shortcut
@@ -290,6 +293,8 @@ hooks/
 constants/
   theme.ts              # Color/spacing/typography tokens + useTheme (always dark)
   workoutTemplates.ts   # Seed data shape for the 16 built-in templates
+
+index.js                # Custom entry point — installs a console.error filter before Expo's LogBox patches it; suppresses react-native-svg web renderer noise (accessible non-boolean, Unknown event handler) that are harmless but verbose on web
 
 lib/
   supabase.ts              # Supabase client singleton
@@ -352,7 +357,7 @@ No additional Render configuration is needed — the `_redirects` file is copied
 git clone <repo-url>
 cd thirty60track
 npm install
-npx expo install expo-image-picker expo-av expo-print expo-sharing expo-file-system expo-camera
+npx expo install expo-image-picker expo-av expo-print expo-sharing expo-file-system expo-camera react-native-body-highlighter react-native-svg
 ```
 
 ### 2. Configure environment

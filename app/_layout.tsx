@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/auth';
 import { SkiaAvailableContext } from '@/lib/skia';
 import { colors, useTheme } from '@/constants/theme';
 
+
 function HeaderLogo() {
   return (
     <View style={styles.logoContainer}>

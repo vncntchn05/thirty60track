@@ -308,14 +308,10 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
         })}
       </ScrollView>
 
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-      ) : loadError ? (
-        <Text style={[styles.emptyText, { color: colors.error }]}>{loadError}</Text>
-      ) : (
-        <FlatList
-          data={filtered}
+      <FlatList
+          data={loading ? [] : filtered}
           keyExtractor={(e) => e.id}
+          style={styles.flatList}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
@@ -354,9 +350,15 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
             </TouchableOpacity>
           )}
           ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: t.textSecondary }]}>
-              No exercises found. Tap "Create" above to add one.
-            </Text>
+            loading ? (
+              <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+            ) : loadError ? (
+              <Text style={[styles.emptyText, { color: colors.error }]}>{loadError}</Text>
+            ) : (
+              <Text style={[styles.emptyText, { color: t.textSecondary }]}>
+                No exercises found. Tap "Create" above to add one.
+              </Text>
+            )
           }
           ListFooterComponent={
             query.trim() !== '' ? (
@@ -369,7 +371,6 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
             ) : null
           }
         />
-      )}
     </View>
   );
 }
@@ -410,7 +411,8 @@ const styles = StyleSheet.create({
   emptyText: { ...typography.body, textAlign: 'center', marginTop: spacing.xl },
 
   // ── Equipment filter chips ──
-  filterRow: { flexGrow: 0, borderBottomWidth: 1 },
+  filterRow: { flexGrow: 0, flexShrink: 0, borderBottomWidth: 1 },
+  flatList: { flex: 1 },
   filterRowContent: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, gap: spacing.xs },
   filterChip: {
     borderWidth: 1, borderRadius: radius.full,
