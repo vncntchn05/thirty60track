@@ -25,7 +25,7 @@ const CATEGORY_LABEL: Record<ExerciseCategory, string> = {
   other: 'Other',
 };
 
-const EQUIPMENT_FILTERS: Array<EquipmentType | 'All'> = [
+const EQUIPMENT_FILTERS: (EquipmentType | 'All')[] = [
   'All', 'Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Band', 'Other',
 ];
 

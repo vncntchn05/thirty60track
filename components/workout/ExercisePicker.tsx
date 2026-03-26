@@ -14,7 +14,7 @@ import type { Exercise, ExerciseCategory, EquipmentType } from '@/types';
 import { EQUIPMENT_TYPES } from '@/types';
 import { BodyMap } from '@/components/ui/BodyMap';
 
-const EQUIPMENT_FILTERS: Array<EquipmentType | 'All'> = [
+const EQUIPMENT_FILTERS: (EquipmentType | 'All')[] = [
   'All', 'Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Band', 'Other',
 ];
 
