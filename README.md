@@ -99,11 +99,11 @@ Templates are displayed as a flat list (no phase grouping). They are matched to 
 - [x] Shared exercise library (150+ exercises seeded across all muscle groups)
 - [x] Dedicated **Exercises tab** — browse, search, and manage the full library
 - [x] Group exercises by muscle group or category (collapsible sections)
-- [x] **Interactive body map** — SVG body diagram (powered by `react-native-body-highlighter`) occupies the left half of the exercise library screen; tap any muscle region to filter by that muscle group; hover highlights the region in light gold before selecting; selected region turns full gold and dims all others; Front/Back toggle switches diagram view; tap the selected label's × to clear; the body map column auto-sizes to fill available space via `onLayout`
+- [x] **Interactive body map** — SVG body diagram (powered by `react-native-body-highlighter`) occupies the left half of the exercise library screen and the in-workout exercise picker; tap any muscle region to filter by that muscle group; hover highlights the region in light gold before selecting; selected region turns full gold and dims all others; Front/Back toggle switches diagram view; tap the selected label's × to clear; the body map column auto-sizes to fill available space via `onLayout`
 - [x] **Equipment filter chips** — horizontal chip row (All / Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other) filters the list in real time; works alongside the group-by selector and search
 - [x] **Add custom exercises** — name, muscle group, category (strength / cardio / flexibility / other), equipment type, tutorial URL, and form notes; all fields available inline in the Exercises tab and in the in-workout picker
 - [x] **Muscle synonym search** — searching "biceps", "quads", "lats", etc. resolves to the matching broad muscle group (Arms, Legs, Back…) so exercises surface even when the group label doesn't match the query exactly
-- [x] **External exercise database** — search the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (~800 exercises, public domain) directly from the exercise library and the in-workout picker; results show only exercises not already in the library; tapping Add imports the exercise (name, muscle group, category) into the local library; in the workout picker, Add also immediately selects the exercise; database is fetched once per session and cached in memory; the "FROM DATABASE" section is always visible (not just when searching) and shows up to 20 results that aren't already in the library
+- [x] **External exercise database** — search the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (~800 exercises, public domain) directly from the exercise library and the in-workout picker; results show only exercises not already in the library; tapping Add imports the exercise (name, muscle group, category) into the local library; in the workout picker, Add also immediately selects the exercise; database is fetched on mount and cached in memory for the session; the "FROM DATABASE" section is always visible (not just when searching) and shows up to 20 results when no query is active; cards are the same size as local library exercise cards
 - [x] Exercise search when logging a workout
 - [x] **In-workout picker equipment filter** — same equipment chip row in the exercise picker modal when logging or assigning a workout
 - [x] Exercises auto-inserted by workout templates when missing from the library
@@ -261,7 +261,7 @@ components/
     VolumeChart.tsx           # Bar chart — total volume per session + axis labels
     ExerciseProgressChart.tsx # Line chart — weight or reps over time + tooltip + axis labels
   workout/
-    ExercisePicker.tsx        # Searchable exercise picker (local library + external DB results)
+    ExercisePicker.tsx        # Searchable exercise picker with body map (left) + equipment chips + list (right); used when logging or editing workouts
     DbExerciseSection.tsx     # "FROM DATABASE" result rows with Add button; shared by exercises tab and picker
     TemplatePicker.tsx        # Phase-grouped template browser
     TemplateEditor.tsx        # Create / edit / delete workout templates

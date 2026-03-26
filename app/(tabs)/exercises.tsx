@@ -618,11 +618,10 @@ const styles = StyleSheet.create({
   sectionCount: { ...typography.label },
 
   sectionList: { flex: 1 },
-  list: { paddingTop: spacing.xs, paddingBottom: spacing.xxl + 56 },
+  list: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: spacing.xxl + 56 },
   separator: { height: spacing.xs },
 
   row: {
-    marginHorizontal: spacing.md,
     borderRadius: radius.md, padding: spacing.md,
     flexDirection: 'row', alignItems: 'center',
     gap: spacing.md, borderWidth: 1,

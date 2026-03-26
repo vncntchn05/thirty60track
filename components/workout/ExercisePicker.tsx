@@ -12,6 +12,7 @@ import type { DbExercise } from '@/lib/exerciseDb';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Exercise, ExerciseCategory, EquipmentType } from '@/types';
 import { EQUIPMENT_TYPES } from '@/types';
+import { BodyMap } from '@/components/ui/BodyMap';
 
 const EQUIPMENT_FILTERS: Array<EquipmentType | 'All'> = [
   'All', 'Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Band', 'Other',
@@ -42,6 +43,7 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
   const { exercises, loading, error: loadError, createExercise } = useExercises();
 
   const [query, setQuery] = useState('');
+  const [muscleFilter, setMuscleFilter] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   // ── Create-exercise form state ─────────────────────────────────
@@ -61,23 +63,32 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
   const [addingFromDb, setAddingFromDb] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!query.trim() || dbAll.length > 0 || dbLoading) return;
+    if (dbAll.length > 0 || dbLoading) return;
     setDbLoading(true);
     fetchExerciseDb()
       .then(setDbAll)
       .catch(() => {})
       .finally(() => setDbLoading(false));
-  }, [query, dbAll.length, dbLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const existingNames = useMemo(
     () => new Set(exercises.map((e) => e.name.toLowerCase())),
     [exercises],
   );
 
-  const dbResults = useMemo(
-    () => searchDbExercises(dbAll, query, existingNames),
-    [dbAll, query, existingNames],
-  );
+  const dbResults = useMemo(() => {
+    if (query.trim()) return searchDbExercises(dbAll, query, existingNames);
+    // No query: show first 20 DB exercises not already in the library
+    const results: DbExercise[] = [];
+    for (const e of dbAll) {
+      if (!existingNames.has(e.name.toLowerCase())) {
+        results.push(e);
+        if (results.length === 20) break;
+      }
+    }
+    return results;
+  }, [dbAll, query, existingNames]);
 
   async function handleAddFromDb(dbEx: DbExercise) {
     setAddingFromDb(dbEx.id);
@@ -119,6 +130,12 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
   const filtered = exercises
     .filter((e) => equipmentFilter === 'All' || e.equipment === equipmentFilter)
     .filter((e) => {
+      if (muscleFilter !== null) {
+        const mf = muscleFilter.toLowerCase();
+        const mg = (e.muscle_group ?? '').toLowerCase();
+        if (!(mg === mf || (mf === 'core' && mg === 'abs'))) return false;
+      }
+      if (!q) return true;
       const mg = (e.muscle_group ?? '').toLowerCase();
       return (
         e.name.toLowerCase().includes(q) ||
@@ -261,6 +278,7 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
   // ── Search list ─────────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
+      {/* Header: back + search */}
       <View style={[styles.header, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
         <TouchableOpacity
           onPress={onClose}
@@ -280,97 +298,106 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
         />
       </View>
 
-      {/* Equipment filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[styles.filterRow, { borderBottomColor: t.border }]}
-        contentContainerStyle={styles.filterRowContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        {EQUIPMENT_FILTERS.map((eq) => {
-          const active = equipmentFilter === eq;
-          return (
-            <TouchableOpacity
-              key={eq}
-              style={[
-                styles.filterChip,
-                { borderColor: active ? colors.primary : t.border },
-                active && { backgroundColor: colors.primary },
-              ]}
-              onPress={() => setEquipmentFilter(eq)}
-            >
-              <Text style={[styles.filterChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                {eq}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      {/* Main row: body map left, filters + list right */}
+      <View style={styles.mainRow}>
+        {/* Left column: body map */}
+        <View style={[styles.bodyMapCol, { borderRightColor: t.border }]}>
+          <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+        </View>
 
-      <FlatList
-          data={loading ? [] : filtered}
-          keyExtractor={(e) => e.id}
-          style={styles.flatList}
-          contentContainerStyle={styles.list}
-          keyboardShouldPersistTaps="handled"
-          ListHeaderComponent={
-            <TouchableOpacity
-              style={[styles.createRow, { backgroundColor: t.surface, borderColor: t.border }]}
-              onPress={openCreate}
-            >
-              <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
-              <View style={styles.createRowBody}>
-                <Text style={styles.createRowTitle}>
-                  {query.trim() ? `Create "${query.trim()}"` : 'Create new exercise'}
+        {/* Right column: equipment chips + exercise list */}
+        <View style={styles.listCol}>
+          {/* Equipment filter chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={[styles.filterRow, { borderBottomColor: t.border }]}
+            contentContainerStyle={styles.filterRowContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {EQUIPMENT_FILTERS.map((eq) => {
+              const active = equipmentFilter === eq;
+              return (
+                <TouchableOpacity
+                  key={eq}
+                  style={[
+                    styles.filterChip,
+                    { borderColor: active ? colors.primary : t.border },
+                    active && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setEquipmentFilter(eq)}
+                >
+                  <Text style={[styles.filterChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                    {eq}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <FlatList
+            data={loading ? [] : filtered}
+            keyExtractor={(e) => e.id}
+            style={styles.flatList}
+            contentContainerStyle={styles.list}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={
+              <TouchableOpacity
+                style={[styles.createRow, { backgroundColor: t.surface, borderColor: t.border }]}
+                onPress={openCreate}
+              >
+                <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+                <View style={styles.createRowBody}>
+                  <Text style={styles.createRowTitle}>
+                    {query.trim() ? `Create "${query.trim()}"` : 'Create new exercise'}
+                  </Text>
+                  <Text style={[styles.createRowSub, { color: t.textSecondary }]}>
+                    Add to exercise library
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            }
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.exerciseRow, { backgroundColor: t.surface, borderColor: t.border }]}
+                onPress={() => onSelect(item)}
+              >
+                <View style={styles.exerciseInfo}>
+                  <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{item.name}</Text>
+                  {item.muscle_group
+                    ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.muscle_group}</Text>
+                    : null}
+                  {item.equipment
+                    ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.equipment}</Text>
+                    : null}
+                </View>
+                {existingIds?.has(item.id)
+                  ? <Text style={[styles.alreadyIn, { color: t.textSecondary }]}>in workout</Text>
+                  : <Ionicons name="add-circle-outline" size={22} color={colors.primary} />}
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              loading ? (
+                <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+              ) : loadError ? (
+                <Text style={[styles.emptyText, { color: colors.error }]}>{loadError}</Text>
+              ) : (
+                <Text style={[styles.emptyText, { color: t.textSecondary }]}>
+                  No exercises found. Tap "Create" above to add one.
                 </Text>
-                <Text style={[styles.createRowSub, { color: t.textSecondary }]}>
-                  Add to exercise library
-                </Text>
-              </View>
-            </TouchableOpacity>
-          }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.exerciseRow, { backgroundColor: t.surface, borderColor: t.border }]}
-              onPress={() => onSelect(item)}
-            >
-              <View style={styles.exerciseInfo}>
-                <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{item.name}</Text>
-                {item.muscle_group
-                  ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.muscle_group}</Text>
-                  : null}
-                {item.equipment
-                  ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.equipment}</Text>
-                  : null}
-              </View>
-              {existingIds?.has(item.id)
-                ? <Text style={[styles.alreadyIn, { color: t.textSecondary }]}>in workout</Text>
-                : <Ionicons name="add-circle-outline" size={22} color={colors.primary} />}
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            loading ? (
-              <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-            ) : loadError ? (
-              <Text style={[styles.emptyText, { color: colors.error }]}>{loadError}</Text>
-            ) : (
-              <Text style={[styles.emptyText, { color: t.textSecondary }]}>
-                No exercises found. Tap "Create" above to add one.
-              </Text>
-            )
-          }
-          ListFooterComponent={
-            query.trim() !== '' ? (
+              )
+            }
+            ListFooterComponent={
               <DbExerciseSection
                 results={dbResults}
                 loading={dbLoading}
                 addingId={addingFromDb}
                 onAdd={handleAddFromDb}
               />
-            ) : null
-          }
-        />
+            }
+          />
+        </View>
+      </View>
     </View>
   );
 }
@@ -389,6 +416,11 @@ const styles = StyleSheet.create({
     ...typography.body, flex: 1, borderWidth: 1, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, height: 40,
   },
+
+  // ── Two-column layout ──
+  mainRow: { flex: 1, flexDirection: 'row' },
+  bodyMapCol: { flex: 1, borderRightWidth: 1 },
+  listCol: { flex: 1 },
 
   // ── Search list ──
   list: { padding: spacing.md, gap: spacing.sm },
