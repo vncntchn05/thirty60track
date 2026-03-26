@@ -115,9 +115,6 @@ function ClientRow({ client }: { client: ClientWithStats }) {
             <Ionicons name="checkmark" size={16} color={colors.success} />
           ) : null}
         </View>
-        {client.email ? (
-          <Text style={[styles.clientMeta, { color: t.textSecondary }]}>{client.email}</Text>
-        ) : null}
         <View style={styles.statsRow}>
           <Text style={[styles.statText, { color: t.textSecondary }]}>
             {client.workout_count} workout{client.workout_count !== 1 ? 's' : ''}
