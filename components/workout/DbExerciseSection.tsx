@@ -7,7 +7,8 @@ type Props = {
   loading: boolean;
   /** ID of the exercise currently being added, or null. */
   addingId: string | null;
-  onAdd: (exercise: DbExercise) => void;
+  /** Omit to hide the Add button (read-only mode for clients). */
+  onAdd?: (exercise: DbExercise) => void;
 };
 
 export function DbExerciseSection({ results, loading, addingId, onAdd }: Props) {
@@ -35,17 +36,19 @@ export function DbExerciseSection({ results, loading, addingId, onAdd }: Props) 
               </Text>
             ) : null}
           </View>
-          <TouchableOpacity
-            style={[styles.addBtn, addingId !== null && styles.addBtnDisabled]}
-            onPress={() => onAdd(ex)}
-            disabled={addingId !== null}
-          >
-            {addingId === ex.id ? (
-              <ActivityIndicator size="small" color={colors.textInverse} />
-            ) : (
-              <Text style={styles.addBtnText}>Add</Text>
-            )}
-          </TouchableOpacity>
+          {onAdd ? (
+            <TouchableOpacity
+              style={[styles.addBtn, addingId !== null && styles.addBtnDisabled]}
+              onPress={() => onAdd(ex)}
+              disabled={addingId !== null}
+            >
+              {addingId === ex.id ? (
+                <ActivityIndicator size="small" color={colors.textInverse} />
+              ) : (
+                <Text style={styles.addBtnText}>Add</Text>
+              )}
+            </TouchableOpacity>
+          ) : null}
         </View>
       ))}
     </View>

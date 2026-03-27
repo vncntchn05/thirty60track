@@ -71,6 +71,13 @@ export default function ClientLayout() {
         }}
       />
       <Tabs.Screen
+        name="exercises"
+        options={{
+          title: 'Exercises',
+          tabBarIcon: tabIcon('barbell-outline', 'barbell'),
+        }}
+      />
+      <Tabs.Screen
         name="progress"
         options={{
           title: 'Progress',

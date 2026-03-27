@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, StyleSheet, ActivityIndicator, Alert,
+  ScrollView, StyleSheet, ActivityIndicator, Alert, BackHandler,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -28,6 +29,7 @@ function formatDate(iso: string) {
 
 export default function ClientNewWorkoutScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { user, clientId } = useAuth();
   const { client } = useClientProfile();
   const t = useTheme();
@@ -40,19 +42,24 @@ export default function ClientNewWorkoutScreen() {
   const [saving, setSaving] = useState(false);
   const [bodyWeight, setBodyWeight] = useState('');
   const [bodyFat, setBodyFat] = useState('');
+  const [isDirty, setIsDirty] = useState(false);
+  const [showUnsavedBar, setShowUnsavedBar] = useState(false);
 
   function addExercise(exercise: Exercise) {
     setBlocks((prev) => [...prev, EMPTY_BLOCK(exercise)]);
+    setIsDirty(true);
   }
 
   function removeBlock(bi: number) {
     setBlocks((prev) => prev.filter((_, i) => i !== bi));
+    setIsDirty(true);
   }
 
   function addSet(bi: number) {
     setBlocks((prev) =>
       prev.map((b, i) => i === bi ? { ...b, sets: [...b.sets, { ...EMPTY_SET }] } : b)
     );
+    setIsDirty(true);
   }
 
   function updateSet(bi: number, si: number, field: keyof SetRow, value: string) {
@@ -61,13 +68,42 @@ export default function ClientNewWorkoutScreen() {
         i === bi ? { ...b, sets: b.sets.map((s, j) => j === si ? { ...s, [field]: value } : s) } : b
       )
     );
+    setIsDirty(true);
   }
 
   function removeSet(bi: number, si: number) {
     setBlocks((prev) =>
       prev.map((b, i) => i === bi ? { ...b, sets: b.sets.filter((_, j) => j !== si) } : b)
     );
+    setIsDirty(true);
   }
+
+  const handleBackPress = useCallback(() => {
+    if (!isDirty) { router.back(); return; }
+    setShowUnsavedBar(true);
+  }, [isDirty, router]);
+
+  // Keep header back button and swipe gesture in sync with dirty state
+  useEffect(() => {
+    navigation.setOptions({
+      gestureEnabled: !isDirty,
+      headerLeft: () => (
+        <TouchableOpacity onPress={handleBackPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+          <Ionicons name="chevron-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [isDirty, handleBackPress, navigation]);
+
+  // Android hardware back
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!isDirty) return false;
+      handleBackPress();
+      return true;
+    });
+    return () => sub.remove();
+  }, [isDirty, handleBackPress]);
 
   async function handleSave() {
     if (!user || !clientId || !client) return;
@@ -108,7 +144,7 @@ export default function ClientNewWorkoutScreen() {
     );
     setSaving(false);
     if (error) Alert.alert('Error', error);
-    else router.back();
+    else { setIsDirty(false); router.back(); }
   }
 
   if (showPicker) {
@@ -122,16 +158,7 @@ export default function ClientNewWorkoutScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
-      <Stack.Screen
-        options={{
-          title: 'Log Workout',
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
-              <Ionicons name="chevron-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ title: 'Log Workout' }} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Date + metrics header */}
         <View style={[styles.header, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
@@ -152,7 +179,8 @@ export default function ClientNewWorkoutScreen() {
               <TextInput
                 style={[styles.metricInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
                 placeholder="Optional" placeholderTextColor={t.textSecondary}
-                keyboardType="decimal-pad" value={bodyWeight} onChangeText={setBodyWeight}
+                keyboardType="decimal-pad" value={bodyWeight}
+                onChangeText={(v) => { setBodyWeight(v); setIsDirty(true); }}
               />
             </View>
             <View style={styles.metricCol}>
@@ -160,14 +188,17 @@ export default function ClientNewWorkoutScreen() {
               <TextInput
                 style={[styles.metricInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
                 placeholder="Optional" placeholderTextColor={t.textSecondary}
-                keyboardType="decimal-pad" value={bodyFat} onChangeText={setBodyFat}
+                keyboardType="decimal-pad" value={bodyFat}
+                onChangeText={(v) => { setBodyFat(v); setIsDirty(true); }}
               />
             </View>
           </View>
           <TextInput
             style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
             placeholder="Workout notes (optional)" placeholderTextColor={t.textSecondary}
-            value={workoutNotes} onChangeText={setWorkoutNotes} multiline
+            value={workoutNotes}
+            onChangeText={(v) => { setWorkoutNotes(v); setIsDirty(true); }}
+            multiline
           />
         </View>
 
@@ -246,15 +277,35 @@ export default function ClientNewWorkoutScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-        onPress={handleSave}
-        disabled={saving}
-      >
-        {saving
-          ? <ActivityIndicator color={colors.textInverse} />
-          : <Text style={styles.saveBtnText}>Save Workout</Text>}
-      </TouchableOpacity>
+      {showUnsavedBar ? (
+        <View style={[styles.unsavedBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
+          <Text style={[styles.unsavedBarText, { color: t.textPrimary }]}>You have unsaved changes.</Text>
+          <View style={styles.unsavedBarButtons}>
+            <TouchableOpacity
+              onPress={() => { setShowUnsavedBar(false); setIsDirty(false); router.back(); }}
+              style={[styles.unsavedCancelBtn, { borderColor: t.border }]}
+            >
+              <Text style={[styles.unsavedCancelText, { color: t.textSecondary }]}>Discard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { setShowUnsavedBar(false); handleSave(); }}
+              style={styles.unsavedSaveBtn}
+            >
+              <Text style={styles.unsavedSaveText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving
+            ? <ActivityIndicator color={colors.textInverse} />
+            : <Text style={styles.saveBtnText}>Save Workout</Text>}
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -320,4 +371,11 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+  unsavedBar: { borderTopWidth: 1, padding: spacing.md, gap: spacing.sm },
+  unsavedBarText: { ...typography.body },
+  unsavedBarButtons: { flexDirection: 'row', gap: spacing.sm },
+  unsavedCancelBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, borderWidth: 1 },
+  unsavedCancelText: { ...typography.body },
+  unsavedSaveBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.primary },
+  unsavedSaveText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
 });

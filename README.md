@@ -109,8 +109,12 @@ Templates are displayed as a flat list (no phase grouping). They are matched to 
 - [x] Exercises auto-inserted by workout templates when missing from the library
 - [x] **Exercise detail page** — tap any exercise to open its detail screen
 - [x] **Equipment badge** — equipment type shown as a badge on each exercise row and in the detail screen info card; editable via chip selector on the detail page
-- [x] **Form notes** — free-text step-by-step coaching cues per exercise (editable by any trainer; all 100 seeded exercises pre-populated)
+- [x] **Form notes** — free-text step-by-step coaching cues per exercise (editable by any trainer; all 150 seeded exercises pre-populated via `migration_016_form_notes.sql` using instructions from free-exercise-db)
 - [x] **Tutorial link** — YouTube URL per exercise with one-tap Watch button; 4 core lifts pre-seeded (Bench Press, Squat, Deadlift, Lat Pulldown)
+- [x] **Form images** — exercise detail screen fetches movement photos from the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) image CDN; all 150 seeded exercises have verified slug mappings (`lib/exerciseDb.ts` → `SLUG_OVERRIDES`); images imported from the DB also receive images automatically via `mapDbExercise`; tap any thumbnail to open a full-screen lightbox; images silently hidden when no match is found
+- [x] **DB variant tabs** — 74 exercises with multiple free-exercise-db equivalents (e.g. Bench Press has 16: Powerlifting, With Bands, With Chains, Close-Grip, Decline, Smith Machine…) show a horizontal scrollable chip row above the images; tapping a variant chip swaps the images to that variant; all 239 variant slugs verified on disk
+- [x] **Approximation disclaimer** — 61 exercises that have no direct DB equivalent (custom combos, trainer-named variants, etc.) show an italic disclaimer beneath the images when no specific variant is selected
+- [x] **Client read-only exercise library** — clients can browse the Exercises tab (positioned between Workouts and Progress in the client tab bar) and open exercise detail pages, but cannot add exercises, import from DB, edit form notes, equipment, or tutorial URL, or use the Edit Templates FAB; all edit controls are hidden and fields render as plain text
 
 ### Client Portal
 
@@ -121,6 +125,7 @@ Clients have their own separate tab navigator with distinct screens:
 - [x] **Workout history** — list of all logged sessions with date, logged-by name (trainer or client), and notes; pending assigned workouts shown at the top
 - [x] **Self-log workouts** — clients can log their own workouts (exercises + sets + body metrics) with per-exercise unit toggle
 - [x] **Complete assigned workouts** — pre-filled prescribed sets; client fills in actual values and confirms via a bottom confirmation bar; saved to workout log automatically
+- [x] **Exercise library** — read-only Exercises tab between Workouts and Progress; clients can browse, search, filter by muscle/equipment, and open exercise detail pages (form images, variant tabs, form notes, tutorial Watch button all functional); no add/edit controls shown
 - [x] **Progress tab** — same frequency/volume/body composition/exercise charts as the trainer view; includes Performance Report Card button
 - [x] **Nutrition tab** — log daily meals, search USDA + Open Food Facts food databases, scan product barcodes, view macro summary vs. daily goal (goal set by trainer)
 - [x] **Media tab** — view photo/video gallery
@@ -239,13 +244,14 @@ app/
   (tabs)/profile.tsx        # Trainer: profile + sign out
   (client)/index.tsx                    # Client: home dashboard + intake gate (shows intake form on first login)
   (client)/workouts.tsx                 # Client: workout history + pending assigned workouts at top
+  (client)/exercises.tsx                # Client: read-only exercise library (re-exports trainer screen; edit controls hidden via useAuth role check)
   (client)/progress.tsx                 # Client: progress charts (same charts as trainer view)
   (client)/nutrition.tsx                # Client: daily nutrition log + macro summary (goal read-only)
   (client)/media.tsx                    # Client: photo/video gallery
   (client)/profile.tsx                  # Client: personal info (read-only) + editable intake info
   (client)/workout/log.tsx              # Client: self-log a workout
   (client)/session/[id].tsx            # Client: workout detail view (back → workouts tab)
-  exercise/[id].tsx                     # Exercise detail — form notes + tutorial link (editable)
+  exercise/[id].tsx                     # Exercise detail — form images + variant tabs + form notes + tutorial link; edit controls shown to trainers only
   client/[id].tsx                       # Trainer: client detail — info+intake card, body metrics, charts, workouts, assigned, media
   client/new.tsx                        # Add client form (duplicate name guard)
   +not-found.tsx                        # 404 handler — shows "Page not found" (does not redirect; Render rewrite rule serves index.html so this only fires for genuinely missing routes)
@@ -262,7 +268,7 @@ components/
     ExerciseProgressChart.tsx # Line chart — weight or reps over time + tooltip + axis labels
   workout/
     ExercisePicker.tsx        # Searchable exercise picker with body map (left) + equipment chips + list (right); used when logging or editing workouts
-    DbExerciseSection.tsx     # "FROM DATABASE" result rows with Add button; shared by exercises tab and picker
+    DbExerciseSection.tsx     # "FROM DATABASE" result rows with optional Add button (hidden when onAdd not provided — client read-only mode)
     TemplatePicker.tsx        # Phase-grouped template browser
     TemplateEditor.tsx        # Create / edit / delete workout templates
   client/
@@ -304,7 +310,8 @@ lib/
   usda.ts                  # USDA FoodData Central search client; in-memory cache; per-100g macro scaling
   off.ts                   # Open Food Facts client; barcode lookup + text search; in-memory cache
   muscleSearch.ts          # Muscle synonym map + resolveGroupsFromQuery (e.g. "biceps" → "arms")
-  exerciseDb.ts            # free-exercise-db fetch + session cache + muscle/category mapping + search
+  exerciseDb.ts            # free-exercise-db fetch + session cache + muscle/category mapping + search + getDbImageUrls (slug overrides for all 150 seeded exercises, verified on disk)
+  exerciseVariants.ts      # APPROXIMATED_EXERCISES (61 exercises with no exact DB match) + EXERCISE_VARIANTS (74 exercises → verified variant slug arrays, 239 total slugs)
 
 components/
   nutrition/
@@ -327,9 +334,10 @@ public/
   favicon.png
 
 supabase/
-  schema.sql                # Source-of-truth DDL (migrations 001–017)
-  seed.sql                  # 150+ exercises across all muscle groups
-  seed_test_client.sql      # Full year of realistic test data (youth hockey player)
+  schema.sql                        # Source-of-truth DDL (migrations 001–017)
+  seed.sql                          # 150+ exercises across all muscle groups
+  seed_test_client.sql              # Full year of realistic test data (youth hockey player)
+  migration_016_form_notes.sql      # Backfills form_notes for all 150 seeded exercises from free-exercise-db instructions (run once; guarded with WHERE form_notes IS NULL OR form_notes = '')
   migrations/
     012_client_intake.sql        # client_intake table + RLS policies
     013_assigned_workouts.sql    # assigned_workouts, assigned_workout_exercises, assigned_workout_sets + RLS

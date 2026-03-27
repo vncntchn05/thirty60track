@@ -51,7 +51,7 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: t.surface },
         headerTintColor: t.textPrimary,
         headerTitleStyle: { fontWeight: '700' },
-headerShown: true,
+        headerShown: true,
         headerLeft: () => <HeaderLogo />,
       }}
     >
@@ -79,7 +79,7 @@ headerShown: true,
       <Tabs.Screen
         name="assigned"
         options={{
-          href: null, // hidden from tab bar — accessible by clients via direct navigation
+          href: null,
         }}
       />
     </Tabs>

@@ -15,6 +15,7 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 import type { Exercise, ExerciseCategory, EquipmentType } from '@/types';
 import { EQUIPMENT_TYPES } from '@/types';
 import { BodyMap } from '@/components/ui/BodyMap';
+import { useAuth } from '@/lib/auth';
 
 const CATEGORIES: ExerciseCategory[] = ['strength', 'cardio', 'flexibility', 'other'];
 
@@ -57,6 +58,8 @@ function buildSections(exercises: Exercise[], groupBy: GroupBy): Section[] {
 
 export default function ExercisesScreen() {
   const t = useTheme();
+  const { role } = useAuth();
+  const isTrainer = role === 'trainer';
   const { exercises, loading, error, createExercise } = useExercises();
   const [query, setQuery] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('none');
@@ -383,8 +386,8 @@ export default function ExercisesScreen() {
             })}
           </View>
 
-          {/* Add exercise form */}
-          {showForm && (
+          {/* Add exercise form — trainers only */}
+          {isTrainer && showForm && (
             <View style={[styles.formCard, { backgroundColor: t.surface, borderColor: t.border }]}>
               <Text style={[styles.formTitle, { color: t.textPrimary }]}>New Exercise</Text>
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
@@ -519,7 +522,7 @@ export default function ExercisesScreen() {
                   results={dbResults}
                   loading={dbLoading}
                   addingId={addingFromDb}
-                  onAdd={handleAddFromDb}
+                  onAdd={isTrainer ? handleAddFromDb : undefined}
                 />
               </>
             }
@@ -527,8 +530,8 @@ export default function ExercisesScreen() {
         </View>
       </View>
 
-      {/* FABs */}
-      {!showForm && (
+      {/* FABs — trainers only */}
+      {isTrainer && !showForm && (
         <View style={styles.fabRow}>
           <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={() => setShowTemplateEditor(true)} accessibilityLabel="Edit templates">
             <Ionicons name="create-outline" size={20} color={colors.primary} />

@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, ActivityIndicator, Alert, Linking,
+  StyleSheet, ActivityIndicator, Alert, Linking, Image, Modal, Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useExercise } from '@/hooks/useExercises';
+import { getDbImageUrls } from '@/lib/exerciseDb';
+import { APPROXIMATED_EXERCISES, EXERCISE_VARIANTS } from '@/lib/exerciseVariants';
+import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { ExerciseCategory, EquipmentType } from '@/types';
 import { EQUIPMENT_TYPES } from '@/types';
@@ -17,10 +20,17 @@ const CATEGORY_LABEL: Record<ExerciseCategory, string> = {
   other: 'Other',
 };
 
+/** Converts a free-exercise-db slug to a human-readable label. */
+function slugToLabel(slug: string): string {
+  return slug.replace(/_/g, ' ').replace(/ - /g, ' · ');
+}
+
 export default function ExerciseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useTheme();
+  const { role } = useAuth();
+  const isTrainer = role === 'trainer';
   const { exercise, loading, error, updateExercise } = useExercise(id);
 
   const [formNotes, setFormNotes] = useState('');
@@ -28,6 +38,27 @@ export default function ExerciseDetailScreen() {
   const [equipment, setEquipment] = useState<EquipmentType | null>(null);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+
+  // Variant tabs
+  const variants = exercise ? (EXERCISE_VARIANTS[exercise.name] ?? null) : null;
+  const isApproximated = exercise ? APPROXIMATED_EXERCISES.has(exercise.name) : false;
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+
+  // Form images — recompute when variant changes
+  const imageUrls = useMemo(
+    () => (exercise ? getDbImageUrls(exercise.name, selectedVariant ?? undefined) : null),
+    [exercise, selectedVariant],
+  );
+  const [imgLoaded, setImgLoaded] = useState<[boolean, boolean]>([false, false]);
+  const [imgFailed, setImgFailed] = useState<[boolean, boolean]>([false, false]);
+  const showImages = imgLoaded.some(Boolean);
+  const [lightboxUri, setLightboxUri] = useState<string | null>(null);
+
+  // Reset image state when variant changes
+  useEffect(() => {
+    setImgLoaded([false, false]);
+    setImgFailed([false, false]);
+  }, [selectedVariant]);
 
   // Initialize fields once exercise data loads
   if (exercise && !initialized) {
@@ -80,6 +111,8 @@ export default function ExerciseDetailScreen() {
     );
   }
 
+  const activeVariantSlug = selectedVariant ?? variants?.[0] ?? null;
+
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -111,41 +144,121 @@ export default function ExerciseDetailScreen() {
         contentContainerStyle={styles.bodyContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Equipment</Text>
-        <View style={styles.chipWrap}>
-          {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
-            const active = equipment === eq;
-            return (
-              <TouchableOpacity
-                key={eq}
-                style={[
-                  styles.chip,
-                  { borderColor: active ? colors.primary : t.border },
-                  active && { backgroundColor: colors.primary },
-                ]}
-                onPress={() => setEquipment(active ? null : eq)}
+        {/* Form images section */}
+        {imageUrls && (
+          <View style={showImages ? undefined : styles.hidden}>
+            <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Form Images</Text>
+
+            {/* Variant tabs — only shown when 2+ variants exist */}
+            {variants && variants.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.variantRow}
+                contentContainerStyle={styles.variantRowContent}
+                keyboardShouldPersistTaps="handled"
               >
-                <Text style={[styles.chipText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                  {eq}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                {variants.map((slug) => {
+                  const active = activeVariantSlug === slug;
+                  return (
+                    <TouchableOpacity
+                      key={slug}
+                      style={[
+                        styles.variantChip,
+                        { borderColor: active ? colors.primary : t.border },
+                        active && { backgroundColor: colors.primary },
+                      ]}
+                      onPress={() => setSelectedVariant(slug)}
+                    >
+                      <Text style={[styles.variantChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                        {slugToLabel(slug)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <View style={styles.imageRow}>
+              {imageUrls.map((uri, i) => (
+                imgFailed[i] ? null : (
+                  <TouchableOpacity key={uri} onPress={() => setLightboxUri(uri)} activeOpacity={0.8}>
+                    <Image
+                      source={{ uri }}
+                      style={[styles.formImage, { backgroundColor: t.surface }]}
+                      resizeMode="cover"
+                      onLoad={() => setImgLoaded((prev) => prev.map((v, j) => j === i ? true : v) as [boolean, boolean])}
+                      onError={() => setImgFailed((prev) => prev.map((v, j) => j === i ? true : v) as [boolean, boolean])}
+                    />
+                  </TouchableOpacity>
+                )
+              ))}
+            </View>
+
+            {/* Disclaimer for approximated exercises (only when no variant explicitly selected) */}
+            {isApproximated && !selectedVariant && (
+              <Text style={[styles.disclaimer, { color: t.textSecondary, borderColor: t.border }]}>
+                No exact match found in the exercise database. Images shown are from a similar movement.
+              </Text>
+            )}
+          </View>
+        )}
+
+        <Modal visible={lightboxUri !== null} transparent animationType="fade" onRequestClose={() => setLightboxUri(null)}>
+          <Pressable style={styles.lightboxOverlay} onPress={() => setLightboxUri(null)}>
+            {lightboxUri ? (
+              <Image source={{ uri: lightboxUri }} style={styles.lightboxImage} resizeMode="contain" />
+            ) : null}
+          </Pressable>
+        </Modal>
+
+        <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Equipment</Text>
+        {isTrainer ? (
+          <View style={styles.chipWrap}>
+            {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
+              const active = equipment === eq;
+              return (
+                <TouchableOpacity
+                  key={eq}
+                  style={[
+                    styles.chip,
+                    { borderColor: active ? colors.primary : t.border },
+                    active && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setEquipment(active ? null : eq)}
+                >
+                  <Text style={[styles.chipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                    {eq}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <Text style={[styles.readonlyValue, { color: t.textPrimary }]}>
+            {exercise.equipment ?? '—'}
+          </Text>
+        )}
 
         <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Tutorial URL</Text>
         <View style={[styles.urlRow, { borderColor: t.border }]}>
           <Ionicons name="logo-youtube" size={20} color="#FF0000" />
-          <TextInput
-            style={[styles.urlInput, { color: t.textPrimary }]}
-            value={helpUrl}
-            onChangeText={setHelpUrl}
-            placeholder="https://youtu.be/…"
-            placeholderTextColor={t.textSecondary as string}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-          />
+          {isTrainer ? (
+            <TextInput
+              style={[styles.urlInput, { color: t.textPrimary }]}
+              value={helpUrl}
+              onChangeText={setHelpUrl}
+              placeholder="https://youtu.be/…"
+              placeholderTextColor={t.textSecondary as string}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+          ) : (
+            <Text style={[styles.urlInput, { color: helpUrl.trim() ? t.textPrimary : t.textSecondary }]} numberOfLines={1}>
+              {helpUrl.trim() || 'No tutorial linked'}
+            </Text>
+          )}
           {(helpUrl.trim() || exercise.help_url) ? (
             <TouchableOpacity onPress={handleWatch} style={styles.watchBtn}>
               <Text style={styles.watchBtnText}>Watch</Text>
@@ -154,17 +267,23 @@ export default function ExerciseDetailScreen() {
         </View>
 
         <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Form Notes</Text>
-        <TextInput
-          style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
-          value={formNotes}
-          onChangeText={setFormNotes}
-          placeholder={'1. Setup\n2. Brace core and take a deep breath\n3. Execute the movement\n…'}
-          placeholderTextColor={t.textSecondary as string}
-          multiline
-          textAlignVertical="top"
-        />
+        {isTrainer ? (
+          <TextInput
+            style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
+            value={formNotes}
+            onChangeText={setFormNotes}
+            placeholder={'1. Setup\n2. Brace core and take a deep breath\n3. Execute the movement\n…'}
+            placeholderTextColor={t.textSecondary as string}
+            multiline
+            textAlignVertical="top"
+          />
+        ) : (
+          <Text style={[styles.notesReadonly, { borderColor: t.border, color: t.textPrimary }]}>
+            {formNotes.trim() || '—'}
+          </Text>
+        )}
 
-        {isDirty ? (
+        {isTrainer && isDirty ? (
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
             onPress={handleSave}
@@ -201,6 +320,32 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 
+  hidden: { display: 'none' },
+
+  variantRow: { flexGrow: 0, marginTop: spacing.sm, marginBottom: spacing.sm },
+  variantRowContent: { gap: spacing.xs, paddingRight: spacing.sm },
+  variantChip: {
+    borderWidth: 1, borderRadius: radius.full,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
+  },
+  variantChipText: { ...typography.bodySmall, fontWeight: '600' },
+
+  imageRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  formImage: { width: 90, height: 120, borderRadius: radius.md },
+
+  disclaimer: {
+    ...typography.bodySmall, marginTop: spacing.xs,
+    borderWidth: 1, borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: spacing.xs,
+    fontStyle: 'italic',
+  },
+
+  lightboxOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  lightboxImage: { width: '90%', height: '80%' },
+
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     borderWidth: 1, borderRadius: radius.full,
@@ -224,6 +369,11 @@ const styles = StyleSheet.create({
     ...typography.body, borderWidth: 1, borderRadius: radius.md,
     padding: spacing.md, minHeight: 200, lineHeight: 22,
   },
+  notesReadonly: {
+    ...typography.body, borderWidth: 1, borderRadius: radius.md,
+    padding: spacing.md, lineHeight: 22,
+  },
+  readonlyValue: { ...typography.body },
 
   saveBtn: {
     backgroundColor: colors.primary, borderRadius: radius.md,
