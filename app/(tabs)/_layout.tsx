@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image, View, StyleSheet } from 'react-native';
 import { colors, useTheme } from '@/constants/theme';
+import { useAuth } from '@/lib/auth';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -39,6 +40,8 @@ const styles = StyleSheet.create({
 
 export default function TabsLayout() {
   const t = useTheme();
+  const { role } = useAuth();
+
   return (
     <Tabs
       screenOptions={{
@@ -70,6 +73,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="schedule"
+        options={{
+          title: 'Schedule',
+          tabBarIcon: tabIcon('calendar-outline', 'calendar'),
+          href: role === 'trainer' ? undefined : null,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -79,7 +90,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="assigned"
         options={{
-          href: null,
+          title: 'Workouts',
+          tabBarIcon: tabIcon('barbell-outline', 'barbell'),
+          href: role === 'client' ? undefined : null,
         }}
       />
     </Tabs>

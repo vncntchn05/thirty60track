@@ -1075,3 +1075,123 @@ CREATE POLICY "encyclopedia_update" ON muscle_group_encyclopedia
   FOR UPDATE TO authenticated
   USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()))
   WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+-- ============================================================
+-- Migration 016 — Scheduling & Credits
+-- ============================================================
+
+-- ── trainer_availability ──────────────────────────────────────
+-- Recurring weekly availability slots set by trainers.
+CREATE TABLE IF NOT EXISTS trainer_availability (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  trainer_id    UUID        NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+  day_of_week   SMALLINT    NOT NULL CHECK (day_of_week BETWEEN 0 AND 6), -- 0=Sun,1=Mon..6=Sat
+  start_time    TIME        NOT NULL,
+  end_time      TIME        NOT NULL,
+  is_active     BOOLEAN     NOT NULL DEFAULT true,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (trainer_id, day_of_week, start_time)
+);
+
+-- ── scheduled_sessions ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS scheduled_sessions (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  trainer_id       UUID        NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+  client_id        UUID        NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  availability_id  UUID        REFERENCES trainer_availability(id) ON DELETE SET NULL,
+  scheduled_at     TIMESTAMPTZ NOT NULL,
+  duration_minutes SMALLINT    NOT NULL DEFAULT 60 CHECK (duration_minutes IN (30, 60)),
+  status           TEXT        NOT NULL DEFAULT 'pending'
+                     CHECK (status IN ('pending','confirmed','cancelled','completed')),
+  notes            TEXT,
+  trainer_notes    TEXT,
+  cancelled_by     TEXT        CHECK (cancelled_by IN ('trainer','client')),
+  confirmed_at     TIMESTAMPTZ,
+  cancelled_at     TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── client_credits ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS client_credits (
+  client_id  UUID        PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+  balance    INT         NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── credit_transactions ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS credit_transactions (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id  UUID        NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  trainer_id UUID        NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+  session_id UUID        REFERENCES scheduled_sessions(id) ON DELETE SET NULL,
+  amount     INT         NOT NULL,
+  reason     TEXT        NOT NULL CHECK (reason IN ('grant','session_deduct','session_refund','manual')),
+  note       TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Indexes ───────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS scheduled_sessions_trainer_idx ON scheduled_sessions(trainer_id, scheduled_at);
+CREATE INDEX IF NOT EXISTS scheduled_sessions_client_idx  ON scheduled_sessions(client_id, scheduled_at);
+CREATE INDEX IF NOT EXISTS credit_transactions_client_idx ON credit_transactions(client_id, created_at DESC);
+
+-- ── RLS ───────────────────────────────────────────────────────
+ALTER TABLE trainer_availability  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE scheduled_sessions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE client_credits        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE credit_transactions   ENABLE ROW LEVEL SECURITY;
+
+-- trainer_availability: readable by all authenticated (clients need to browse slots)
+CREATE POLICY "availability_select" ON trainer_availability
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "availability_insert" ON trainer_availability
+  FOR INSERT TO authenticated WITH CHECK (trainer_id = auth.uid());
+CREATE POLICY "availability_update" ON trainer_availability
+  FOR UPDATE TO authenticated
+  USING (trainer_id = auth.uid()) WITH CHECK (trainer_id = auth.uid());
+CREATE POLICY "availability_delete" ON trainer_availability
+  FOR DELETE TO authenticated USING (trainer_id = auth.uid());
+
+-- scheduled_sessions: trainers see their own; clients see their own
+CREATE POLICY "sessions_trainer_select" ON scheduled_sessions
+  FOR SELECT TO authenticated USING (trainer_id = auth.uid());
+CREATE POLICY "sessions_client_select" ON scheduled_sessions
+  FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND auth_user_id = auth.uid()));
+CREATE POLICY "sessions_trainer_insert" ON scheduled_sessions
+  FOR INSERT TO authenticated WITH CHECK (trainer_id = auth.uid());
+CREATE POLICY "sessions_client_insert" ON scheduled_sessions
+  FOR INSERT TO authenticated
+  WITH CHECK (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND auth_user_id = auth.uid()));
+CREATE POLICY "sessions_trainer_update" ON scheduled_sessions
+  FOR UPDATE TO authenticated
+  USING (trainer_id = auth.uid()) WITH CHECK (trainer_id = auth.uid());
+CREATE POLICY "sessions_client_update" ON scheduled_sessions
+  FOR UPDATE TO authenticated
+  USING (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND auth_user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND auth_user_id = auth.uid()));
+
+-- client_credits: trainer sees/edits for their clients; client sees own
+CREATE POLICY "credits_trainer_select" ON client_credits
+  FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND trainer_id = auth.uid()));
+CREATE POLICY "credits_client_select" ON client_credits
+  FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND auth_user_id = auth.uid()));
+CREATE POLICY "credits_trainer_upsert" ON client_credits
+  FOR INSERT TO authenticated
+  WITH CHECK (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND trainer_id = auth.uid()));
+CREATE POLICY "credits_trainer_update" ON client_credits
+  FOR UPDATE TO authenticated
+  USING (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND trainer_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND trainer_id = auth.uid()));
+
+-- credit_transactions: trainers insert/read for their clients; clients read own
+CREATE POLICY "transactions_trainer_select" ON credit_transactions
+  FOR SELECT TO authenticated USING (trainer_id = auth.uid());
+CREATE POLICY "transactions_client_select" ON credit_transactions
+  FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND auth_user_id = auth.uid()));
+CREATE POLICY "transactions_trainer_insert" ON credit_transactions
+  FOR INSERT TO authenticated WITH CHECK (trainer_id = auth.uid());

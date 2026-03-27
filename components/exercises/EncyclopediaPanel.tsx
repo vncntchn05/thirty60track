@@ -131,7 +131,7 @@ export function EncyclopediaPanel({ selectedMuscle, onSelectMuscle, isTrainer }:
 
   function startEditing() {
     if (!selectedMuscle) return;
-    const base = defaults ?? {};
+    const base: Partial<Defaults> = defaults ?? {};
     setDraft({
       function_description: dbEntry?.function_description ?? base.function_description ?? '',
       warmup_and_stretches: dbEntry?.warmup_and_stretches ?? base.warmup_and_stretches ?? '',

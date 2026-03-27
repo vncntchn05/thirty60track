@@ -300,3 +300,71 @@ export type MuscleGroupEntry = {
 };
 
 export type UpsertMuscleGroupEntry = Partial<Omit<MuscleGroupEntry, 'muscle_group' | 'updated_at'>>;
+
+// ─── Scheduling & Credits (Migration 016) ─────────────────────────
+
+export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0=Sun, 1=Mon … 6=Sat
+
+export type TrainerAvailability = {
+  id: string;
+  trainer_id: string;
+  day_of_week: DayOfWeek;
+  start_time: string; // 'HH:MM:SS'
+  end_time: string;   // 'HH:MM:SS'
+  is_active: boolean;
+  created_at: string;
+};
+
+export type SessionStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
+
+export type ScheduledSession = {
+  id: string;
+  trainer_id: string;
+  client_id: string;
+  availability_id: string | null;
+  scheduled_at: string; // ISO datetime
+  duration_minutes: 30 | 60;
+  status: SessionStatus;
+  notes: string | null;
+  trainer_notes: string | null;
+  cancelled_by: 'trainer' | 'client' | null;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ScheduledSessionWithDetails = ScheduledSession & {
+  client: { full_name: string; email: string | null } | null;
+  trainer: { full_name: string } | null;
+};
+
+export type ClientCredits = {
+  client_id: string;
+  balance: number;
+  updated_at: string;
+};
+
+export type CreditReason = 'grant' | 'session_deduct' | 'session_refund' | 'manual';
+
+export type CreditTransaction = {
+  id: string;
+  client_id: string;
+  trainer_id: string;
+  session_id: string | null;
+  amount: number; // positive = added, negative = deducted
+  reason: CreditReason;
+  note: string | null;
+  created_at: string;
+};
+
+export type InsertTrainerAvailability = Omit<TrainerAvailability, 'id' | 'created_at'>;
+
+export type InsertScheduledSession = {
+  trainer_id: string;
+  client_id: string;
+  availability_id?: string | null;
+  scheduled_at: string;
+  duration_minutes: 30 | 60;
+  notes?: string | null;
+};

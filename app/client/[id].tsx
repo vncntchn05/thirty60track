@@ -9,8 +9,10 @@ import { useClient } from '@/hooks/useClients';
 import { useWorkouts } from '@/hooks/useWorkouts';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { useAssignedWorkoutsForClient } from '@/hooks/useAssignedWorkouts';
+import { useClientCredits, useCreditTransactions, grantCredits } from '@/hooks/useCredits';
+import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { Client, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake, AssignedWorkoutWithDetails } from '@/types';
+import type { Client, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake, AssignedWorkoutWithDetails, CreditTransaction } from '@/types';
 import { MediaGallery } from '@/components/client/MediaGallery';
 import ReportCardButton from '@/components/client/ReportCardButton';
 import { NutritionTab } from '@/components/nutrition/NutritionTab';
@@ -34,7 +36,7 @@ function fmt(v: number | null, unit: string): string {
   return v != null ? `${v}${unit}` : '—';
 }
 
-type Tab = 'progress' | 'workouts' | 'nutrition' | 'media';
+type Tab = 'progress' | 'workouts' | 'nutrition' | 'media' | 'credits';
 type Theme = ReturnType<typeof useTheme>;
 
 // ─── Screen ───────────────────────────────────────────────────────
@@ -45,10 +47,13 @@ export default function ClientDetailScreen() {
   const t = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>('progress');
 
+  const { trainer } = useAuth();
   const { client, loading: clientLoading, error: clientError, updateClient, deleteClient } = useClient(id);
   const { workouts, loading: workoutsLoading, error: workoutsError, refetch: refetchWorkouts } = useWorkouts(client?.id ?? '');
   const { intake, saveIntake } = useClientIntake(client?.id ?? '');
   const { assignedWorkouts, refetch: refetchAssigned } = useAssignedWorkoutsForClient(client?.id ?? '');
+  const { balance, loading: creditsLoading, refetch: refetchCredits } = useClientCredits(client?.id ?? '');
+  const { transactions, refetch: refetchTransactions } = useCreditTransactions(client?.id ?? '');
 
   useFocusEffect(useCallback(() => { refetchWorkouts(); refetchAssigned(); }, [refetchWorkouts, refetchAssigned]));
 
@@ -107,12 +112,13 @@ export default function ClientDetailScreen() {
 
       {/* ── Tab bar ── */}
       <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-        {(['progress', 'workouts', 'nutrition', 'media'] as Tab[]).map((tab) => {
+        {(['progress', 'workouts', 'nutrition', 'media', 'credits'] as Tab[]).map((tab) => {
           const active = activeTab === tab;
           const label =
             tab === 'progress'  ? 'Progress'
             : tab === 'workouts'  ? `Workouts${workouts.length ? ` (${workouts.length})` : ''}`
             : tab === 'nutrition' ? 'Nutrition'
+            : tab === 'credits'   ? 'Credits'
             : 'Media';
           return (
             <Pressable key={tab} style={styles.tabItem} onPress={() => setActiveTab(tab)}>
@@ -181,6 +187,19 @@ export default function ClientDetailScreen() {
       {/* ── Media tab ── */}
       {activeTab === 'media' && <MediaGallery clientId={client.id} />}
 
+      {/* ── Credits tab ── */}
+      {activeTab === 'credits' && (
+        <CreditsTab
+          clientId={client.id}
+          trainerId={trainer?.id ?? ''}
+          balance={balance}
+          transactions={transactions}
+          creditsLoading={creditsLoading}
+          onRefresh={() => { refetchCredits(); refetchTransactions(); }}
+          t={t}
+        />
+      )}
+
       {/* ── Delete confirmation bar ── */}
       {confirmingDelete && (
         <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
@@ -201,8 +220,8 @@ export default function ClientDetailScreen() {
         </View>
       )}
 
-      {/* ── FAB (Log Workout — hidden on media tab) ── */}
-      {!confirmingDelete && activeTab !== 'media' && (
+      {/* ── FAB (Log Workout — hidden on media and credits tabs) ── */}
+      {!confirmingDelete && activeTab !== 'media' && activeTab !== 'credits' && (
         <TouchableOpacity
           style={styles.fab}
           onPress={() => router.push({ pathname: '/workout/new', params: { clientId: client.id } } as never)}
@@ -215,6 +234,157 @@ export default function ClientDetailScreen() {
     </View>
   );
 }
+
+// ─── Credits tab ──────────────────────────────────────────────────
+
+type CreditsTabProps = {
+  clientId: string;
+  trainerId: string;
+  balance: number;
+  transactions: CreditTransaction[];
+  creditsLoading: boolean;
+  onRefresh: () => void;
+  t: Theme;
+};
+
+function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading, onRefresh, t }: CreditsTabProps) {
+  const [grantAmount, setGrantAmount] = useState('');
+  const [grantNote, setGrantNote] = useState('');
+  const [granting, setGranting] = useState(false);
+  const [grantError, setGrantError] = useState<string | null>(null);
+
+  async function handleGrant() {
+    const amount = parseInt(grantAmount, 10);
+    if (!amount || amount <= 0) { setGrantError('Enter a valid amount.'); return; }
+    setGranting(true); setGrantError(null);
+    const { error } = await grantCredits(clientId, trainerId, amount, grantNote.trim() || undefined);
+    setGranting(false);
+    if (error) { setGrantError(error); return; }
+    setGrantAmount(''); setGrantNote('');
+    onRefresh();
+  }
+
+  function reasonLabel(reason: string): string {
+    if (reason === 'grant')          return 'Granted';
+    if (reason === 'session_deduct') return 'Session';
+    if (reason === 'session_refund') return 'Refund';
+    return 'Manual';
+  }
+
+  return (
+    <ScrollView contentContainerStyle={creditsStyles.container}>
+      {/* Balance card */}
+      <View style={[creditsStyles.balanceCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+        {creditsLoading
+          ? <ActivityIndicator color={colors.primary} />
+          : <>
+              <Text style={[creditsStyles.balanceLabel, { color: t.textSecondary }]}>Current Balance</Text>
+              <Text style={[creditsStyles.balanceValue, { color: colors.primary }]}>{balance}</Text>
+              <Text style={[creditsStyles.creditsWord, { color: t.textSecondary }]}>
+                credit{balance !== 1 ? 's' : ''}
+              </Text>
+            </>
+        }
+      </View>
+
+      {/* Grant credits */}
+      <View style={[creditsStyles.grantCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <Text style={[creditsStyles.sectionTitle, { color: t.textSecondary }]}>GRANT CREDITS</Text>
+        <View style={creditsStyles.grantRow}>
+          <TextInput
+            style={[creditsStyles.grantInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+            placeholder="Amount"
+            placeholderTextColor={t.textSecondary as string}
+            keyboardType="numeric"
+            value={grantAmount}
+            onChangeText={setGrantAmount}
+          />
+          <TextInput
+            style={[creditsStyles.grantNoteInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+            placeholder="Note (optional)"
+            placeholderTextColor={t.textSecondary as string}
+            value={grantNote}
+            onChangeText={setGrantNote}
+          />
+        </View>
+        {grantError ? <Text style={creditsStyles.errText}>{grantError}</Text> : null}
+        <TouchableOpacity style={creditsStyles.grantBtn} onPress={handleGrant} disabled={granting}>
+          {granting
+            ? <ActivityIndicator size="small" color={colors.textInverse} />
+            : <Text style={creditsStyles.grantBtnText}>Grant Credits</Text>
+          }
+        </TouchableOpacity>
+        <Text style={[creditsStyles.hint, { color: t.textSecondary }]}>
+          30 min session = 1 credit · 60 min session = 2 credits
+        </Text>
+      </View>
+
+      {/* Transaction history */}
+      <Text style={[creditsStyles.sectionTitle, { color: t.textSecondary, paddingHorizontal: spacing.md }]}>HISTORY</Text>
+      {transactions.length === 0
+        ? <Text style={[creditsStyles.emptyHint, { color: t.textSecondary }]}>No transactions yet.</Text>
+        : transactions.map((tx) => (
+            <View key={tx.id} style={[creditsStyles.txRow, { backgroundColor: t.surface, borderColor: t.border }]}>
+              <View style={creditsStyles.txLeft}>
+                <Text style={[creditsStyles.txReason, { color: t.textPrimary }]}>{reasonLabel(tx.reason)}</Text>
+                {tx.note ? <Text style={[creditsStyles.txNote, { color: t.textSecondary }]}>{tx.note}</Text> : null}
+                <Text style={[creditsStyles.txDate, { color: t.textSecondary }]}>
+                  {new Date(tx.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+              </View>
+              <Text style={[creditsStyles.txAmount, { color: tx.amount > 0 ? colors.success : colors.error }]}>
+                {tx.amount > 0 ? '+' : ''}{tx.amount}
+              </Text>
+            </View>
+          ))
+      }
+    </ScrollView>
+  );
+}
+
+const creditsStyles = StyleSheet.create({
+  container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
+  balanceCard: {
+    borderRadius: radius.md, borderWidth: 1, padding: spacing.lg,
+    alignItems: 'center', gap: spacing.xs,
+  },
+  balanceLabel: { ...typography.label },
+  balanceValue: { fontSize: 56, fontWeight: '700', lineHeight: 64 },
+  creditsWord: { ...typography.body },
+  grantCard: {
+    borderRadius: radius.md, borderWidth: 1, padding: spacing.md, gap: spacing.sm,
+  },
+  sectionTitle: { ...typography.label, letterSpacing: 1 },
+  grantRow: { flexDirection: 'row', gap: spacing.sm },
+  grantInput: {
+    width: 80, borderWidth: 1, borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: spacing.sm,
+    ...typography.body,
+  },
+  grantNoteInput: {
+    flex: 1, borderWidth: 1, borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: spacing.sm,
+    ...typography.body,
+  },
+  grantBtn: {
+    backgroundColor: colors.primary, borderRadius: radius.md,
+    padding: spacing.sm, alignItems: 'center',
+  },
+  grantBtnText: { ...typography.body, fontWeight: '700', color: colors.textInverse },
+  hint: { ...typography.bodySmall, textAlign: 'center' },
+  errText: { ...typography.bodySmall, color: colors.error },
+  emptyHint: { ...typography.bodySmall, textAlign: 'center', paddingVertical: spacing.md },
+  txRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderRadius: radius.sm, borderWidth: 1, padding: spacing.sm,
+    marginHorizontal: spacing.md,
+  },
+  txLeft: { flex: 1, gap: 2 },
+  txReason: { ...typography.body, fontWeight: '600' },
+  txNote: { ...typography.bodySmall },
+  txDate: { ...typography.bodySmall },
+  txAmount: { ...typography.body, fontWeight: '700', minWidth: 40, textAlign: 'right' },
+});
 
 // ─── Client info card (view + inline edit, includes intake fields) ─
 
