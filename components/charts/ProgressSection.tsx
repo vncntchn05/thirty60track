@@ -13,6 +13,9 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 
 type Range = '1M' | '3M' | '6M' | '1Y' | 'All' | 'Custom';
 const RANGES: Range[] = ['1M', '3M', '6M', '1Y', 'All', 'Custom'];
+
+const LAST_N_OPTIONS = [5, 10, 20, 'All'] as const;
+type LastN = typeof LAST_N_OPTIONS[number];
 const DAYS_BACK: Record<Range, number | undefined> = {
   '1M': 30, '3M': 90, '6M': 180, '1Y': 365, 'All': undefined, 'Custom': undefined,
 };
@@ -40,6 +43,7 @@ export default function ProgressSection({ clientId }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [weightUnit, setWeightUnit] = useState<'lbs' | 'kg'>('lbs');
+  const [lastN, setLastN] = useState<LastN>(10);
 
   function handleRangePress(r: Range) {
     if (r === 'Custom') {
@@ -80,6 +84,12 @@ export default function ProgressSection({ clientId }: Props) {
     : rawProgressData;
   const durationProgressData = activeId ? getExerciseDurationProgress(activeId) : [];
   const repsProgressData = activeId ? getExerciseRepsProgress(activeId) : [];
+
+  const rawVolumeData = weightUnit === 'lbs'
+    ? volumeData.map((p) => ({ ...p, y: p.y * 2.20462 }))
+    : volumeData;
+  const slicedVolumeData = (lastN === 'All' ? rawVolumeData : rawVolumeData.slice(-lastN))
+    .map((p, i) => ({ ...p, x: i }));
 
   const filteredExercises = query.trim()
     ? exercises.filter((e) => e.name.toLowerCase().includes(query.trim().toLowerCase()))
@@ -264,10 +274,10 @@ export default function ProgressSection({ clientId }: Props) {
         </View>
       )}
 
-      {/* Volume Over Time — full width below */}
+      {/* Volume Over Past Workouts — full width below */}
       <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
         <View style={styles.chartLabelRow}>
-          <Text style={[styles.label, { color: t.textSecondary }]}>Volume Over Time</Text>
+          <Text style={[styles.label, { color: t.textSecondary }]}>Volume Over Past Workouts</Text>
           <View style={[styles.unitToggle, { borderColor: t.border, backgroundColor: t.background }]}>
             {(['lbs', 'kg'] as const).map((u) => (
               <TouchableOpacity
@@ -282,10 +292,23 @@ export default function ProgressSection({ clientId }: Props) {
             ))}
           </View>
         </View>
-        <VolumeChart
-          data={weightUnit === 'lbs' ? volumeData.map((p) => ({ ...p, y: p.y * 2.20462 })) : volumeData}
-          unit={weightUnit}
-        />
+        <View style={styles.nPickerRow}>
+          {LAST_N_OPTIONS.map((opt) => {
+            const active = lastN === opt;
+            return (
+              <TouchableOpacity
+                key={String(opt)}
+                style={[styles.nPickerBtn, { borderColor: active ? colors.primary : t.border }, active && styles.nPickerBtnActive]}
+                onPress={() => setLastN(opt)}
+              >
+                <Text style={[styles.nPickerText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                  {opt === 'All' ? 'All' : `Last ${opt}`}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <VolumeChart data={slicedVolumeData} unit={weightUnit} />
       </View>
       </>)}
     </>
@@ -351,6 +374,15 @@ const styles = StyleSheet.create({
   unitBtn: { paddingVertical: 3, paddingHorizontal: spacing.sm },
   unitBtnActive: { backgroundColor: colors.primary },
   unitBtnText: { ...typography.label, fontWeight: '600' },
+
+  // Last-N picker
+  nPickerRow: { flexDirection: 'row', gap: spacing.xs },
+  nPickerBtn: {
+    borderWidth: 1, borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: 3,
+  },
+  nPickerBtnActive: { backgroundColor: colors.primary },
+  nPickerText: { ...typography.label, fontWeight: '600' },
 
   // Range selector
   rangeRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },

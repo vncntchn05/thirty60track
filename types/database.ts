@@ -287,3 +287,16 @@ export type NutritionGoal = {
 
 export type InsertNutritionLog = Omit<NutritionLog, 'id' | 'created_at'>;
 export type UpsertNutritionGoal = Omit<NutritionGoal, 'id' | 'created_at' | 'updated_at'>;
+
+// ─── Muscle Group Encyclopedia (Migration 015) ────────────────
+
+export type MuscleGroupEntry = {
+  muscle_group: string;
+  function_description: string | null;
+  warmup_and_stretches: string | null;
+  common_injuries: string | null;
+  rehab_exercises: string | null;
+  updated_at: string;
+};
+
+export type UpsertMuscleGroupEntry = Partial<Omit<MuscleGroupEntry, 'muscle_group' | 'updated_at'>>;

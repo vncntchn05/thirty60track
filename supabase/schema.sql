@@ -1046,3 +1046,32 @@ UPDATE exercises SET equipment = 'Bodyweight' WHERE id IN (
   '4bc16b71-dffb-4876-ad09-44b6011b9cbb','21203646-8186-4017-916a-258936ec8d13',
   'ac37e8b1-2813-4760-8da8-17d07f1e3333','f80f59e5-c30d-4f0c-a897-eb02435e9592'
 );
+
+-- ============================================================
+-- Migration 015 — Muscle Group Encyclopedia
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS muscle_group_encyclopedia (
+  muscle_group         text PRIMARY KEY,
+  function_description text,
+  warmup_and_stretches text,
+  common_injuries      text,
+  rehab_exercises      text,
+  updated_at           timestamptz DEFAULT now()
+);
+
+ALTER TABLE muscle_group_encyclopedia ENABLE ROW LEVEL SECURITY;
+
+-- All authenticated users can read
+CREATE POLICY "encyclopedia_select" ON muscle_group_encyclopedia
+  FOR SELECT TO authenticated USING (true);
+
+-- Only trainers can insert/update
+CREATE POLICY "encyclopedia_insert" ON muscle_group_encyclopedia
+  FOR INSERT TO authenticated
+  WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+CREATE POLICY "encyclopedia_update" ON muscle_group_encyclopedia
+  FOR UPDATE TO authenticated
+  USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));

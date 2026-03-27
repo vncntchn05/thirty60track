@@ -8,6 +8,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { searchFoods, scaleMacros } from '@/lib/usda';
 import { searchOFF, lookupBarcode } from '@/lib/off';
+import { lookupBarcodeSpoonacular } from '@/lib/spoonacular';
 import type { UsdaFood } from '@/lib/usda';
 import type { MealType } from '@/types';
 import { MEAL_TYPES } from '@/types';
@@ -149,6 +150,7 @@ export function AddFoodModal({ visible, initialMealType, onClose, onAdd }: Props
   }
 
   // Called when camera detects a barcode
+  // Tries Open Food Facts → Nutritionix → Edamam in order
   async function handleBarcodeScanned({ data }: { data: string }) {
     if (!scanning || scanLoading || data === lastScannedRef.current) return;
     lastScannedRef.current = data;
@@ -156,18 +158,18 @@ export function AddFoodModal({ visible, initialMealType, onClose, onAdd }: Props
     setScanLoading(true);
     setScanError(null);
 
-    const { food, error } = await lookupBarcode(data);
+    const off = await lookupBarcode(data);
+    if (off.food) { setScanLoading(false); handleSelectFood(off.food); return; }
+
+    const spoon = await lookupBarcodeSpoonacular(data);
     setScanLoading(false);
 
-    if (error) {
-      setScanError(error);
-      return;
-    }
-    if (!food) {
-      setScanError(`No product found for barcode ${data}.\nTry searching by name instead.`);
-      return;
-    }
-    handleSelectFood(food);
+    if (spoon.food) { handleSelectFood(spoon.food); return; }
+
+    const firstError = off.error ?? spoon.error;
+    if (firstError) { setScanError(firstError); return; }
+
+    setScanError(`No product found for barcode ${data}.\nTry searching by name instead.`);
   }
 
   function handleSwitchMode(next: 'search' | 'scan' | 'manual') {
@@ -345,8 +347,7 @@ export function AddFoodModal({ visible, initialMealType, onClose, onAdd }: Props
                     <View style={styles.cameraContainer}>
                       <CameraView
                         style={StyleSheet.absoluteFill}
-                        facing="back"
-                        autofocus="on"
+                        facing="front"
                         onBarcodeScanned={scanning ? handleBarcodeScanned : undefined}
                         barcodeScannerSettings={{
                           barcodeTypes: ['ean8', 'ean13', 'upc_a', 'upc_e', 'qr'],
