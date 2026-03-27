@@ -346,6 +346,7 @@ export function AddFoodModal({ visible, initialMealType, onClose, onAdd }: Props
                       <CameraView
                         style={StyleSheet.absoluteFill}
                         facing="back"
+                        autofocus="on"
                         onBarcodeScanned={scanning ? handleBarcodeScanned : undefined}
                         barcodeScannerSettings={{
                           barcodeTypes: ['ean8', 'ean13', 'upc_a', 'upc_e', 'qr'],
