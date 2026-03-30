@@ -2,7 +2,6 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image, View, StyleSheet } from 'react-native';
 import { colors, useTheme } from '@/constants/theme';
-import { useAuth } from '@/lib/auth';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -40,7 +39,6 @@ const styles = StyleSheet.create({
 
 export default function TabsLayout() {
   const t = useTheme();
-  const { role } = useAuth();
 
   return (
     <Tabs
@@ -77,7 +75,6 @@ export default function TabsLayout() {
         options={{
           title: 'Schedule',
           tabBarIcon: tabIcon('calendar-outline', 'calendar'),
-          href: role === 'trainer' ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -87,13 +84,10 @@ export default function TabsLayout() {
           tabBarIcon: tabIcon('person-outline', 'person'),
         }}
       />
+      {/* assigned.tsx — hidden from tab bar, kept for backward compat */}
       <Tabs.Screen
         name="assigned"
-        options={{
-          title: 'Workouts',
-          tabBarIcon: tabIcon('barbell-outline', 'barbell'),
-          href: role === 'client' ? undefined : null,
-        }}
+        options={{ href: null, title: 'Workouts' }}
       />
     </Tabs>
   );

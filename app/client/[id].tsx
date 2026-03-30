@@ -10,6 +10,8 @@ import { useWorkouts } from '@/hooks/useWorkouts';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { useAssignedWorkoutsForClient } from '@/hooks/useAssignedWorkouts';
 import { useClientCredits, useCreditTransactions, grantCredits } from '@/hooks/useCredits';
+import { useSessionsForClient } from '@/hooks/useSchedule';
+import { WorkoutCalendar } from '@/components/workout/WorkoutCalendar';
 import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Client, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake, AssignedWorkoutWithDetails, CreditTransaction } from '@/types';
@@ -27,6 +29,17 @@ function isoToLocal(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
+function toIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function fmtTime(iso: string): string {
+  const d = new Date(iso);
+  const h = d.getHours(); const m = d.getMinutes().toString().padStart(2, '0');
+  const period = h >= 12 ? 'PM' : 'AM';
+  return `${h > 12 ? h - 12 : h === 0 ? 12 : h}:${m} ${period}`;
+}
+
 function parseOptionalFloat(v: string): number | null {
   const n = parseFloat(v);
   return v.trim() !== '' && !isNaN(n) ? n : null;
@@ -36,7 +49,8 @@ function fmt(v: number | null, unit: string): string {
   return v != null ? `${v}${unit}` : '—';
 }
 
-type Tab = 'progress' | 'workouts' | 'nutrition' | 'media' | 'credits';
+type Tab      = 'progress' | 'workouts' | 'nutrition' | 'media' | 'credits';
+type ViewMode = 'calendar' | 'list';
 type Theme = ReturnType<typeof useTheme>;
 
 // ─── Screen ───────────────────────────────────────────────────────
@@ -46,6 +60,7 @@ export default function ClientDetailScreen() {
   const router = useRouter();
   const t = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>('progress');
+  const [workoutViewMode, setWorkoutViewMode] = useState<ViewMode>('calendar');
 
   const { trainer } = useAuth();
   const { client, loading: clientLoading, error: clientError, updateClient, deleteClient } = useClient(id);
@@ -54,8 +69,41 @@ export default function ClientDetailScreen() {
   const { assignedWorkouts, refetch: refetchAssigned } = useAssignedWorkoutsForClient(client?.id ?? '');
   const { balance, loading: creditsLoading, refetch: refetchCredits } = useClientCredits(client?.id ?? '');
   const { transactions, refetch: refetchTransactions } = useCreditTransactions(client?.id ?? '');
+  const { sessions: clientSessions } = useSessionsForClient(client?.id ?? '', trainer?.id ?? '');
 
   useFocusEffect(useCallback(() => { refetchWorkouts(); refetchAssigned(); }, [refetchWorkouts, refetchAssigned]));
+
+  function handleCalendarDayPress(iso: string) {
+    const dayWorkouts  = workouts.filter(w => w.performed_at.slice(0, 10) === iso);
+    const dayAssigned  = assignedWorkouts.filter(a => a.scheduled_date.slice(0, 10) === iso);
+    const daySessions  = clientSessions.filter(s => s.status === 'confirmed' && toIso(new Date(s.scheduled_at)) === iso);
+
+    type Option = { text: string; onPress: () => void };
+    const options: Option[] = [];
+
+    dayWorkouts.forEach(w => options.push({
+      text: `Logged workout`,
+      onPress: () => router.push(`/workout/${w.id}` as never),
+    }));
+    dayAssigned.forEach(a => options.push({
+      text: `Assigned: ${a.title ?? 'Workout'}`,
+      onPress: () => router.push(`/workout/assigned/${a.id}` as never),
+    }));
+    daySessions.forEach(s => options.push({
+      text: `Session: ${fmtTime(s.scheduled_at)}`,
+      onPress: () => router.push(`/(tabs)/schedule?weekOf=${iso}` as never),
+    }));
+
+    if (options.length === 1) {
+      options[0].onPress();
+    } else if (options.length > 1) {
+      Alert.alert(
+        iso,
+        undefined,
+        [...options.map(o => ({ text: o.text, onPress: o.onPress })), { text: 'Cancel', style: 'cancel' as const }],
+      );
+    }
+  }
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -151,34 +199,57 @@ export default function ClientDetailScreen() {
 
       {/* ── Workouts tab ── */}
       {activeTab === 'workouts' && (
-        <FlatList
-          data={workouts}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.tabContent}
-          renderItem={({ item }) => <WorkoutRow workout={item as WorkoutWithTrainer} clientName={client.full_name} t={t} />}
-          ListHeaderComponent={
-            <>
-              {workoutsLoading
-                ? <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: spacing.sm }} />
-                : workoutsError
-                  ? <Text style={styles.errorText}>{workoutsError}</Text>
-                  : null}
-              {/* Pending assigned workouts shown at the top with green outline */}
-              {assignedWorkouts.filter((a) => a.status === 'assigned').map((item) => (
-                <UpcomingWorkoutRow
-                  key={item.id}
-                  item={item}
-                  t={t}
-                />
-              ))}
-            </>
-          }
-          ListEmptyComponent={
-            !workoutsLoading && assignedWorkouts.filter((a) => a.status === 'assigned').length === 0
-              ? <Text style={[styles.emptyText, { color: t.textSecondary }]}>No workouts logged yet.</Text>
-              : null
-          }
-        />
+        <View style={{ flex: 1 }}>
+          {/* View toggle bar */}
+          <View style={[styles.viewToggleBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+            <Text style={[styles.viewToggleLabel, { color: t.textSecondary }]}>
+              {workouts.length} workout{workouts.length !== 1 ? 's' : ''}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setWorkoutViewMode(v => v === 'calendar' ? 'list' : 'calendar')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name={workoutViewMode === 'calendar' ? 'list-outline' : 'calendar-outline'}
+                size={20}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {workoutViewMode === 'calendar' ? (
+            <WorkoutCalendar
+              workouts={workouts as WorkoutWithTrainer[]}
+              assignedWorkouts={assignedWorkouts}
+              sessions={clientSessions}
+              onDayPress={handleCalendarDayPress}
+            />
+          ) : (
+            <FlatList
+              data={workouts}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.tabContent}
+              renderItem={({ item }) => <WorkoutRow workout={item as WorkoutWithTrainer} clientName={client.full_name} t={t} />}
+              ListHeaderComponent={
+                <>
+                  {workoutsLoading
+                    ? <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: spacing.sm }} />
+                    : workoutsError
+                      ? <Text style={styles.errorText}>{workoutsError}</Text>
+                      : null}
+                  {assignedWorkouts.filter((a) => a.status === 'assigned').map((item) => (
+                    <UpcomingWorkoutRow key={item.id} item={item} t={t} />
+                  ))}
+                </>
+              }
+              ListEmptyComponent={
+                !workoutsLoading && assignedWorkouts.filter((a) => a.status === 'assigned').length === 0
+                  ? <Text style={[styles.emptyText, { color: t.textSecondary }]}>No workouts logged yet.</Text>
+                  : null
+              }
+            />
+          )}
+        </View>
       )}
 
       {/* ── Nutrition tab ── */}
@@ -831,6 +902,12 @@ const styles = StyleSheet.create({
 
   // ── Shared tab content ──
   tabContent: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xxl + 56 },
+  viewToggleBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  viewToggleLabel: { ...typography.bodySmall },
 
   // ── Info card ──
   infoCard: {

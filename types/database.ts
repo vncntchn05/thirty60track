@@ -308,7 +308,8 @@ export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0=Sun, 1=Mon … 6=Sat
 export type TrainerAvailability = {
   id: string;
   trainer_id: string;
-  day_of_week: DayOfWeek;
+  day_of_week: DayOfWeek | null; // null when specific_date is set
+  specific_date: string | null;  // 'YYYY-MM-DD', null when day_of_week is set
   start_time: string; // 'HH:MM:SS'
   end_time: string;   // 'HH:MM:SS'
   is_active: boolean;

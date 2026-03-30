@@ -74,6 +74,25 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] **Worked out with** — select clients who trained in the same session; their workouts are created and kept in sync (add/edit/delete sets propagate to all group members automatically); exercise display order is preserved on all members' workout views; manage the group from the workout edit screen
 - [x] **Logged-by attribution** — workout list and detail screens show the correct name (trainer or client) for who logged each session
 
+### Scheduling & Availability
+
+- [x] **Trainer availability** — trainers set recurring weekly slots or one-off specific-date slots with arbitrary start/end times (not fixed increments); managed from the Schedule tab via the Availability FAB and a time-chip picker (0 / 15 / 30 / 45 min options)
+- [x] **Weekly timetable** — full-screen 7-day grid (8 AM–8 PM) that fills the available height without scrolling; faint gold bands show trainer availability windows; session blocks are colour-coded by status (red = pending, green = confirmed, gold = completed); "now" red line on today's column; today's column has a subtle gold tint
+- [x] **Week navigation** — prev/next chevrons plus a tap-to-open week picker modal; week picker shows session dots on dates that have sessions
+- [x] **Trainer selector** — when multiple trainers exist, a horizontal chip strip above the timetable lets any trainer view a colleague's schedule; the Availability FAB is hidden when viewing another trainer's schedule
+- [x] **Client booking** — 3-step flow: pick date → pick time (15-min increments within any availability window) → confirm; each time slot shows 30 min (1 credit) and 60 min (2 credits) buttons; gold = affordable, amber outline = can't afford, dimmed = doesn't fit window
+- [x] **Session management** — trainers can confirm, cancel, or mark sessions complete directly from the timetable; clients can view or cancel their own sessions; credits are deducted on confirm and refunded on trainer-initiated cancel of a confirmed session
+- [x] **Client schedule segment** — the client Workouts tab has a "Schedule" segment showing the same full-screen timetable with availability bands and session blocks; includes a "Book Session" FAB and the credit balance pill (`★ Credits: N`) in the week nav bar
+- [x] **Schedule tab deep-link** — tapping a confirmed session dot in the Workout Calendar navigates to the Schedule tab (trainer) or switches to the Schedule segment (client) pre-scrolled to the correct week
+
+### Credits
+
+- [x] **Credit balance** — each client has a `client_credits` row tracking their balance; 30-min session = 1 credit, 60-min session = 2 credits
+- [x] **Grant credits** — trainers grant credits from the Credits tab on the client detail screen; amount and optional note required
+- [x] **Automatic deduct/refund** — credits are deducted when a trainer confirms a session; refunded automatically if the trainer cancels a session that was already confirmed
+- [x] **Transaction history** — every grant, deduction, and refund is logged to `credit_transactions` with reason, note, date, and linked session ID; shown in the Credits tab
+- [x] **Credit pill in client schedule** — the week nav bar on the client's Schedule segment shows a gold `★ Credits: N` pill so clients always know their balance while booking
+
 ### Assigned Workouts
 - [x] Trainers can assign a workout to a client with a title, scheduled date, optional notes, and a full exercise + set prescription
 - [x] **Assign mode in workout builder** — toggle between "Log" and "Assign" at the top of the new workout screen; assign mode sends the workout to the client without creating a session log entry; exits immediately on success (no confirmation dialog)
@@ -122,9 +141,10 @@ Clients have their own separate tab navigator with distinct screens:
 
 - [x] **Home dashboard** — greeting, total sessions, weekly streak, last workout card, quick actions
 - [x] **One-time intake form** — shown on first login; collects full name, date of birth, phone, address, emergency contact, occupation, current/past injuries, chronic conditions, medications, activity level, goals, and timeframe; disappears once submitted
-- [x] **Workout history** — list of all logged sessions with date, logged-by name (trainer or client), and notes; pending assigned workouts shown at the top
+- [x] **Workout history — calendar + list view** — the Workouts segment defaults to a full-screen monthly calendar; gold dots = logged workouts, green = assigned, dark green = confirmed sessions; tap the month/year title to jump to any month/year via a picker modal; a toggle icon in the segment bar switches to the classic card list; tapping a date with indicators navigates directly (single item) or shows a choice sheet (multiple items); confirmed session dots switch to the Schedule segment at the correct week
 - [x] **Self-log workouts** — clients can log their own workouts (exercises + sets + body metrics) with per-exercise unit toggle
 - [x] **Complete assigned workouts** — pre-filled prescribed sets; client fills in actual values and confirms via a bottom confirmation bar; saved to workout log automatically
+- [x] **Schedule segment** — second segment in the Workouts tab; shows the full-screen weekly timetable with gold availability bands and colour-coded session blocks; week nav + week picker modal; "Book Session" FAB opens the 3-step booking flow; credit balance pill shown in the week nav bar
 - [x] **Exercise library** — read-only Exercises tab between Workouts and Progress; clients can browse, search, filter by muscle/equipment, and open exercise detail pages (form images, variant tabs, form notes, tutorial Watch button all functional); no add/edit controls shown
 - [x] **Progress tab** — same frequency/volume/body composition/exercise charts as the trainer view; includes Performance Report Card button
 - [x] **Nutrition tab** — log daily meals, search USDA + Open Food Facts food databases, scan product barcodes, view macro summary vs. daily goal (goal set by trainer)
@@ -198,7 +218,7 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] Safe back navigation — falls back to home if no navigation history (works on web direct links)
 - [x] **Name-based client URLs** — web routes use `/client/john-doe` instead of UUIDs; slug lookup with UUID fallback for backward compatibility
 - [x] **404 handling** — unmatched routes show a "Page not found" screen; with the Render SPA rewrite rule in place, refreshing any valid URL stays on that page instead of redirecting home
-- [x] Five-tab layout on client detail screen (Progress / Workouts / Assigned / Nutrition / Media)
+- [x] Five-tab layout on client detail screen (Progress / Workouts / Nutrition / Media / Credits); Workouts tab defaults to the monthly calendar view with a calendar/list toggle; tapping a date navigates to the workout, assigned workout, or Schedule tab at the correct week
 - [x] Skia web initialization with CanvasKit CDN (charts work on web)
 - [x] Lazy-loaded chart section (CanvasKit loads before charts render)
 
@@ -220,6 +240,10 @@ assigned_workout_exercises  — exercises within an assigned workout (exercise_i
 assigned_workout_sets       — prescribed sets per assigned exercise (reps, weight_kg, duration_seconds, notes)
 nutrition_logs              — per-meal food entries per client per day (food_name, serving_size_g, macros, usda_food_id, logged_by_role)
 nutrition_goals             — one row per client; daily calorie target + protein/carbs/fat percentage split
+trainer_availability        — recurring weekly slots (day_of_week) or specific-date slots; free-form start_time/end_time; is_active flag
+scheduled_sessions          — one row per booked session (trainer_id, client_id, scheduled_at, duration_minutes, status, confirmed_at, cancelled_at, cancelled_by)
+client_credits              — one row per client; current credit balance
+credit_transactions         — ledger of every grant, session_deduct, and session_refund with amount, reason, note, and optional session_id FK
 ```
 
 `workout_sets.superset_group` is a nullable integer that groups exercises into supersets within a workout. Sets for exercises in the same superset share the same group number, scoped to the workout.
@@ -241,9 +265,10 @@ app/
   (auth)/signup.tsx         # Signup — client tab default; links client profile to auth user
   (tabs)/index.tsx          # Trainer: client list + search bar
   (tabs)/exercises.tsx      # Trainer: exercise library — browse, group, add; Edit Templates FAB
+  (tabs)/schedule.tsx       # Trainer: weekly timetable + trainer selector + availability FAB; reads ?weekOf= param to jump to a week
   (tabs)/profile.tsx        # Trainer: profile + sign out
   (client)/index.tsx                    # Client: home dashboard + intake gate (shows intake form on first login)
-  (client)/workouts.tsx                 # Client: workout history + pending assigned workouts at top
+  (client)/workouts.tsx                 # Client: Workouts segment (calendar/list toggle, default calendar) + Schedule segment (timetable + booking)
   (client)/exercises.tsx                # Client: read-only exercise library (re-exports trainer screen; edit controls hidden via useAuth role check)
   (client)/progress.tsx                 # Client: progress charts (same charts as trainer view)
   (client)/nutrition.tsx                # Client: daily nutrition log + macro summary (goal read-only)
@@ -266,11 +291,19 @@ components/
     FrequencyChart.tsx        # Bar chart — workouts per week + streak chips + axis labels
     VolumeChart.tsx           # Bar chart — total volume per session + axis labels
     ExerciseProgressChart.tsx # Line chart — weight or reps over time + tooltip + axis labels
+  schedule/
+    WeeklyTimetable.tsx       # Full-screen 7-day timetable; dynamic slot height via onLayout; gold availability bands; session blocks colour-coded by status; getSessionLabel prop for trainer-name vs client-name display
+    CalendarStrip.tsx         # Week strip with session dots; exports sameDay, getMondayOfWeek helpers
+    SessionSheet.tsx          # Bottom sheet — trainer: confirm/cancel/complete; client: view/cancel
+    AvailabilitySheet.tsx     # Trainer manages recurring/specific-date availability slots with free-form TimePicker (0/15/30/45 min chips)
+    BookingSheet.tsx          # 3-step client booking: date → time (15-min increments, 30/60 min duration) → confirm; credit check per option
+    WeekPickerModal.tsx       # Modal week picker with session dots; 7-column calendar grid
   workout/
     ExercisePicker.tsx        # Searchable exercise picker with body map (left) + equipment chips + list (right); used when logging or editing workouts
     DbExerciseSection.tsx     # "FROM DATABASE" result rows with optional Add button (hidden when onAdd not provided — client read-only mode)
     TemplatePicker.tsx        # Phase-grouped template browser
     TemplateEditor.tsx        # Create / edit / delete workout templates
+    WorkoutCalendar.tsx       # Full-screen monthly calendar; gold/green/dark-green dots per day; tap month/year title to open month-year picker modal; onDayPress callback for navigation
   client/
     MediaGallery.tsx          # Photo/video gallery — grid, upload modal, detail/edit modal
     IntakeForm.tsx            # Client intake form (first-time and edit modes)
@@ -295,6 +328,8 @@ hooks/
   useClientMedia.ts          # Media CRUD — upload (blob → Storage → DB), update, delete
   useNutrition.ts            # Nutrition log CRUD + goal upsert; fetches trainer_id from clients table for client accounts
   useTrainers.ts             # Fetch all trainers except the current user
+  useSchedule.ts             # useTrainerAvailability, useAvailabilityForClient, useTrainerSessions, useClientSessions, useSessionsForClient (trainer views a client's sessions); requestSession, confirmSession, cancelSession, completeSession mutations
+  useCredits.ts              # useClientCredits (balance), useCreditTransactions (ledger), grantCredits mutation
 
 constants/
   theme.ts              # Color/spacing/typography tokens + useTheme (always dark)
@@ -334,7 +369,7 @@ public/
   favicon.png
 
 supabase/
-  schema.sql                        # Source-of-truth DDL (migrations 001–017)
+  schema.sql                        # Source-of-truth DDL (migrations 001–019 + 016b scheduling)
   seed.sql                          # 150+ exercises across all muscle groups
   seed_test_client.sql              # Full year of realistic test data (youth hockey player)
   migration_016_form_notes.sql      # Backfills form_notes for all 150 seeded exercises from free-exercise-db instructions (run once; guarded with WHERE form_notes IS NULL OR form_notes = '')
@@ -379,7 +414,7 @@ cp .env.example .env.local
 Run these in order in the **Supabase SQL Editor**:
 
 ```
-1. supabase/schema.sql          — creates all tables, triggers, RLS policies, and migrations 001–017
+1. supabase/schema.sql          — creates all tables, triggers, RLS policies, and migrations 001–019 + 016b
 2. supabase/seed.sql            — populates the exercise library (150+ exercises)
 ```
 
@@ -403,6 +438,7 @@ Run these in order in the **Supabase SQL Editor**:
 - **017** — `link_client_to_auth_user()` SECURITY DEFINER function; resolves the RLS catch-22 where a newly signed-up client cannot update their own `auth_user_id` (the UPDATE policy requires `auth.uid() = auth_user_id` which is always false when the column is NULL); the function looks up the caller's email from `auth.users`, finds the matching unlinked client row, and writes `auth_user_id = auth.uid()` with elevated privileges
 - **018** — populates `form_notes` for all 100 seeded exercises with detailed coaching cues (setup, execution, common cues per exercise)
 - **019** — adds `equipment TEXT` column to `exercises`; classifies all 100 seeded exercises (Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other)
+- **016b** (scheduling) — `trainer_availability` (recurring weekly + specific-date slots; free-form start/end times; `day_of_week` nullable with CHECK constraint ensuring exactly one of `day_of_week` / `specific_date` is set); `scheduled_sessions` (status: `pending | confirmed | completed | cancelled`; `confirmed_at`, `cancelled_at`, `cancelled_by`); `client_credits` (balance per client); `credit_transactions` (ledger with reason: `grant | session_deduct | session_refund`); RLS for both trainers and clients on all four tables
 
 **Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 
@@ -436,7 +472,6 @@ Press `i` for iOS simulator, `a` for Android emulator, or `w` for web.
 - [ ] **Weekly hard sets / muscle group monitor** — track weekly set volume per muscle group across all workouts; surface a per-muscle-group summary (e.g. chest: 14 sets this week) and flag when a group is under- or over-trained relative to a target range
 - [ ] **Quick-tap coaching cues (AI)** — one-tap form cues per exercise during a workout; optionally AI-generated based on the exercise and the client's logged history
 - [ ] **Push notifications** — reminders for upcoming assigned workouts; trainer alerts when a client completes a session or logs a new PR
-- [ ] **[BIG] Full scheduling** — calendar-based view for planning future workouts weeks or months ahead; drag-and-drop rescheduling; recurring session patterns; trainer sees all clients' schedules in one view
 - [ ] **Rest timer** — countdown between sets with audio/haptic alert
 - [ ] **Personal records (PRs) tracking** — dedicated PR log per exercise; auto-flagged when a new best is set
 - [ ] Archive/deactivate client

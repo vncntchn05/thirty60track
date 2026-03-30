@@ -120,7 +120,8 @@ export function DateRangePicker({
             </TouchableOpacity>
           </View>
 
-          {/* Weekday headers */}
+          {/* Weekday headers + grid — pinned to exactly 7 columns */}
+          <View style={styles.calendarContainer}>
           <View style={styles.weekRow}>
             {WEEKDAYS.map((d) => (
               <Text key={d} style={[styles.weekday, { color: t.textSecondary }]}>{d}</Text>
@@ -180,6 +181,7 @@ export function DateRangePicker({
                 </TouchableOpacity>
               );
             })}
+          </View>
           </View>
 
           {/* Selected range labels */}
@@ -266,6 +268,7 @@ const styles = StyleSheet.create({
   monthLabel: { ...typography.body, fontWeight: '600' },
 
   // Weekday row
+  calendarContainer: { width: CELL_SIZE * 7, alignSelf: 'center' },
   weekRow: { flexDirection: 'row' },
   weekday: {
     width: CELL_SIZE,

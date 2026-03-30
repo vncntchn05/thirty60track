@@ -20,7 +20,6 @@ export function useTrainerAvailability(trainerId: string) {
       .select('*')
       .eq('trainer_id', trainerId)
       .eq('is_active', true)
-      .order('day_of_week')
       .order('start_time');
     if (err) setError(err.message);
     else setSlots(data ?? []);
@@ -73,7 +72,6 @@ export function useAvailabilityForClient(clientId: string) {
         .select('*')
         .eq('trainer_id', client.trainer_id)
         .eq('is_active', true)
-        .order('day_of_week')
         .order('start_time');
       setSlots(data ?? []);
       setLoading(false);
@@ -132,6 +130,29 @@ export function useClientSessions(clientId: string) {
   useEffect(() => { load(); }, [load]);
 
   return { sessions, loading, error, refetch: load };
+}
+
+// ─── Sessions for a specific client (trainer view) ───────────
+
+export function useSessionsForClient(clientId: string, trainerId: string) {
+  const [sessions, setSessions] = useState<ScheduledSessionWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    if (!clientId || !trainerId) { setSessions([]); setLoading(false); return; }
+    setLoading(true);
+    const { data } = await supabase
+      .from('scheduled_sessions')
+      .select('*, client:clients(full_name, email), trainer:trainers(full_name)')
+      .eq('client_id', clientId)
+      .eq('trainer_id', trainerId)
+      .order('scheduled_at', { ascending: true });
+    setSessions((data ?? []) as ScheduledSessionWithDetails[]);
+    setLoading(false);
+  }, [clientId, trainerId]);
+
+  useEffect(() => { load(); }, [load]);
+  return { sessions, loading, refetch: load };
 }
 
 // ─── Session mutations (shared) ───────────────────────────────

@@ -1195,3 +1195,31 @@ CREATE POLICY "transactions_client_select" ON credit_transactions
   USING (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND auth_user_id = auth.uid()));
 CREATE POLICY "transactions_trainer_insert" ON credit_transactions
   FOR INSERT TO authenticated WITH CHECK (trainer_id = auth.uid());
+
+-- ============================================================
+-- Migration 016b — trainer_availability: add specific_date
+-- ============================================================
+
+-- Make day_of_week nullable (weekly slots keep it set; specific-date slots set it NULL)
+ALTER TABLE trainer_availability
+  ALTER COLUMN day_of_week DROP NOT NULL,
+  ADD COLUMN IF NOT EXISTS specific_date DATE DEFAULT NULL;
+
+-- Exactly one of day_of_week / specific_date must be set
+ALTER TABLE trainer_availability
+  ADD CONSTRAINT availability_type_check CHECK (
+    (day_of_week IS NOT NULL AND specific_date IS NULL) OR
+    (day_of_week IS NULL     AND specific_date IS NOT NULL)
+  );
+
+-- Drop the old unique constraint and replace with partial indexes
+ALTER TABLE trainer_availability
+  DROP CONSTRAINT IF EXISTS trainer_availability_trainer_id_day_of_week_start_time_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS trainer_availability_weekly_uniq
+  ON trainer_availability(trainer_id, day_of_week, start_time)
+  WHERE specific_date IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS trainer_availability_specific_uniq
+  ON trainer_availability(trainer_id, specific_date, start_time)
+  WHERE day_of_week IS NULL;

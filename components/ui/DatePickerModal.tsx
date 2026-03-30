@@ -83,7 +83,8 @@ export function DatePickerModal({ visible, onClose, onSelect, value, logDates, m
             </TouchableOpacity>
           </View>
 
-          {/* Weekday headers */}
+          {/* Weekday headers + grid — pinned to exactly 7 columns */}
+          <View style={styles.calendarContainer}>
           <View style={styles.weekRow}>
             {WEEKDAYS.map((d) => (
               <Text key={d} style={[styles.weekday, { color: t.textSecondary }]}>{d}</Text>
@@ -130,6 +131,7 @@ export function DatePickerModal({ visible, onClose, onSelect, value, logDates, m
               );
             })}
           </View>
+          </View>
 
           {/* Legend */}
           <View style={styles.legend}>
@@ -173,6 +175,7 @@ const styles = StyleSheet.create({
   title: { ...typography.heading3, fontWeight: '700' },
   monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthLabel: { ...typography.body, fontWeight: '600' },
+  calendarContainer: { width: CELL_SIZE * 7, alignSelf: 'center' },
   weekRow: { flexDirection: 'row' },
   weekday: { width: CELL_SIZE, textAlign: 'center', ...typography.label },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
