@@ -45,10 +45,16 @@ export function SessionSheet({ session, role, trainerId, onClose, onChanged }: P
   const s = session; // narrowed non-null alias for closures
 
   const creditCost = s.duration_minutes === 30 ? 1 : 2;
-  const canConfirm = role === 'trainer' && s.status === 'pending';
-  const canCancel  = (role === 'trainer' && (s.status === 'pending' || s.status === 'confirmed'))
-                   || (role === 'client' && s.status === 'pending');
+
+  const hoursUntil = (new Date(s.scheduled_at).getTime() - Date.now()) / (1000 * 60 * 60);
+  const isAtLeastDayAway = hoursUntil >= 24;
+  const isActive = s.status === 'pending' || s.status === 'confirmed';
+
+  const canConfirm  = role === 'trainer' && s.status === 'pending';
   const canComplete = role === 'trainer' && s.status === 'confirmed';
+  const canCancel   = isActive && (role === 'trainer' || isAtLeastDayAway);
+  // Client has an active session but within the 24-hour window
+  const showLateCancelNote = role === 'client' && isActive && !isAtLeastDayAway;
 
   async function handleConfirm() {
     if (!trainerId) return;
@@ -132,6 +138,15 @@ export function SessionSheet({ session, role, trainerId, onClose, onChanged }: P
             </View>
           ) : null}
 
+          {showLateCancelNote && (
+            <View style={[styles.noteBox, { backgroundColor: colors.error + '18', borderColor: colors.error + '44' }]}>
+              <Ionicons name="information-circle-outline" size={15} color={colors.error} />
+              <Text style={[styles.noteText, { color: colors.error }]}>
+                Cancellations must be made at least 24 hours in advance.
+              </Text>
+            </View>
+          )}
+
           {err ? <Text style={styles.errText}>{err}</Text> : null}
 
           {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.sm }} />}
@@ -188,6 +203,11 @@ const styles = StyleSheet.create({
   notesLabel: { ...typography.label },
   notesText: { ...typography.bodySmall },
   errText: { ...typography.bodySmall, color: colors.error },
+  noteBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs,
+    borderWidth: 1, borderRadius: radius.sm, padding: spacing.sm,
+  },
+  noteText: { ...typography.bodySmall, flex: 1 },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
   confirmBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

@@ -288,6 +288,44 @@ export type NutritionGoal = {
 export type InsertNutritionLog = Omit<NutritionLog, 'id' | 'created_at'>;
 export type UpsertNutritionGoal = Omit<NutritionGoal, 'id' | 'created_at' | 'updated_at'>;
 
+// ─── Recipes (Migration 017) ──────────────────────────────────
+
+export type Recipe = {
+  id: string;
+  client_id: string;
+  trainer_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecipeIngredient = {
+  id: string;
+  recipe_id: string;
+  food_name: string;
+  usda_food_id: string | null;
+  weight_g: number;
+  calories_per_100g: number | null;
+  protein_per_100g: number | null;
+  carbs_per_100g: number | null;
+  fat_per_100g: number | null;
+  fiber_per_100g: number | null;
+  sort_order: number;
+  created_at: string;
+};
+
+export type RecipeWithIngredients = Recipe & {
+  ingredients: RecipeIngredient[];
+};
+
+export type InsertRecipe = {
+  client_id: string;
+  trainer_id: string;
+  name: string;
+  description?: string | null;
+};
+
 // ─── Muscle Group Encyclopedia (Migration 015) ────────────────
 
 export type MuscleGroupEntry = {
@@ -368,4 +406,14 @@ export type InsertScheduledSession = {
   scheduled_at: string;
   duration_minutes: 30 | 60;
   notes?: string | null;
+};
+
+// ─── Workout Guides (Migration 018) ──────────────────────────
+
+export type WorkoutGuideEntry = {
+  id: string;
+  topic: string;
+  section_key: string;
+  content: string;
+  updated_at: string;
 };

@@ -9,8 +9,10 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 import { searchFoods, scaleMacros } from '@/lib/usda';
 import { searchOFF, lookupBarcode } from '@/lib/off';
 import { lookupBarcodeSpoonacular } from '@/lib/spoonacular';
+import { useRecipes, deleteRecipe } from '@/hooks/useRecipes';
+import { RecipeBuilderModal } from './RecipeBuilderModal';
 import type { UsdaFood } from '@/lib/usda';
-import type { MealType } from '@/types';
+import type { MealType, RecipeWithIngredients } from '@/types';
 import { MEAL_TYPES } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -28,6 +30,8 @@ type FormState = {
 type Props = {
   visible: boolean;
   initialMealType: MealType;
+  clientId: string;
+  trainerId: string;
   onClose: () => void;
   onAdd: (entry: {
     meal_type: MealType;
@@ -62,10 +66,17 @@ const EMPTY_FORM: FormState = {
 
 // ─── Component ────────────────────────────────────────────────────
 
-export function AddFoodModal({ visible, initialMealType, onClose, onAdd }: Props) {
+export function AddFoodModal({ visible, initialMealType, clientId, trainerId, onClose, onAdd }: Props) {
   const t = useTheme();
-  const [mode, setMode] = useState<'search' | 'scan' | 'manual'>('search');
+  const [mode, setMode] = useState<'search' | 'scan' | 'manual' | 'recipes'>('search');
   const [mealType, setMealType] = useState<MealType>(initialMealType);
+
+  // Recipes state
+  const { recipes, loading: recipesLoading, refetch: refetchRecipes } = useRecipes(clientId);
+  const [selectedRecipe, setSelectedRecipe] = useState<RecipeWithIngredients | null>(null);
+  const [recipeServingG, setRecipeServingG] = useState('100');
+  const [showBuilder, setShowBuilder] = useState(false);
+  const [editingRecipe, setEditingRecipe] = useState<RecipeWithIngredients | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UsdaFood[]>([]);
   const [searching, setSearching] = useState(false);
@@ -172,13 +183,15 @@ export function AddFoodModal({ visible, initialMealType, onClose, onAdd }: Props
     setScanError(`No product found for barcode ${data}.\nTry searching by name instead.`);
   }
 
-  function handleSwitchMode(next: 'search' | 'scan' | 'manual') {
+  function handleSwitchMode(next: 'search' | 'scan' | 'manual' | 'recipes') {
     setMode(next);
     setQuery('');
     setResults([]);
     setSelectedFood(null);
     setForm(EMPTY_FORM);
     setScanError(null);
+    setSelectedRecipe(null);
+    setRecipeServingG('100');
   }
 
   function resetAndClose() {
@@ -189,7 +202,53 @@ export function AddFoodModal({ visible, initialMealType, onClose, onAdd }: Props
     setForm(EMPTY_FORM);
     setSearchError(null);
     setScanError(null);
+    setSelectedRecipe(null);
+    setRecipeServingG('100');
     onClose();
+  }
+
+  // ── Recipe helpers ────────────────────────────────────────────────
+
+  function recipeCalcMacros(recipe: RecipeWithIngredients, servingG: number) {
+    let cal = 0, pro = 0, carb = 0, fat = 0, fib = 0, totalW = 0;
+    for (const ing of recipe.ingredients) {
+      cal  += (ing.calories_per_100g ?? 0) * ing.weight_g / 100;
+      pro  += (ing.protein_per_100g  ?? 0) * ing.weight_g / 100;
+      carb += (ing.carbs_per_100g    ?? 0) * ing.weight_g / 100;
+      fat  += (ing.fat_per_100g      ?? 0) * ing.weight_g / 100;
+      fib  += (ing.fiber_per_100g    ?? 0) * ing.weight_g / 100;
+      totalW += ing.weight_g;
+    }
+    if (totalW === 0) return { calories: null, protein_g: null, carbs_g: null, fat_g: null, fiber_g: null };
+    const scale = servingG / totalW;
+    return {
+      calories:  Math.round(cal  * scale * 10) / 10,
+      protein_g: Math.round(pro  * scale * 10) / 10,
+      carbs_g:   Math.round(carb * scale * 10) / 10,
+      fat_g:     Math.round(fat  * scale * 10) / 10,
+      fiber_g:   Math.round(fib  * scale * 10) / 10,
+    };
+  }
+
+  async function handleAddRecipe() {
+    if (!selectedRecipe) return;
+    const servingG = parseFloat(recipeServingG);
+    if (isNaN(servingG) || servingG <= 0) return;
+    setSaving(true);
+    const macros = recipeCalcMacros(selectedRecipe, servingG);
+    await onAdd({
+      meal_type: mealType,
+      food_name: selectedRecipe.name,
+      serving_size_g: servingG,
+      calories:  macros.calories,
+      protein_g: macros.protein_g,
+      carbs_g:   macros.carbs_g,
+      fat_g:     macros.fat_g,
+      fiber_g:   macros.fiber_g,
+      usda_food_id: null,
+    });
+    setSaving(false);
+    resetAndClose();
   }
 
   async function handleAdd() {
@@ -240,12 +299,13 @@ export function AddFoodModal({ visible, initialMealType, onClose, onAdd }: Props
               ))}
             </View>
 
-            {/* Mode toggle — Search · Scan · Manual */}
+            {/* Mode toggle — Search · Scan · Manual · Recipes */}
             <View style={[styles.modeToggle, { backgroundColor: t.background, borderColor: t.border }]}>
               {([
-                { key: 'search', label: 'Search',  icon: 'search-outline' },
-                { key: 'scan',   label: 'Scan',    icon: 'barcode-outline' },
-                { key: 'manual', label: 'Manual',  icon: 'create-outline' },
+                { key: 'search',  label: 'Search',  icon: 'search-outline' },
+                { key: 'scan',    label: 'Scan',    icon: 'barcode-outline' },
+                { key: 'manual',  label: 'Manual',  icon: 'create-outline' },
+                { key: 'recipes', label: 'Recipes', icon: 'restaurant-outline' },
               ] as const).map(({ key, label, icon }) => (
                 <TouchableOpacity
                   key={key}
@@ -462,9 +522,130 @@ export function AddFoodModal({ visible, initialMealType, onClose, onAdd }: Props
               </TouchableOpacity>
             )}
 
+            {/* ── Recipes mode ── */}
+            {mode === 'recipes' && (
+              <View style={styles.section}>
+                <TouchableOpacity
+                  style={styles.newRecipeBtn}
+                  onPress={() => { setEditingRecipe(null); setShowBuilder(true); }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.newRecipeBtnText, { color: colors.primary }]}>New Recipe</Text>
+                </TouchableOpacity>
+
+                {recipesLoading ? (
+                  <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.md }} />
+                ) : recipes.length === 0 ? (
+                  <Text style={[styles.emptyText, { color: t.textSecondary }]}>
+                    No recipes yet. Create one above.
+                  </Text>
+                ) : (
+                  recipes.map((recipe) => {
+                    const isSelected = selectedRecipe?.id === recipe.id;
+                    const totalW = recipe.ingredients.reduce((s, i) => s + i.weight_g, 0);
+                    const totalCal = recipe.ingredients.reduce((s, i) => s + (i.calories_per_100g ?? 0) * i.weight_g / 100, 0);
+                    const per100Cal = totalW > 0 ? Math.round(totalCal / totalW * 100) : null;
+                    return (
+                      <View key={recipe.id}>
+                        <TouchableOpacity
+                          style={[
+                            styles.recipeRow,
+                            { borderColor: t.border, backgroundColor: isSelected ? colors.primary + '15' : t.background },
+                          ]}
+                          onPress={() => {
+                            setSelectedRecipe(isSelected ? null : recipe);
+                            setRecipeServingG(String(totalW > 0 ? Math.round(totalW) : 100));
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.recipeName, { color: t.textPrimary }]}>{recipe.name}</Text>
+                            <Text style={[styles.recipeMeta, { color: t.textSecondary }]}>
+                              {recipe.ingredients.length} ingredient{recipe.ingredients.length !== 1 ? 's' : ''}
+                              {per100Cal != null ? ` · ${per100Cal} kcal/100g` : ''}
+                            </Text>
+                          </View>
+                          <View style={styles.recipeActions}>
+                            <TouchableOpacity
+                              onPress={() => { setEditingRecipe(recipe); setShowBuilder(true); }}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Ionicons name="pencil-outline" size={16} color={t.textSecondary as string} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={async () => {
+                                if (selectedRecipe?.id === recipe.id) setSelectedRecipe(null);
+                                await deleteRecipe(recipe.id);
+                                refetchRecipes();
+                              }}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Ionicons name="trash-outline" size={16} color={colors.error} />
+                            </TouchableOpacity>
+                          </View>
+                        </TouchableOpacity>
+
+                        {isSelected && (
+                          <View style={[styles.recipeLogBox, { borderColor: t.border, backgroundColor: t.background }]}>
+                            <View style={styles.recipeLogRow}>
+                              <TextInput
+                                style={[styles.recipeWeightInput, { color: t.textPrimary, borderColor: t.border, backgroundColor: t.surface }]}
+                                value={recipeServingG}
+                                onChangeText={setRecipeServingG}
+                                keyboardType="decimal-pad"
+                                placeholder="100"
+                                placeholderTextColor={t.textSecondary as string}
+                              />
+                              <Text style={[styles.weightUnit, { color: t.textSecondary }]}>g</Text>
+                              {(() => {
+                                const g = parseFloat(recipeServingG);
+                                if (isNaN(g) || g <= 0 || totalW === 0) return null;
+                                const macros = {
+                                  cal:  Math.round(totalCal / totalW * g * 10) / 10,
+                                  pro:  Math.round(recipe.ingredients.reduce((s, i) => s + (i.protein_per_100g ?? 0) * i.weight_g / 100, 0) / totalW * g * 10) / 10,
+                                  carb: Math.round(recipe.ingredients.reduce((s, i) => s + (i.carbs_per_100g ?? 0) * i.weight_g / 100, 0) / totalW * g * 10) / 10,
+                                  fat:  Math.round(recipe.ingredients.reduce((s, i) => s + (i.fat_per_100g ?? 0) * i.weight_g / 100, 0) / totalW * g * 10) / 10,
+                                };
+                                return (
+                                  <Text style={[styles.recipeMacroPreview, { color: t.textSecondary }]}>
+                                    {macros.cal} kcal · P{macros.pro} C{macros.carb} F{macros.fat}
+                                  </Text>
+                                );
+                              })()}
+                            </View>
+                            <TouchableOpacity
+                              style={[styles.addBtn, (saving || !recipeServingG || parseFloat(recipeServingG) <= 0) && styles.btnDisabled]}
+                              onPress={handleAddRecipe}
+                              disabled={saving || !recipeServingG || parseFloat(recipeServingG) <= 0}
+                              activeOpacity={0.8}
+                            >
+                              {saving
+                                ? <ActivityIndicator size="small" color={colors.textInverse} />
+                                : <Text style={styles.addBtnText}>Add to {MEAL_LABELS[mealType]}</Text>}
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
           </ScrollView>
         </Pressable>
       </Pressable>
+
+      {/* Recipe builder modal */}
+      <RecipeBuilderModal
+        visible={showBuilder}
+        clientId={clientId}
+        trainerId={trainerId}
+        recipe={editingRecipe}
+        onClose={() => { setShowBuilder(false); setEditingRecipe(null); }}
+        onSaved={() => { refetchRecipes(); setShowBuilder(false); setEditingRecipe(null); }}
+      />
     </Modal>
   );
 }
@@ -625,4 +806,34 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.5 },
   addBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+
+  // ── Recipes ───────────────────────────────────────────────────────
+  newRecipeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+    paddingVertical: spacing.sm, marginBottom: spacing.sm,
+  },
+  newRecipeBtnText: { ...typography.body, fontWeight: '700' },
+  emptyText: { ...typography.body, textAlign: 'center', paddingVertical: spacing.lg },
+
+  recipeRow: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderRadius: radius.sm,
+    padding: spacing.sm, marginBottom: spacing.xs, gap: spacing.sm,
+  },
+  recipeName: { ...typography.body, fontWeight: '600' },
+  recipeMeta: { ...typography.bodySmall, marginTop: 2 },
+  recipeActions: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
+
+  recipeLogBox: {
+    borderWidth: 1, borderTopWidth: 0,
+    borderBottomLeftRadius: radius.sm, borderBottomRightRadius: radius.sm,
+    padding: spacing.sm, marginBottom: spacing.sm, gap: spacing.xs,
+  },
+  recipeLogRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
+  recipeWeightInput: {
+    width: 80, borderWidth: 1, borderRadius: radius.sm,
+    padding: spacing.xs, ...typography.body, textAlign: 'center',
+  },
+  weightUnit: { ...typography.body },
+  recipeMacroPreview: { ...typography.bodySmall, flex: 1 },
 });

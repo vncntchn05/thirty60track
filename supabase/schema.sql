@@ -1223,3 +1223,90 @@ CREATE UNIQUE INDEX IF NOT EXISTS trainer_availability_weekly_uniq
 CREATE UNIQUE INDEX IF NOT EXISTS trainer_availability_specific_uniq
   ON trainer_availability(trainer_id, specific_date, start_time)
   WHERE day_of_week IS NULL;
+
+-- ============================================================
+-- Migration 017 — Recipes
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS recipes (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id   uuid NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  trainer_id  uuid NOT NULL REFERENCES trainers(id),
+  name        text NOT NULL,
+  description text,
+  created_at  timestamptz DEFAULT now(),
+  updated_at  timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS recipe_ingredients (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_id        uuid NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  food_name        text NOT NULL,
+  usda_food_id     text,
+  weight_g         numeric NOT NULL CHECK (weight_g > 0),
+  calories_per_100g numeric,
+  protein_per_100g  numeric,
+  carbs_per_100g    numeric,
+  fat_per_100g      numeric,
+  fiber_per_100g    numeric,
+  sort_order       integer DEFAULT 0,
+  created_at       timestamptz DEFAULT now()
+);
+
+ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recipe_ingredients ENABLE ROW LEVEL SECURITY;
+
+-- recipes: trainers manage their clients' recipes
+CREATE POLICY "recipes_trainer_all" ON recipes FOR ALL TO authenticated
+  USING (trainer_id = auth.uid())
+  WITH CHECK (trainer_id = auth.uid());
+
+-- recipes: clients read/insert/update/delete their own recipes
+CREATE POLICY "recipes_client_select" ON recipes FOR SELECT TO authenticated
+  USING (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));
+CREATE POLICY "recipes_client_insert" ON recipes FOR INSERT TO authenticated
+  WITH CHECK (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));
+CREATE POLICY "recipes_client_update" ON recipes FOR UPDATE TO authenticated
+  USING (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()))
+  WITH CHECK (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));
+CREATE POLICY "recipes_client_delete" ON recipes FOR DELETE TO authenticated
+  USING (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));
+
+-- recipe_ingredients: access via recipe ownership
+CREATE POLICY "recipe_ingredients_trainer_all" ON recipe_ingredients FOR ALL TO authenticated
+  USING (recipe_id IN (SELECT id FROM recipes WHERE trainer_id = auth.uid()))
+  WITH CHECK (recipe_id IN (SELECT id FROM recipes WHERE trainer_id = auth.uid()));
+CREATE POLICY "recipe_ingredients_client_select" ON recipe_ingredients FOR SELECT TO authenticated
+  USING (recipe_id IN (SELECT id FROM recipes WHERE client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())));
+CREATE POLICY "recipe_ingredients_client_insert" ON recipe_ingredients FOR INSERT TO authenticated
+  WITH CHECK (recipe_id IN (SELECT id FROM recipes WHERE client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())));
+CREATE POLICY "recipe_ingredients_client_update" ON recipe_ingredients FOR UPDATE TO authenticated
+  USING (recipe_id IN (SELECT id FROM recipes WHERE client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())))
+  WITH CHECK (recipe_id IN (SELECT id FROM recipes WHERE client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())));
+CREATE POLICY "recipe_ingredients_client_delete" ON recipe_ingredients FOR DELETE TO authenticated
+  USING (recipe_id IN (SELECT id FROM recipes WHERE client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())));
+
+-- ============================================================
+-- Migration 018 — Workout Guides (trainer-editable)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS workout_guides (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  topic       text NOT NULL,
+  section_key text NOT NULL,
+  content     text NOT NULL,
+  updated_at  timestamptz DEFAULT now(),
+  UNIQUE(topic, section_key)
+);
+
+ALTER TABLE workout_guides ENABLE ROW LEVEL SECURITY;
+
+-- All authenticated users can read guides
+CREATE POLICY "guides_select" ON workout_guides
+  FOR SELECT TO authenticated USING (true);
+
+-- Only trainers can write/edit guides
+CREATE POLICY "guides_trainer_all" ON workout_guides
+  FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));

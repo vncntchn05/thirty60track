@@ -16,6 +16,7 @@ import type { Exercise, ExerciseCategory, EquipmentType } from '@/types';
 import { EQUIPMENT_TYPES } from '@/types';
 import { BodyMap } from '@/components/ui/BodyMap';
 import { EncyclopediaPanel } from '@/components/exercises/EncyclopediaPanel';
+import { WorkoutGuides } from '@/components/exercises/WorkoutGuides';
 import { useAuth } from '@/lib/auth';
 
 const CATEGORIES: ExerciseCategory[] = ['strength', 'cardio', 'flexibility', 'other'];
@@ -31,7 +32,7 @@ const EQUIPMENT_FILTERS: (EquipmentType | 'All')[] = [
   'All', 'Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Band', 'Other',
 ];
 
-type RightTab = 'exercises' | 'encyclopedia';
+type RightTab = 'exercises' | 'encyclopedia' | 'guides';
 type GroupBy = 'none' | 'category';
 // count = full count, used in header when section is collapsed
 type Section = { title: string; data: Exercise[]; count: number };
@@ -317,9 +318,9 @@ export default function ExercisesScreen() {
         <View style={styles.listCol}>
           {/* Tab bar */}
           <View style={[styles.rightTabBar, { borderBottomColor: t.border }]}>
-            {(['exercises', 'encyclopedia'] as RightTab[]).map((tab) => {
+            {(['exercises', 'encyclopedia', 'guides'] as RightTab[]).map((tab) => {
               const active = rightTab === tab;
-              const label = tab === 'exercises' ? 'Exercises' : 'Encyclopedia';
+              const label = tab === 'exercises' ? 'Exercises' : tab === 'encyclopedia' ? 'Encyclopedia' : 'Guides';
               return (
                 <TouchableOpacity
                   key={tab}
@@ -552,8 +553,14 @@ export default function ExercisesScreen() {
                 }
               />
             </>
-          ) : (
+          ) : rightTab === 'encyclopedia' ? (
             <EncyclopediaPanel
+              selectedMuscle={muscleFilter}
+              onSelectMuscle={setMuscleFilter}
+              isTrainer={isTrainer}
+            />
+          ) : (
+            <WorkoutGuides
               selectedMuscle={muscleFilter}
               onSelectMuscle={setMuscleFilter}
               isTrainer={isTrainer}

@@ -8,6 +8,7 @@ import { DailySummary } from './DailySummary';
 import { GoalEditor } from './GoalEditor';
 import { MealSection } from './MealSection';
 import { AddFoodModal } from './AddFoodModal';
+import { NutritionEncyclopedia } from './NutritionEncyclopedia';
 import { DatePickerModal } from '@/components/ui/DatePickerModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { MealType, InsertNutritionLog } from '@/types';
@@ -58,6 +59,7 @@ export function NutritionTab({ clientId, canEditGoal }: Props) {
   const { user, trainer, role } = useAuth();
   const isTrainer = role === 'trainer';
 
+  const [view, setView] = useState<'log' | 'encyclopedia'>('log');
   const [date, setDate] = useState(toIso(new Date()));
   const [modalMeal, setModalMeal] = useState<MealType | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -114,6 +116,25 @@ export function NutritionTab({ clientId, canEditGoal }: Props) {
 
   return (
     <>
+      {/* Log / Encyclopedia toggle */}
+      <View style={[styles.segmentBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+        {(['log', 'encyclopedia'] as const).map(v => (
+          <TouchableOpacity
+            key={v}
+            style={[styles.segBtn, view === v && styles.segBtnActive]}
+            onPress={() => setView(v)}
+          >
+            <Text style={[styles.segText, { color: view === v ? colors.primary : t.textSecondary }]}>
+              {v === 'log' ? 'Log' : 'Encyclopedia'}
+            </Text>
+            {view === v && <View style={styles.segIndicator} />}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {view === 'encyclopedia' && <NutritionEncyclopedia />}
+
+      {view === 'log' && (
       <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={styles.content}>
 
         {/* Date navigation */}
@@ -177,6 +198,7 @@ export function NutritionTab({ clientId, canEditGoal }: Props) {
         ))}
 
       </ScrollView>
+      )} {/* end log view */}
 
       {/* Date picker calendar */}
       <DatePickerModal
@@ -192,6 +214,8 @@ export function NutritionTab({ clientId, canEditGoal }: Props) {
         <AddFoodModal
           visible={modalMeal !== null}
           initialMealType={modalMeal}
+          clientId={clientId}
+          trainerId={trainerId}
           onClose={() => setModalMeal(null)}
           onAdd={async (entry) => {
             await handleAdd(entry);
@@ -206,6 +230,21 @@ export function NutritionTab({ clientId, canEditGoal }: Props) {
 const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.md },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  segmentBar: {
+    flexDirection: 'row',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  segBtn: {
+    flex: 1, alignItems: 'center', paddingVertical: spacing.sm, position: 'relative',
+  },
+  segBtnActive: {},
+  segText: { ...typography.body, fontWeight: '600' },
+  segIndicator: {
+    position: 'absolute', bottom: 0, left: '20%', right: '20%',
+    height: 2, backgroundColor: colors.primary, borderRadius: 1,
+  },
+
   dateBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderWidth: 1, borderRadius: radius.md, padding: spacing.sm, paddingHorizontal: spacing.md,
