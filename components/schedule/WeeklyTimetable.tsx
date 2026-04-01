@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity,
   StyleSheet, useWindowDimensions,
 } from 'react-native';
-import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { colors, spacing, radius, useTheme } from '@/constants/theme';
 import type { ScheduledSessionWithDetails, TrainerAvailability } from '@/types';
 
 // ─── Grid constants ───────────────────────────────────────────

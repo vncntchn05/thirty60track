@@ -1,11 +1,11 @@
 import { useState, useCallback, useRef } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity, FlatList,
-  ActivityIndicator, StyleSheet, Pressable, ScrollView, Alert,
+  ActivityIndicator, StyleSheet, Pressable, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import { searchFoods, scaleMacros } from '@/lib/usda';
+import { searchFoods } from '@/lib/usda';
 import { searchOFF } from '@/lib/off';
 import { saveRecipe } from '@/hooks/useRecipes';
 import type { UsdaFood } from '@/lib/usda';
