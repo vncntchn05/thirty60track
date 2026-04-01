@@ -285,9 +285,9 @@ describe('useClientCredits guard clauses', () => {
   });
 
   it('balance defaults to 0 when credits row is null', () => {
-    const credits = null;
-    const balance = credits?.balance ?? 0;
-    expect(balance).toBe(0);
+    // Simulate the `credits?.balance ?? 0` guard from useClientCredits
+    const getBalance = (credits: { balance: number } | null) => credits?.balance ?? 0;
+    expect(getBalance(null)).toBe(0);
   });
 
   it('balance returns actual value when credits row exists', () => {
