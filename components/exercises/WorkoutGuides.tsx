@@ -165,6 +165,19 @@ const TOPICS: GuideTopic[] = [
       { key: 'signs',         label: 'Signs You Need One',         icon: 'warning-outline' },
     ],
   },
+  {
+    key: 'abs_core',
+    label: 'Abs & Core',
+    icon: 'body-outline',
+    subtitle: 'Build a stable, strong core — not just a six-pack',
+    forWho: 'All levels',
+    sections: [
+      { key: 'overview',           label: 'Core vs. Abs',        icon: 'information-circle-outline' },
+      { key: 'exercise_selection', label: 'Exercise Selection',  icon: 'barbell-outline' },
+      { key: 'programming',        label: 'Programming Core',    icon: 'calendar-outline' },
+      { key: 'common_mistakes',    label: 'Common Mistakes',     icon: 'warning-outline' },
+    ],
+  },
 ];
 
 // ─── Muscle spotlight data ────────────────────────────────────
@@ -317,6 +330,17 @@ const DEFAULT_CONTENT: Record<string, SectionContent> = {
       'After your general warm-up, perform 2–4 progressively heavier warm-up sets for your first main exercise. These sets prepare the specific neuromuscular pathways, reinforce technique, and help you gauge how the weight feels today.\n\nExample for a working weight of 100 kg (220 lbs) on the back squat:\nSet 1: Empty bar (20 kg) × 8–10 reps — focus on perfect technique, full depth\nSet 2: 50 kg × 5 reps\nSet 3: 75 kg × 3 reps\nSet 4: 90 kg × 1 rep\nThen: Working sets at 100 kg\n\nDo not rush through warm-up sets or make them sloppy — each set is a technique rehearsal. You can skip the specific warm-up for your secondary and isolation exercises; by that point your body is already activated from the first exercise.',
     cooldown:
       'After your main workout, spending 5–10 minutes cooling down enhances recovery and improves long-term flexibility. Unlike the warm-up, static stretching (holding each position for 30–60 seconds) is excellent here — muscles are warm, pliable, and receptive to lengthening.\n\nFocus on the muscles you just trained: if it was a leg day, stretch hip flexors, quads, hamstrings, and calves. If it was an upper day, stretch chest, lats, shoulders, and forearms. Hold each stretch for 30–60 seconds, breathing deeply and relaxing into the position — never force a stretch to the point of sharp pain.\n\nConsider adding 5 minutes of foam rolling (self-myofascial release) for muscles that feel tight. While the research on foam rolling is mixed, many trainees find it reduces post-training soreness and improves recovery sensation.\n\nEnding with slow, deliberate breathing and a gradual walk-out helps shift your nervous system from its activated "fight-or-flight" state back toward parasympathetic ("rest and digest") dominance — improving post-workout recovery hormone dynamics.',
+  },
+
+  abs_core: {
+    overview:
+      'Most people think of "abs" as the rectus abdominis — the sheet of muscle that creates the visible six-pack. But the core is far larger than that. It is a muscular cylinder that surrounds the spine: the rectus abdominis and transverse abdominis at the front, the internal and external obliques at the sides, the erector spinae and multifidus at the back, the diaphragm at the top, and the pelvic floor at the base. Together these muscles act as the structural foundation for every movement you perform — in the gym and in daily life.\n\nEffective core training targets three movement patterns that resist unwanted spinal motion: anti-extension (resisting the spine arching under load — plank, dead bug, ab wheel), anti-rotation (resisting spinal twisting — Pallof press, bird dog), and anti-lateral flexion (resisting sideways bending — side plank, Copenhagen plank). Crunches and sit-ups exclusively train spinal flexion, which represents only one function of the core and places repeated compressive load on the lumbar discs. Building a truly strong and healthy core means training all three anti-movement categories alongside direct flexion work.',
+    exercise_selection:
+      'Progress through three tiers as your core develops:\n\nBeginner (master these before advancing):\n• Plank — anti-extension isometric hold. Focus on a rigid body line, no sagging hips. Build to 3×60 seconds.\n• Dead Bug — anti-extension with contralateral limb movement. Exhale hard, press lower back into the floor, move slowly. 3×8 reps per side.\n• Bird Dog — anti-extension + anti-rotation. From quadruped, extend opposite arm and leg simultaneously, hold 2 seconds. 3×10 per side.\n• Pallof Press — anti-rotation using a cable or band. Stand perpendicular to the anchor, press arms straight out, hold 2 seconds. 3×10 per side.\n• Side Plank — anti-lateral flexion. Stack feet or modify with knees bent. Build to 3×45 seconds per side.\n\nIntermediate (once beginner exercises feel controlled):\n• Ab Wheel Rollout — advanced anti-extension. Start from knees. Keep the lower back flat throughout the rollout. 3×8–12 reps.\n• Hanging Knee Raise — hip flexion with spinal stabilisation. Avoid swinging; use a hollow body position. 3×10–15 reps.\n• Cable Crunch — direct weighted ab flexion. Kneel, hold rope behind head, curl down to hips. 3×12–15 reps.\n• Side Plank with Hip Dip — adds dynamic lateral flexion. 3×10 dips per side.\n• Copenhagen Plank — elite anti-lateral flexion targeting adductors and obliques. 3×20–30 seconds per side.\n\nAdvanced:\n• Ab Wheel (from feet) — full anti-extension rollout, enormous lumbar demand. Only attempt when kneeling version is fully controlled.\n• Hanging Leg Raise — straight legs to 90° or above. Requires significant hip flexor and ab strength. 3×8–12 reps.\n• Dragon Flag — whole-body anti-extension; one of the most demanding ab exercises. 3×5–8 reps.\n• Toes to Bar — explosive hanging exercise, trains entire anterior chain. 3×8–12 reps.\n• Weighted Cable Crunch — add load once bodyweight version reaches 3×20.',
+    programming:
+      'Core training is most effective when treated as a dedicated accessory block, not an afterthought. Two to three focused sessions per week — each containing 2–4 exercises covering multiple anti-movement categories — produces better results than daily high-rep crunches.\n\nIntegration options by split:\n• Full Body (3 days/week): Add 2–3 core exercises at the end of each session. Rotate through anti-extension, anti-rotation, and anti-lateral flexion across the week so you cover all categories without redundancy.\n• Upper/Lower (4 days/week): Core work fits naturally at the end of lower days. You can also add one anti-rotation exercise (Pallof press) to upper days since it requires minimal recovery.\n• Push/Pull/Legs (6 days/week): Leg days traditionally include core work (the guide schedule includes plank and hanging leg raises). You can also finish pull days with hanging knee raises or hanging leg raises, which double as lat stretches.\n\nSets and reps guidelines:\n• Isometric holds (plank, side plank, Copenhagen): 2–4 sets × 20–60 seconds. Progress by extending duration, then adding instability (feet elevated) before adding weight.\n• Dynamic anti-extension/rotation (dead bug, bird dog, ab wheel, Pallof press): 2–4 sets × 8–15 reps. Progress by slowing tempo and extending range of motion before adding resistance.\n• Direct flexion (cable crunch, hanging knee/leg raise, dragon flag): 2–4 sets × 8–20 reps. Progress via load (add weight) or difficulty (advance to next exercise variation).\n\nRest 60–90 seconds between core sets. Core muscles recover faster than large prime movers.',
+    common_mistakes:
+      '1. Training only the six-pack. Doing hundreds of crunches while neglecting anti-rotation (Pallof press, bird dog) and anti-lateral flexion (side plank, Copenhagen) produces a muscle imbalance and leaves your core weak under real load. Build a complete core, not just visible abs.\n\n2. Using momentum on hanging exercises. Swinging the legs up with hip flexor momentum rather than controlled abdominal contraction reduces the stimulus and creates injury risk. From a dead hang, exhale, create a hollow body position (posterior pelvic tilt, ribs down), then raise the knees or legs with control.\n\n3. Letting the lower back arch on planks and rollouts. The moment your hips sag or your lower back extends, you have lost anti-extension capacity and are compressing lumbar vertebrae. Shorten the plank, regress to knees on the rollout, and rebuild from a shorter lever.\n\n4. Neglecting the posterior core. Erector spinae, multifidus, and quadratus lumborum are core muscles too. Back extensions, good mornings, and Romanian deadlifts train the posterior core. Chronic lower back pain is often as much a weakness issue as a mobility issue.\n\n5. Training core in isolation from compound lifts. A properly braced squat or deadlift places massive demand on the entire core cylinder. Practice bracing: take a big breath in, create intra-abdominal pressure (as if about to take a punch), and hold it through the hard part of the rep. This skill transfers to every compound lift you do.',
   },
 
   deload: {
@@ -522,6 +546,35 @@ const RICH_CONTENT: Record<string, Record<string, Seg[]>> = {
       { t: 'autonomic nervous system', url: 'https://en.wikipedia.org/wiki/Autonomic_nervous_system' },
       ' from sympathetic ("fight-or-flight") back to parasympathetic ("rest and digest") — improving post-workout recovery hormone dynamics.',
     ],
+  },
+
+  abs_core: {
+    overview: [
+      'Most people think of "abs" as the ',
+      { t: 'rectus abdominis', url: 'https://en.wikipedia.org/wiki/Rectus_abdominis_muscle' },
+      ' — the muscle that creates the visible six-pack. But the core is a muscular cylinder that surrounds the spine: rectus and ',
+      { t: 'transverse abdominis', url: 'https://en.wikipedia.org/wiki/Transverse_abdominal_muscle' },
+      ' at the front, internal and external ',
+      { t: 'obliques', url: 'https://en.wikipedia.org/wiki/Abdominal_external_oblique_muscle' },
+      ' at the sides, ',
+      { t: 'erector spinae', url: 'https://en.wikipedia.org/wiki/Erector_spinae_muscles' },
+      ' and multifidus at the back, diaphragm at the top, and pelvic floor at the base. Together they stabilise the spine for every movement you perform.\n\nEffective core training targets three anti-movement categories: ',
+      { t: 'anti-extension', url: 'https://www.barbellmedicine.com/blog/core-training/' },
+      ' (plank, dead bug, ab wheel — resisting spine arching), anti-rotation (Pallof press, bird dog — resisting twisting), and anti-lateral flexion (side plank, Copenhagen plank — resisting sideways bend). Crunches and sit-ups train only spinal flexion and place repeated compressive load on lumbar discs. A truly strong core means covering all three categories.',
+    ],
+    exercise_selection: [
+      'Progress through three tiers:\n\n',
+      { t: 'Beginner', url: 'https://en.wikipedia.org/wiki/Physical_fitness' },
+      ':\n• Plank — anti-extension isometric. Build to 3×60 s.\n• ',
+      { t: 'Dead Bug', url: 'https://en.wikipedia.org/wiki/Dead_bug_exercise' },
+      ' — anti-extension + coordination. Exhale hard, press lower back into the floor, move slowly. 3×8/side.\n• Bird Dog — anti-extension + anti-rotation from quadruped. 3×10/side.\n• Pallof Press — anti-rotation with cable or band, perpendicular to anchor. 3×10/side.\n• Side Plank — anti-lateral flexion. Build to 3×45 s/side.\n\nIntermediate:\n• ',
+      { t: 'Ab Wheel Rollout', url: 'https://en.wikipedia.org/wiki/Ab_wheel' },
+      ' — kneeling anti-extension. Keep lower back flat throughout. 3×8–12.\n• Hanging Knee Raise — hip flexion with hollow-body stabilisation. 3×10–15.\n• Cable Crunch — weighted spinal flexion. 3×12–15.\n• Side Plank with Hip Dip — dynamic lateral flexion. 3×10/side.\n• Copenhagen Plank — anti-lateral flexion targeting adductors + obliques. 3×20–30 s/side.\n\nAdvanced:\n• Hanging Leg Raise (straight legs to 90°+). 3×8–12.\n• Ab Wheel from feet — full rollout, high lumbar demand; only attempt when kneeling version is solid.\n• ',
+      { t: 'Dragon Flag', url: 'https://en.wikipedia.org/wiki/Dragon_flag' },
+      ' — whole-body anti-extension; one of the most demanding ab exercises. 3×5–8.\n• Toes to Bar — explosive anterior chain. 3×8–12.\n• Weighted Cable Crunch — add load once bodyweight version reaches 3×20.',
+    ],
+    programming: [DEFAULT_CONTENT.abs_core.programming],
+    common_mistakes: [DEFAULT_CONTENT.abs_core.common_mistakes],
   },
 
   deload: {

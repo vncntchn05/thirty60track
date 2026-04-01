@@ -9,9 +9,45 @@ type Props = {
   onClose: () => void;
 };
 
+// Preserve a stable display order for split groups.
+const SPLIT_ORDER = [
+  'Phase 1',
+  'Phase 2',
+  'Phase 3',
+  'Abs',
+  'Abs & Core',
+  'Full Body',
+  'Upper / Lower',
+  'Push / Pull / Legs',
+];
+
+function groupBySplit(templates: WorkoutTemplate[]): { split: string; items: WorkoutTemplate[] }[] {
+  const map = new Map<string, WorkoutTemplate[]>();
+  for (const tmpl of templates) {
+    const key = tmpl.split ?? 'Other';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(tmpl);
+  }
+
+  const ordered: { split: string; items: WorkoutTemplate[] }[] = [];
+  for (const split of SPLIT_ORDER) {
+    if (map.has(split)) {
+      ordered.push({ split, items: map.get(split)! });
+      map.delete(split);
+    }
+  }
+  // Append any remaining splits not in SPLIT_ORDER.
+  for (const [split, items] of map) {
+    ordered.push({ split, items });
+  }
+  return ordered;
+}
+
 export function TemplatePicker({ onSelect, onClose }: Props) {
   const t = useTheme();
   const { templates, loading, error } = useWorkoutTemplates();
+
+  const groups = groupBySplit(templates);
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
@@ -29,42 +65,49 @@ export function TemplatePicker({ onSelect, onClose }: Props) {
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll}>
-          {templates.map((tmpl) => (
-            <TouchableOpacity
-              key={tmpl.id}
-              style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}
-              onPress={() => onSelect(tmpl)}
-              activeOpacity={0.75}
-            >
-              <View style={styles.cardTop}>
-                <View style={styles.cardTopLeft}>
-                  <Text style={[styles.cardName, { color: t.textPrimary }]}>{tmpl.name}</Text>
-                </View>
-                <View style={[styles.countBadge, { backgroundColor: colors.primary + '22' }]}>
-                  <Text style={[styles.countBadgeText, { color: colors.primary }]}>
-                    {tmpl.exerciseNames.length} exercises
-                  </Text>
-                </View>
-              </View>
+          {groups.map(({ split, items }) => (
+            <View key={split}>
+              <Text style={[styles.groupHeader, { color: t.textSecondary, borderBottomColor: t.border }]}>
+                {split}
+              </Text>
+              {items.map((tmpl) => (
+                <TouchableOpacity
+                  key={tmpl.id}
+                  style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}
+                  onPress={() => onSelect(tmpl)}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.cardTop}>
+                    <View style={styles.cardTopLeft}>
+                      <Text style={[styles.cardName, { color: t.textPrimary }]}>{tmpl.name}</Text>
+                    </View>
+                    <View style={[styles.countBadge, { backgroundColor: colors.primary + '22' }]}>
+                      <Text style={[styles.countBadgeText, { color: colors.primary }]}>
+                        {tmpl.exerciseNames.length} exercises
+                      </Text>
+                    </View>
+                  </View>
 
-              <View style={styles.exerciseList}>
-                {tmpl.exerciseNames.slice(0, 5).map((name, i) => (
-                  <Text key={i} style={[styles.exerciseName, { color: t.textSecondary }]} numberOfLines={1}>
-                    {i + 1}. {name}
-                  </Text>
-                ))}
-                {tmpl.exerciseNames.length > 5 && (
-                  <Text style={[styles.exerciseName, { color: t.textSecondary }]}>
-                    +{tmpl.exerciseNames.length - 5} more…
-                  </Text>
-                )}
-              </View>
+                  <View style={styles.exerciseList}>
+                    {tmpl.exerciseNames.slice(0, 5).map((name, i) => (
+                      <Text key={i} style={[styles.exerciseName, { color: t.textSecondary }]} numberOfLines={1}>
+                        {i + 1}. {name}
+                      </Text>
+                    ))}
+                    {tmpl.exerciseNames.length > 5 && (
+                      <Text style={[styles.exerciseName, { color: t.textSecondary }]}>
+                        +{tmpl.exerciseNames.length - 5} more…
+                      </Text>
+                    )}
+                  </View>
 
-              <View style={[styles.cardFooter, { borderTopColor: t.border }]}>
-                <Text style={[styles.selectLabel, { color: colors.primary }]}>Load this template</Text>
-                <Ionicons name="arrow-forward" size={16} color={colors.primary} />
-              </View>
-            </TouchableOpacity>
+                  <View style={[styles.cardFooter, { borderTopColor: t.border }]}>
+                    <Text style={[styles.selectLabel, { color: colors.primary }]}>Load this template</Text>
+                    <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           ))}
         </ScrollView>
       )}
@@ -85,13 +128,25 @@ const styles = StyleSheet.create({
   closeBtn: { width: 32 },
   title: { ...typography.heading3, fontWeight: '700' },
 
-  scroll: { gap: spacing.xs, padding: spacing.md, paddingBottom: spacing.xxl },
+  scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
+
+  groupHeader: {
+    ...typography.label,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   errorText: { ...typography.body, textAlign: 'center', margin: spacing.xl },
 
   card: {
     borderRadius: radius.md,
     borderWidth: 1,
     overflow: 'hidden',
+    marginBottom: spacing.xs,
   },
   cardTop: {
     flexDirection: 'row',
