@@ -6,6 +6,8 @@ type DbRow = {
   id: string;
   name: string;
   exercise_names: string[];
+  split: string | null;
+  subgroup: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -15,12 +17,16 @@ function toTemplate(row: DbRow): WorkoutTemplate {
     id: row.id,
     name: row.name,
     exerciseNames: row.exercise_names,
+    split: row.split ?? undefined,
+    subgroup: row.subgroup ?? undefined,
   };
 }
 
-type TemplatePayload = {
+export type TemplatePayload = {
   name: string;
   exerciseNames: string[];
+  split?: string;
+  subgroup?: string;
 };
 
 export function useWorkoutTemplates() {
@@ -33,6 +39,8 @@ export function useWorkoutTemplates() {
     const { data, error: err } = await supabase
       .from('workout_templates')
       .select('*')
+      .order('split', { nullsFirst: false })
+      .order('subgroup', { nullsFirst: false })
       .order('name');
     if (err) setError(err.message);
     else setTemplates((data ?? []).map((r) => toTemplate(r as DbRow)));
@@ -47,12 +55,19 @@ export function useWorkoutTemplates() {
       .insert({
         name: payload.name,
         exercise_names: payload.exerciseNames,
+        split: payload.split || null,
+        subgroup: payload.subgroup || null,
       })
       .select()
       .single();
     if (!err && data) {
       setTemplates((prev) =>
-        [...prev, toTemplate(data as DbRow)].sort((a, b) => a.name.localeCompare(b.name)),
+        [...prev, toTemplate(data as DbRow)].sort((a, b) => {
+          const s = (a.split ?? '').localeCompare(b.split ?? '');
+          if (s !== 0) return s;
+          const g = (a.subgroup ?? '').localeCompare(b.subgroup ?? '');
+          return g !== 0 ? g : a.name.localeCompare(b.name);
+        }),
       );
     }
     return { error: err?.message ?? null };
@@ -64,6 +79,8 @@ export function useWorkoutTemplates() {
       .update({
         name: payload.name,
         exercise_names: payload.exerciseNames,
+        split: payload.split || null,
+        subgroup: payload.subgroup || null,
       })
       .eq('id', id);
     if (!err) await refetch();

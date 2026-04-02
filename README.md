@@ -110,9 +110,16 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] **Cross-trainer access** — all trainers can view, edit, and complete any client's assigned workouts (migration 016 broadened RLS from per-trainer to any-authenticated-trainer)
 
 ### Workout Templates
-Templates are stored in the database and fully editable from within the app (via the Exercise Library tab → Edit Templates). The app ships with 16 pre-built templates sourced from the Thirty60 program library: Push Focus, Pull Focus, Stability, Lateral/Total, Shoulder Focus, Agility/Total, Chest/Push, Back/Pull, Total Body, and Abs Variations A–D.
+Templates are stored in the database and fully editable from within the app (via the Exercise Library tab → Edit Templates). The app ships with 32 pre-built templates sourced from the Thirty60 program library, organised into a two-level hierarchy:
 
-Templates are displayed as a flat list (no phase grouping). They are matched to live exercises in the database when loading a workout. Any unmatched exercises are listed so they can be added manually. Trainers can create, rename, reorder exercises in, and delete templates at any time.
+| Split | Subgroups | Templates |
+|---|---|---|
+| Full Body | Standard, Phase 1, Phase 2, Phase 3 | Total Body, Stability, Lateral/Total, Agility/Total, and Phase 1–3 progressions |
+| Upper / Lower | Upper, Lower | Push/pull upper sessions and squat/hinge lower sessions |
+| Push / Pull / Legs | Push, Pull, Legs | Push Focus, Chest/Push, Pull Focus, Back/Pull, and leg-day variants |
+| Abs & Core | Core Fundamentals, Ab Circuits | Tiered core work (beginner → intermediate → advanced) and Abs Variations A–D |
+
+Templates are displayed grouped by split and subgroup in both the picker and the editor. They are matched to live exercises in the database when loading a workout. Any unmatched exercises are listed so they can be added manually. Trainers can create, rename, reorder exercises in, and delete templates at any time; each template carries a `split` and `subgroup` field that controls where it appears in the grouped list.
 
 ### Exercise Library
 - [x] Shared exercise library (150+ exercises seeded across all muscle groups)
@@ -134,7 +141,7 @@ Templates are displayed as a flat list (no phase grouping). They are matched to 
 - [x] **DB variant tabs** — 74 exercises with multiple free-exercise-db equivalents (e.g. Bench Press has 16: Powerlifting, With Bands, With Chains, Close-Grip, Decline, Smith Machine…) show a horizontal scrollable chip row above the images; tapping a variant chip swaps the images to that variant; all 239 variant slugs verified on disk
 - [x] **Approximation disclaimer** — 61 exercises that have no direct DB equivalent (custom combos, trainer-named variants, etc.) show an italic disclaimer beneath the images when no specific variant is selected
 - [x] **Client read-only exercise library** — clients can browse the Exercises tab (positioned between Workouts and Progress in the client tab bar) and open exercise detail pages, but cannot add exercises, import from DB, edit form notes, equipment, or tutorial URL, or use the Edit Templates FAB; all edit controls are hidden and fields render as plain text
-- [x] **Workout Guides** — third tab ("Guides") in the exercise library right-column tab bar; 9 beginner-friendly guide topics (Getting Started, Full Body, Upper/Lower, Push/Pull/Legs, Exercise Selection, Progressive Overload, Sets/Reps/Intensity, Warm-Up & Cool-Down, Deload Weeks); each topic has 4 richly written sections with inline Wikipedia and PubMed hyperlinks; trainers can edit any section in-app (saved to Supabase; overrides shown to clients with "customised by your trainer" note); body map integration — selecting a muscle on the body map shows a spotlight callout indicating which split day trains that muscle and its primary exercises
+- [x] **Workout Guides** — third tab ("Guides") in the exercise library right-column tab bar; 10 beginner-friendly guide topics (Getting Started, Full Body, Upper/Lower, Push/Pull/Legs, Exercise Selection, Progressive Overload, Sets/Reps/Intensity, Warm-Up & Cool-Down, Deload Weeks, Abs & Core); each topic has 4 richly written sections with inline Wikipedia and PubMed hyperlinks; trainers can edit any section in-app (saved to Supabase; overrides shown to clients with "customised by your trainer" note); body map integration — selecting a muscle on the body map shows a spotlight callout indicating which split day trains that muscle and its primary exercises
 
 ### Client Portal
 
@@ -235,7 +242,7 @@ client_intake               — one row per client; full intake form data (healt
 workouts                    — one session per client per date; stores optional body metrics + logged_by_role/user_id
 workout_sets                — one row per set (reps, weight_kg, duration_seconds, notes, superset_group)
 exercises                   — shared library; authenticated read + insert; `equipment` column (Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other / NULL)
-workout_templates           — editable program templates stored in DB; authenticated CRUD
+workout_templates           — editable program templates stored in DB; authenticated CRUD; `split TEXT` + `subgroup TEXT` columns group templates into a two-level hierarchy in the picker and editor
 client_media                — image/video metadata per client (storage_path, media_type, taken_at, notes)
 assigned_workouts           — trainer-assigned workout prescriptions per client (title, scheduled_date, status)
 assigned_workout_exercises  — exercises within an assigned workout (exercise_id, order_index, superset_group)
@@ -449,7 +456,9 @@ Run these in order in the **Supabase SQL Editor**:
 - **016** — broadens assigned workout RLS from per-trainer (`trainer_id = auth.uid()`) to any authenticated trainer (`EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid())`); enables cross-trainer collaboration on client assigned workouts
 - **017** — `link_client_to_auth_user()` SECURITY DEFINER function; resolves the RLS catch-22 where a newly signed-up client cannot update their own `auth_user_id` (the UPDATE policy requires `auth.uid() = auth_user_id` which is always false when the column is NULL); the function looks up the caller's email from `auth.users`, finds the matching unlinked client row, and writes `auth_user_id = auth.uid()` with elevated privileges
 - **018** — populates `form_notes` for all 100 seeded exercises with detailed coaching cues (setup, execution, common cues per exercise)
-- **019** — adds `equipment TEXT` column to `exercises`; classifies all 100 seeded exercises (Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other)
+- **015** — adds `equipment TEXT` column to `exercises`; classifies all 100 seeded exercises (Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other)
+- **019** — adds `split TEXT` column to `workout_templates`; drops `UNIQUE(name)` and replaces with `UNIQUE(name, split)`; backfills all 32 seeded templates with their correct split label (Full Body / Upper / Lower / Push / Pull / Legs / Abs & Core)
+- **020** — adds `subgroup TEXT` column to `workout_templates`; re-homes Phase 1/2/3 templates under Full Body with phase subgroups; merges old Abs split into Abs & Core; backfills all subgroup labels by name pattern
 - **016b** (scheduling) — `trainer_availability` (recurring weekly + specific-date slots; free-form start/end times; `day_of_week` nullable with CHECK constraint ensuring exactly one of `day_of_week` / `specific_date` is set); `scheduled_sessions` (status: `pending | confirmed | completed | cancelled`; `confirmed_at`, `cancelled_at`, `cancelled_by`); `client_credits` (balance per client); `credit_transactions` (ledger with reason: `grant | session_deduct | session_refund`); RLS for both trainers and clients on all four tables
 - **Recipes** — `recipes` table (name, description, client_id, trainer_id); `recipe_ingredients` table (food_name, usda_food_id, weight_g, per-100g macro columns, sort_order; cascades on recipe delete); RLS for both trainer (`trainer_id = auth.uid()`) and client (`client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())`)
 - **Workout Guides** — `workout_guides` table (topic, section_key, content, updated_at; UNIQUE on topic+section_key); read policy for all authenticated users; write policy restricted to trainers (`EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid())`)

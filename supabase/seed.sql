@@ -179,95 +179,72 @@ INSERT INTO exercises (name, muscle_group, category) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- ─── Workout Templates ────────────────────────────────────────────
--- Run AFTER Migration 004 (workout_templates table) has been applied.
--- Migration 015 dropped the phase and category columns.
--- Template names that were duplicated across phases get a suffix per that migration.
-INSERT INTO workout_templates (name, exercise_names) VALUES
-  -- Phase 1
-  ('Workout A: Push Focus', ARRAY[
-    'Air Squat', 'Glute Bridge', 'Incline Push-up', 'Floor Press + Mod Push-up',
-    'Dips', 'Plank (Variations)', 'Mountain Climbers + Air Squats', 'Cobra Stretch',
-    'Bear Crawl', 'Glute Bridge Hold'
+-- Run AFTER Migration 020 (subgroup column) has been applied.
+-- Templates use a two-level hierarchy: split → subgroup.
+-- Unique constraint is (name, split).
+INSERT INTO workout_templates (name, split, subgroup, exercise_names) VALUES
+
+  -- ── Full Body / Standard (guide-based 3-day sessions) ─────────
+  ('Session A: Full Body', 'Full Body', 'Standard', ARRAY[
+    'Back Squat', 'Bench Press', 'Bent-Over Row', 'Overhead Press', 'Plank'
   ]),
-  ('Workout B: Pull Focus', ARRAY[
-    'Reverse Lunge', 'Single-Leg Reach (Bulg Squat)', 'Pull up/Lat Pulldown',
-    'Mid Row', 'RDL', 'Cable Pullover', 'Towel Curls', 'Hammer Curl',
-    'Bear Crawl', 'Glute Bridge (Pulsing)'
+  ('Session B: Full Body', 'Full Body', 'Standard', ARRAY[
+    'Goblet Squat', 'Romanian Deadlift', 'Incline Dumbbell Press', 'Lat Pulldown', 'Dead Bug'
   ]),
-  ('Workout C: Stability', ARRAY[
-    'Box Squat', 'Step-ups/Weighted', 'Landmine', 'Squat Press (DB/Bar)',
-    'Cable Squat Row', 'Cable Torso Rotations', 'Scapular Push-ups',
-    'Scapular Pull-up', 'Plank Taps', 'BW Back Extensions'
+  ('Session C: Full Body', 'Full Body', 'Standard', ARRAY[
+    'Deadlift', 'Front Squat', 'Push-Up', 'Cable Row', 'Pallof Press'
   ]),
-  ('Workout D: Lateral/Total', ARRAY[
-    'Lateral Lunge', 'Wall Sit', 'Plank-to-Pushup', 'Box Jump',
-    'Side Planks', 'Ball Squat Toss', 'Single-Leg Step-Up', 'Hip Circles',
-    'Mountain Climbers', 'In-Out Jumping Jacks'
-  ]),
-  -- Phase 2 (conflicting names suffixed with " (P2)" per Migration 015)
-  ('Workout A: Push Focus (P2)', ARRAY[
-    'Skater Jumps', 'Jump Squats', 'Tempo Push-ups', 'Chest Pass (Med Ball)',
-    'Plank Jacks', 'Flutter Kicks', 'T-Pushups', 'High Knees (s)',
-    'Box Jump', 'Deadbug (Weighted)'
-  ]),
-  ('Workout B: Pull Focus (P2)', ARRAY[
-    'Box Step-ups', 'Walking Lunges', 'Chin-up Negatives', 'Med Ball Slams',
-    'Mountain Climbers', 'Bicycle Crunches', 'Cable Face Pulls', 'Butt Kicks (s)',
-    'Single-Leg Hops', 'Plank (Weighted)'
-  ]),
-  ('Workout C: Shoulder Focus', ARRAY[
-    'Rope Ladder Broad Jumps', 'Lateral Bounds', 'Med Ball Overhead Hold',
-    'Wall Balls', 'Russian Twists', 'Static Squat Cable Torso Rotations',
-    'Pike Push-ups', 'Jumping Jacks (s)', 'Pilates Squat + Squat', 'Side Plank Dips'
-  ]),
-  ('Workout D: Agility/Total', ARRAY[
-    'Shuttle Runs (yd)', 'Speed Skaters', 'V-Ups/Knee Raises', 'Burpees',
-    'Spiderman Push-ups', 'Plank with Knee-to-Elbow', 'Mountain Climber Burpee',
-    'Ice Skater Steps', 'Squat Thrusts', 'Deadlift'
-  ]),
-  -- Phase 3
-  ('Workout A: Chest/Push', ARRAY[
-    'DB Goblet Squat', 'RDL (Dumbbells)', 'DB Bench Press', 'DB Incline Press',
-    'Deadbug (Weighted)', 'Pallof Press', 'Dips/Band Flyes', 'Inchworm Push-Up',
-    'Calf Raise', 'Weighted Sit-up'
-  ]),
-  ('Workout B: Back/Pull', ARRAY[
-    'DB Split Squat', 'Leg Press + Leg Machines', 'Lat Pulldown', 'Seated Cable Row',
-    'Cable Woodchops', 'Plank with Row', 'Cable Face Pulls', 'Bicep Curls',
-    'Single-Leg Bridge', 'Reverse Crunch'
-  ]),
-  ('Workout C: Shoulders', ARRAY[
-    'KB Deadlift', 'Hamstring Curl', 'DB Overhead Press', 'Cable/Band Lateral Raise',
-    'Hanging Leg Raises', 'Landmine Rotation', 'Burpee DB Press',
-    'Diamond + Wide Pushups', 'Wall Sits (Weighted)', 'Windshields/Alternate Knee Raises'
-  ]),
-  ('Workout D: Total Body', ARRAY[
-    'DB Step-ups', 'Goblet Lateral Lunge', 'DB Renegade Row', 'Push-up (Weighted)',
-    'Medicine Ball Rotational Toss', 'Suitcase Carry (L/R)', 'Hammer Curl',
-    'Box Dips (Assist)', 'Lunge with Twist', 'Farmer''s Walk'
-  ]),
-  -- Abs
-  ('Abs: Variation A', ARRAY[
-    'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises',
-    'Plank', 'Plank Shoulder Taps', 'Deadbugs', 'Plank In and Outs',
-    'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps', 'V-Ups'
-  ]),
-  ('Abs: Variation B', ARRAY[
-    'V-Ups', 'Toe Taps', 'Knee to Elbows', 'Decline Russian Twists',
-    'Plank In and Outs', 'Deadbugs', 'Plank Shoulder Taps', 'Plank',
-    'Knee/Leg Raises', 'Single Leg Decline', 'Teapots', 'Center Decline'
-  ]),
-  ('Abs: Variation C', ARRAY[
-    'Plank', 'Deadbugs', 'V-Ups', 'Center Decline', 'Teapots',
-    'Single Leg Decline', 'Knee/Leg Raises', 'Plank Shoulder Taps',
-    'Plank In and Outs', 'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps'
-  ]),
-  ('Abs: Variation D', ARRAY[
-    'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps', 'V-Ups',
-    'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises',
-    'Plank', 'Plank Shoulder Taps', 'Deadbugs', 'Plank In and Outs'
-  ])
-ON CONFLICT (name) DO NOTHING;
+
+  -- ── Full Body / Phase 1 ───────────────────────────────────────
+  ('Workout A: Push Focus',   'Full Body', 'Phase 1', ARRAY['Air Squat', 'Glute Bridge', 'Incline Push-up', 'Floor Press + Mod Push-up', 'Dips', 'Plank (Variations)', 'Mountain Climbers + Air Squats', 'Cobra Stretch', 'Bear Crawl', 'Glute Bridge Hold']),
+  ('Workout B: Pull Focus',   'Full Body', 'Phase 1', ARRAY['Reverse Lunge', 'Single-Leg Reach (Bulg Squat)', 'Pull up/Lat Pulldown', 'Mid Row', 'RDL', 'Cable Pullover', 'Towel Curls', 'Hammer Curl', 'Bear Crawl', 'Glute Bridge (Pulsing)']),
+  ('Workout C: Stability',    'Full Body', 'Phase 1', ARRAY['Box Squat', 'Step-ups/Weighted', 'Landmine', 'Squat Press (DB/Bar)', 'Cable Squat Row', 'Cable Torso Rotations', 'Scapular Push-ups', 'Scapular Pull-up', 'Plank Taps', 'BW Back Extensions']),
+  ('Workout D: Lateral/Total','Full Body', 'Phase 1', ARRAY['Lateral Lunge', 'Wall Sit', 'Plank-to-Pushup', 'Box Jump', 'Side Planks', 'Ball Squat Toss', 'Single-Leg Step-Up', 'Hip Circles', 'Mountain Climbers', 'In-Out Jumping Jacks']),
+
+  -- ── Full Body / Phase 2 ───────────────────────────────────────
+  ('Workout A: Push Focus (P2)',    'Full Body', 'Phase 2', ARRAY['Skater Jumps', 'Jump Squats', 'Tempo Push-ups', 'Chest Pass (Med Ball)', 'Plank Jacks', 'Flutter Kicks', 'T-Pushups', 'High Knees (s)', 'Box Jump', 'Deadbug (Weighted)']),
+  ('Workout B: Pull Focus (P2)',    'Full Body', 'Phase 2', ARRAY['Box Step-ups', 'Walking Lunges', 'Chin-up Negatives', 'Med Ball Slams', 'Mountain Climbers', 'Bicycle Crunches', 'Cable Face Pulls', 'Butt Kicks (s)', 'Single-Leg Hops', 'Plank (Weighted)']),
+  ('Workout C: Shoulder Focus',     'Full Body', 'Phase 2', ARRAY['Rope Ladder Broad Jumps', 'Lateral Bounds', 'Med Ball Overhead Hold', 'Wall Balls', 'Russian Twists', 'Static Squat Cable Torso Rotations', 'Pike Push-ups', 'Jumping Jacks (s)', 'Pilates Squat + Squat', 'Side Plank Dips']),
+  ('Workout D: Agility/Total',      'Full Body', 'Phase 2', ARRAY['Shuttle Runs (yd)', 'Speed Skaters', 'V-Ups/Knee Raises', 'Burpees', 'Spiderman Push-ups', 'Plank with Knee-to-Elbow', 'Mountain Climber Burpee', 'Ice Skater Steps', 'Squat Thrusts', 'Deadlift']),
+
+  -- ── Full Body / Phase 3 ───────────────────────────────────────
+  ('Workout A: Chest/Push',  'Full Body', 'Phase 3', ARRAY['DB Goblet Squat', 'RDL (Dumbbells)', 'DB Bench Press', 'DB Incline Press', 'Deadbug (Weighted)', 'Pallof Press', 'Dips/Band Flyes', 'Inchworm Push-Up', 'Calf Raise', 'Weighted Sit-up']),
+  ('Workout B: Back/Pull',   'Full Body', 'Phase 3', ARRAY['DB Split Squat', 'Leg Press + Leg Machines', 'Lat Pulldown', 'Seated Cable Row', 'Cable Woodchops', 'Plank with Row', 'Cable Face Pulls', 'Bicep Curls', 'Single-Leg Bridge', 'Reverse Crunch']),
+  ('Workout C: Shoulders',   'Full Body', 'Phase 3', ARRAY['KB Deadlift', 'Hamstring Curl', 'DB Overhead Press', 'Cable/Band Lateral Raise', 'Hanging Leg Raises', 'Landmine Rotation', 'Burpee DB Press', 'Diamond + Wide Pushups', 'Wall Sits (Weighted)', 'Windshields/Alternate Knee Raises']),
+  ('Workout D: Total Body',  'Full Body', 'Phase 3', ARRAY['DB Step-ups', 'Goblet Lateral Lunge', 'DB Renegade Row', 'Push-up (Weighted)', 'Medicine Ball Rotational Toss', 'Suitcase Carry (L/R)', 'Hammer Curl', 'Box Dips (Assist)', 'Lunge with Twist', 'Farmer''s Walk']),
+
+  -- ── Upper / Lower / Upper ─────────────────────────────────────
+  ('Upper A: Strength', 'Upper / Lower', 'Upper', ARRAY['Bench Press', 'Barbell Row', 'Overhead Press', 'Lat Pulldown', 'Barbell Curl', 'Tricep Pushdown']),
+  ('Upper B: Volume',   'Upper / Lower', 'Upper', ARRAY['Incline Dumbbell Press', 'Cable Row', 'Dumbbell Shoulder Press', 'Chest-Supported Row', 'Hammer Curl', 'Overhead Tricep Extension']),
+
+  -- ── Upper / Lower / Lower ─────────────────────────────────────
+  ('Lower A: Strength', 'Upper / Lower', 'Lower', ARRAY['Barbell Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl', 'Calf Raise']),
+  ('Lower B: Volume',   'Upper / Lower', 'Lower', ARRAY['Deadlift', 'Bulgarian Split Squat', 'Leg Press', 'Leg Curl', 'Hip Thrust']),
+
+  -- ── Push / Pull / Legs / Push ─────────────────────────────────
+  ('Push Day 1', 'Push / Pull / Legs', 'Push', ARRAY['Bench Press', 'Overhead Press', 'Incline Dumbbell Press', 'Cable Lateral Raise', 'Tricep Pushdown', 'Overhead Tricep Extension']),
+  ('Push Day 2', 'Push / Pull / Legs', 'Push', ARRAY['Overhead Press', 'Incline Dumbbell Press', 'Dips', 'Cable Fly', 'Cable Lateral Raise', 'Tricep Rope Pushdown']),
+
+  -- ── Push / Pull / Legs / Pull ─────────────────────────────────
+  ('Pull Day 1', 'Push / Pull / Legs', 'Pull', ARRAY['Barbell Row', 'Lat Pulldown', 'Cable Row', 'Face Pull', 'Barbell Curl', 'Hammer Curl']),
+  ('Pull Day 2', 'Push / Pull / Legs', 'Pull', ARRAY['Deadlift', 'Lat Pulldown', 'Chest-Supported Row', 'Face Pull', 'Hammer Curl', 'Cable Row']),
+
+  -- ── Push / Pull / Legs / Legs ─────────────────────────────────
+  ('Legs Day 1', 'Push / Pull / Legs', 'Legs', ARRAY['Barbell Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl', 'Calf Raise', 'Plank', 'Hanging Leg Raise']),
+  ('Legs Day 2', 'Push / Pull / Legs', 'Legs', ARRAY['Front Squat', 'Romanian Deadlift', 'Bulgarian Split Squat', 'Leg Curl', 'Hip Thrust', 'Calf Raise', 'Ab Wheel Rollout']),
+
+  -- ── Abs & Core / Core Fundamentals ───────────────────────────
+  ('Core: Beginner',      'Abs & Core', 'Core Fundamentals', ARRAY['Plank', 'Dead Bug', 'Bird Dog', 'Pallof Press', 'Glute Bridge', 'Side Plank']),
+  ('Core: Intermediate',  'Abs & Core', 'Core Fundamentals', ARRAY['Ab Wheel Rollout', 'Hanging Knee Raise', 'Cable Crunch', 'Side Plank with Hip Dip', 'Copenhagen Plank', 'Pallof Press']),
+  ('Core: Advanced',      'Abs & Core', 'Core Fundamentals', ARRAY['Hanging Leg Raise', 'Ab Wheel Rollout', 'Dragon Flag', 'Weighted Cable Crunch', 'Toes to Bar', 'L-Sit Hold']),
+
+  -- ── Abs & Core / Ab Circuits ─────────────────────────────────
+  ('Abs: Variation A', 'Abs & Core', 'Ab Circuits', ARRAY['Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises', 'Plank', 'Plank Shoulder Taps', 'Deadbugs', 'Plank In and Outs', 'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps', 'V-Ups']),
+  ('Abs: Variation B', 'Abs & Core', 'Ab Circuits', ARRAY['V-Ups', 'Toe Taps', 'Knee to Elbows', 'Decline Russian Twists', 'Plank In and Outs', 'Deadbugs', 'Plank Shoulder Taps', 'Plank', 'Knee/Leg Raises', 'Single Leg Decline', 'Teapots', 'Center Decline']),
+  ('Abs: Variation C', 'Abs & Core', 'Ab Circuits', ARRAY['Plank', 'Deadbugs', 'V-Ups', 'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises', 'Plank Shoulder Taps', 'Plank In and Outs', 'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps']),
+  ('Abs: Variation D', 'Abs & Core', 'Ab Circuits', ARRAY['Decline Russian Twists', 'Knee to Elbows', 'Toe Taps', 'V-Ups', 'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises', 'Plank', 'Plank Shoulder Taps', 'Deadbugs', 'Plank In and Outs'])
+
+ON CONFLICT (name, split) DO NOTHING;
 
 -- ─── Migration: backfill missing muscle_group values ──────────────
 -- Run this in the Supabase SQL editor to fix existing rows.

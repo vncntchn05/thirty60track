@@ -1310,3 +1310,68 @@ CREATE POLICY "guides_trainer_all" ON workout_guides
   FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()))
   WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+-- ============================================================
+-- Migration 019 — workout_templates: add split column
+-- Restores grouping support (previously "phase"), now named
+-- "split" to align with Full Body / Upper-Lower / PPL etc.
+-- ============================================================
+
+ALTER TABLE workout_templates ADD COLUMN IF NOT EXISTS split TEXT;
+
+-- Drop the plain name unique constraint and replace with
+-- (name, split) so the same template name can exist in
+-- different splits (mirrors the original phase behaviour).
+ALTER TABLE workout_templates DROP CONSTRAINT IF EXISTS workout_templates_name_key;
+ALTER TABLE workout_templates ADD CONSTRAINT workout_templates_name_split_key
+  UNIQUE (name, split);
+
+-- ── Backfill: assign splits to existing rows ──────────────────────
+UPDATE workout_templates SET split = 'Phase 1' WHERE name IN (
+  'Workout A: Push Focus', 'Workout B: Pull Focus',
+  'Workout C: Stability', 'Workout D: Lateral/Total'
+);
+UPDATE workout_templates SET split = 'Phase 2' WHERE name IN (
+  'Workout A: Push Focus (P2)', 'Workout B: Pull Focus (P2)',
+  'Workout C: Shoulder Focus', 'Workout D: Agility/Total'
+);
+UPDATE workout_templates SET split = 'Phase 3' WHERE name IN (
+  'Workout A: Chest/Push', 'Workout B: Back/Pull',
+  'Workout C: Shoulders', 'Workout D: Total Body'
+);
+UPDATE workout_templates SET split = 'Abs'
+  WHERE name LIKE 'Abs: Variation %';
+UPDATE workout_templates SET split = 'Abs & Core' WHERE name IN (
+  'Core: Beginner', 'Core: Intermediate', 'Core: Advanced'
+);
+UPDATE workout_templates SET split = 'Full Body' WHERE name IN (
+  'Session A: Full Body', 'Session B: Full Body', 'Session C: Full Body'
+);
+UPDATE workout_templates SET split = 'Upper / Lower' WHERE name IN (
+  'Upper A: Strength', 'Lower A: Strength', 'Upper B: Volume', 'Lower B: Volume'
+);
+UPDATE workout_templates SET split = 'Push / Pull / Legs' WHERE name IN (
+  'Push Day 1', 'Pull Day 1', 'Legs Day 1',
+  'Push Day 2', 'Pull Day 2', 'Legs Day 2'
+);
+
+-- ============================================================
+-- Migration 020 — workout_templates: add subgroup column
+-- Introduces a second grouping level within each split.
+-- Phases are re-homed into Full Body with subgroup labels;
+-- old Abs split is merged into Abs & Core.
+-- ============================================================
+
+ALTER TABLE workout_templates ADD COLUMN IF NOT EXISTS subgroup TEXT;
+
+UPDATE workout_templates SET split = 'Full Body', subgroup = 'Phase 1' WHERE split = 'Phase 1';
+UPDATE workout_templates SET split = 'Full Body', subgroup = 'Phase 2' WHERE split = 'Phase 2';
+UPDATE workout_templates SET split = 'Full Body', subgroup = 'Phase 3' WHERE split = 'Phase 3';
+UPDATE workout_templates SET split = 'Abs & Core', subgroup = 'Ab Circuits' WHERE split = 'Abs';
+UPDATE workout_templates SET subgroup = 'Standard'         WHERE split = 'Full Body'          AND subgroup IS NULL;
+UPDATE workout_templates SET subgroup = 'Upper'            WHERE split = 'Upper / Lower'      AND name LIKE 'Upper%';
+UPDATE workout_templates SET subgroup = 'Lower'            WHERE split = 'Upper / Lower'      AND name LIKE 'Lower%';
+UPDATE workout_templates SET subgroup = 'Push'             WHERE split = 'Push / Pull / Legs' AND name LIKE 'Push%';
+UPDATE workout_templates SET subgroup = 'Pull'             WHERE split = 'Push / Pull / Legs' AND name LIKE 'Pull%';
+UPDATE workout_templates SET subgroup = 'Legs'             WHERE split = 'Push / Pull / Legs' AND name LIKE 'Legs%';
+UPDATE workout_templates SET subgroup = 'Core Fundamentals'WHERE split = 'Abs & Core'         AND name LIKE 'Core:%';

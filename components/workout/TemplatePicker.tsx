@@ -9,45 +9,73 @@ type Props = {
   onClose: () => void;
 };
 
-// Preserve a stable display order for split groups.
+// ─── Display ordering ────────────────────────────────────────
+
 const SPLIT_ORDER = [
-  'Phase 1',
-  'Phase 2',
-  'Phase 3',
-  'Abs',
-  'Abs & Core',
   'Full Body',
   'Upper / Lower',
   'Push / Pull / Legs',
+  'Abs & Core',
 ];
 
-function groupBySplit(templates: WorkoutTemplate[]): { split: string; items: WorkoutTemplate[] }[] {
-  const map = new Map<string, WorkoutTemplate[]>();
+const SUBGROUP_ORDER: Record<string, string[]> = {
+  'Full Body':          ['Standard', 'Phase 1', 'Phase 2', 'Phase 3'],
+  'Upper / Lower':      ['Upper', 'Lower'],
+  'Push / Pull / Legs': ['Push', 'Pull', 'Legs'],
+  'Abs & Core':         ['Core Fundamentals', 'Ab Circuits'],
+};
+
+// ─── Two-level grouping ───────────────────────────────────────
+
+type SubgroupEntry = { subgroup: string; items: WorkoutTemplate[] };
+type SplitEntry    = { split: string; subgroups: SubgroupEntry[] };
+
+function groupTemplates(templates: WorkoutTemplate[]): SplitEntry[] {
+  // Build nested map: split → subgroup → items
+  const map = new Map<string, Map<string, WorkoutTemplate[]>>();
   for (const tmpl of templates) {
-    const key = tmpl.split ?? 'Other';
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(tmpl);
+    const s = tmpl.split    ?? 'Other';
+    const g = tmpl.subgroup ?? '';
+    if (!map.has(s)) map.set(s, new Map());
+    const inner = map.get(s)!;
+    if (!inner.has(g)) inner.set(g, []);
+    inner.get(g)!.push(tmpl);
   }
 
-  const ordered: { split: string; items: WorkoutTemplate[] }[] = [];
+  function orderedSubgroups(split: string, inner: Map<string, WorkoutTemplate[]>): SubgroupEntry[] {
+    const order = SUBGROUP_ORDER[split] ?? [];
+    const result: SubgroupEntry[] = [];
+    for (const g of order) {
+      if (inner.has(g)) result.push({ subgroup: g, items: inner.get(g)! });
+    }
+    // Append any subgroups not in SUBGROUP_ORDER
+    for (const [g, items] of inner) {
+      if (!order.includes(g)) result.push({ subgroup: g, items });
+    }
+    return result;
+  }
+
+  const result: SplitEntry[] = [];
   for (const split of SPLIT_ORDER) {
     if (map.has(split)) {
-      ordered.push({ split, items: map.get(split)! });
+      result.push({ split, subgroups: orderedSubgroups(split, map.get(split)!) });
       map.delete(split);
     }
   }
-  // Append any remaining splits not in SPLIT_ORDER.
-  for (const [split, items] of map) {
-    ordered.push({ split, items });
+  // Append splits not in SPLIT_ORDER
+  for (const [split, inner] of map) {
+    result.push({ split, subgroups: orderedSubgroups(split, inner) });
   }
-  return ordered;
+  return result;
 }
+
+// ─── Component ────────────────────────────────────────────────
 
 export function TemplatePicker({ onSelect, onClose }: Props) {
   const t = useTheme();
   const { templates, loading, error } = useWorkoutTemplates();
 
-  const groups = groupBySplit(templates);
+  const groups = groupTemplates(templates);
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
@@ -65,47 +93,58 @@ export function TemplatePicker({ onSelect, onClose }: Props) {
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll}>
-          {groups.map(({ split, items }) => (
-            <View key={split}>
-              <Text style={[styles.groupHeader, { color: t.textSecondary, borderBottomColor: t.border }]}>
+          {groups.map(({ split, subgroups }) => (
+            <View key={split} style={styles.splitSection}>
+              <Text style={[styles.splitHeader, { color: t.textPrimary, borderBottomColor: t.border }]}>
                 {split}
               </Text>
-              {items.map((tmpl) => (
-                <TouchableOpacity
-                  key={tmpl.id}
-                  style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}
-                  onPress={() => onSelect(tmpl)}
-                  activeOpacity={0.75}
-                >
-                  <View style={styles.cardTop}>
-                    <View style={styles.cardTopLeft}>
-                      <Text style={[styles.cardName, { color: t.textPrimary }]}>{tmpl.name}</Text>
-                    </View>
-                    <View style={[styles.countBadge, { backgroundColor: colors.primary + '22' }]}>
-                      <Text style={[styles.countBadgeText, { color: colors.primary }]}>
-                        {tmpl.exerciseNames.length} exercises
-                      </Text>
-                    </View>
-                  </View>
 
-                  <View style={styles.exerciseList}>
-                    {tmpl.exerciseNames.slice(0, 5).map((name, i) => (
-                      <Text key={i} style={[styles.exerciseName, { color: t.textSecondary }]} numberOfLines={1}>
-                        {i + 1}. {name}
-                      </Text>
-                    ))}
-                    {tmpl.exerciseNames.length > 5 && (
-                      <Text style={[styles.exerciseName, { color: t.textSecondary }]}>
-                        +{tmpl.exerciseNames.length - 5} more…
-                      </Text>
-                    )}
-                  </View>
+              {subgroups.map(({ subgroup, items }) => (
+                <View key={subgroup} style={styles.subgroupSection}>
+                  {subgroup !== '' && (
+                    <Text style={[styles.subgroupHeader, { color: t.textSecondary }]}>
+                      {subgroup}
+                    </Text>
+                  )}
 
-                  <View style={[styles.cardFooter, { borderTopColor: t.border }]}>
-                    <Text style={[styles.selectLabel, { color: colors.primary }]}>Load this template</Text>
-                    <Ionicons name="arrow-forward" size={16} color={colors.primary} />
-                  </View>
-                </TouchableOpacity>
+                  {items.map((tmpl) => (
+                    <TouchableOpacity
+                      key={tmpl.id}
+                      style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}
+                      onPress={() => onSelect(tmpl)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.cardTop}>
+                        <View style={styles.cardTopLeft}>
+                          <Text style={[styles.cardName, { color: t.textPrimary }]}>{tmpl.name}</Text>
+                        </View>
+                        <View style={[styles.countBadge, { backgroundColor: colors.primary + '22' }]}>
+                          <Text style={[styles.countBadgeText, { color: colors.primary }]}>
+                            {tmpl.exerciseNames.length} exercises
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.exerciseList}>
+                        {tmpl.exerciseNames.slice(0, 5).map((name, i) => (
+                          <Text key={i} style={[styles.exerciseName, { color: t.textSecondary }]} numberOfLines={1}>
+                            {i + 1}. {name}
+                          </Text>
+                        ))}
+                        {tmpl.exerciseNames.length > 5 && (
+                          <Text style={[styles.exerciseName, { color: t.textSecondary }]}>
+                            +{tmpl.exerciseNames.length - 5} more…
+                          </Text>
+                        )}
+                      </View>
+
+                      <View style={[styles.cardFooter, { borderTopColor: t.border }]}>
+                        <Text style={[styles.selectLabel, { color: colors.primary }]}>Load this template</Text>
+                        <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               ))}
             </View>
           ))}
@@ -129,18 +168,26 @@ const styles = StyleSheet.create({
   title: { ...typography.heading3, fontWeight: '700' },
 
   scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
-
-  groupHeader: {
-    ...typography.label,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
   errorText: { ...typography.body, textAlign: 'center', margin: spacing.xl },
+
+  splitSection: { marginBottom: spacing.lg },
+  splitHeader: {
+    ...typography.heading3,
+    fontWeight: '700',
+    paddingBottom: spacing.xs,
+    marginBottom: spacing.sm,
+    borderBottomWidth: 1,
+  },
+
+  subgroupSection: { marginBottom: spacing.sm },
+  subgroupHeader: {
+    ...typography.label,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: spacing.xs,
+    paddingLeft: 2,
+  },
 
   card: {
     borderRadius: radius.md,
