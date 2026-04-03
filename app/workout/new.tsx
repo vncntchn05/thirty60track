@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, StyleSheet, ActivityIndicator, Alert, BackHandler,
+  ScrollView, StyleSheet, ActivityIndicator, Alert, BackHandler, Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,9 +13,104 @@ import { createAssignedWorkout } from '@/hooks/useAssignedWorkouts';
 import { useExercises } from '@/hooks/useExercises';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/lib/auth';
+import { useClientIntake } from '@/hooks/useClientIntake';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Exercise } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
+
+// ─── Injury contraindication rules ───────────────────────────────
+type ContraindicationRule = {
+  injuryKeywords: string[];
+  exerciseKeywords: string[];
+  label: string;
+};
+
+const CONTRAINDICATION_RULES: ContraindicationRule[] = [
+  {
+    injuryKeywords: ['knee', 'patellar', 'meniscus', 'acl', 'mcl', 'pcl', 'patella'],
+    exerciseKeywords: ['squat', 'lunge', 'jump', 'box', 'step-up', 'split squat', 'leg press', 'leg extension', 'skater', 'run', 'sprint', 'plyometric'],
+    label: 'knee',
+  },
+  {
+    injuryKeywords: ['shoulder', 'rotator', 'cuff', 'impingement', 'labrum', 'ac joint'],
+    exerciseKeywords: ['press', 'fly', 'overhead', 'lateral raise', 'front raise', 'dip', 'pull-up', 'pullup', 'pulldown', 'row', 'upright'],
+    label: 'shoulder',
+  },
+  {
+    injuryKeywords: ['lower back', 'lumbar', 'disc', 'herniated', 'sciatica', 'spondyl'],
+    exerciseKeywords: ['deadlift', 'row', 'squat', 'good morning', 'hyperextension', 'back extension'],
+    label: 'lower back',
+  },
+  {
+    injuryKeywords: ['hip', 'hip flexor', 'hip bursitis', 'hip impingement', 'hip labrum'],
+    exerciseKeywords: ['squat', 'lunge', 'hip thrust', 'deadlift', 'step-up', 'split squat'],
+    label: 'hip',
+  },
+  {
+    injuryKeywords: ['elbow', 'tennis elbow', 'golfer', 'epicondylitis'],
+    exerciseKeywords: ['curl', 'extension', 'push-up', 'pushup', 'dip', 'row', 'pulldown', 'chin-up'],
+    label: 'elbow',
+  },
+  {
+    injuryKeywords: ['wrist', 'carpal', 'de quervain', 'wrist pain'],
+    exerciseKeywords: ['curl', 'press', 'push-up', 'pushup', 'row', 'plank', 'wrist', 'grip', 'hang', 'pull-up', 'pullup'],
+    label: 'wrist',
+  },
+  {
+    injuryKeywords: ['finger', 'trigger finger', 'mallet', 'knuckle', 'thumb', 'dupuytren'],
+    exerciseKeywords: ['grip', 'curl', 'pinch', 'squeeze', 'hang', 'pull-up', 'pullup', 'row', 'deadlift'],
+    label: 'finger/hand',
+  },
+  {
+    injuryKeywords: ['ankle', 'achilles', 'peroneal', 'lateral ankle'],
+    exerciseKeywords: ['calf', 'jump', 'lunge', 'squat', 'run', 'sprint', 'agility', 'plyometric', 'box', 'hop'],
+    label: 'ankle',
+  },
+  {
+    injuryKeywords: ['plantar', 'plantar fasciitis', 'heel', 'heel spur'],
+    exerciseKeywords: ['calf', 'jump', 'run', 'sprint', 'lunge', 'squat', 'step-up', 'box'],
+    label: 'plantar/heel',
+  },
+  {
+    injuryKeywords: ['foot', 'metatarsal', 'stress fracture', 'bunion', 'morton', 'toe'],
+    exerciseKeywords: ['jump', 'run', 'sprint', 'lunge', 'squat', 'calf', 'agility', 'step-up'],
+    label: 'foot/toe',
+  },
+  {
+    injuryKeywords: ['neck', 'cervical'],
+    exerciseKeywords: ['shrug', 'upright row', 'overhead', 'neck'],
+    label: 'neck',
+  },
+];
+
+function getInjuryWarning(
+  exercise: Exercise,
+  currentInjuries: string | null,
+  pastInjuries: string | null,
+): { message: string; isCurrent: boolean } | null {
+  const currentText = (currentInjuries ?? '').toLowerCase();
+  const pastText    = (pastInjuries   ?? '').toLowerCase();
+  const exerciseText = `${exercise.name} ${exercise.muscle_group ?? ''}`.toLowerCase();
+
+  for (const rule of CONTRAINDICATION_RULES) {
+    const matchedCurrent = rule.injuryKeywords.find((k) => currentText.includes(k));
+    const matchedPast    = rule.injuryKeywords.find((k) => pastText.includes(k));
+    const injuryMatch = matchedCurrent ?? matchedPast;
+    if (!injuryMatch) continue;
+
+    const exerciseMatches = rule.exerciseKeywords.some((k) => exerciseText.includes(k));
+    if (!exerciseMatches) continue;
+
+    const isCurrent = Boolean(matchedCurrent);
+    return {
+      message: isCurrent
+        ? `This client has a current ${rule.label} injury. "${exercise.name}" may aggravate it.`
+        : `This client has a history of ${rule.label} issues. "${exercise.name}" may be risky.`,
+      isCurrent,
+    };
+  }
+  return null;
+}
 
 const SUPERSET_COLORS = ['#8B5CF6', '#3B82F6', '#F59E0B', '#EC4899', '#14B8A6'];
 function getSupersetColor(group: number): string {
@@ -66,6 +161,8 @@ export default function NewWorkoutScreen() {
   const t = useTheme();
   const { exercises: allExercises } = useExercises();
   const { clients } = useClients();
+  const singleClientId = Array.isArray(clientId) ? clientId[0] : clientId;
+  const { intake } = useClientIntake(singleClientId ?? '');
   // ── mode ──
   const [mode, setMode] = useState<Mode>('log');
   // ── log-now state ──
@@ -88,6 +185,8 @@ export default function NewWorkoutScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingExercise, setPendingExercise] = useState<Exercise | null>(null);
+  const [injuryWarning, setInjuryWarning] = useState<{ message: string; isCurrent: boolean } | null>(null);
 
   function addExercise(exercise: Exercise) {
     setIsDirty(true);
@@ -334,7 +433,20 @@ export default function NewWorkoutScreen() {
   if (showPicker) {
     return (
       <ExercisePicker
-        onSelect={(exercise) => { addExercise(exercise); setShowPicker(false); }}
+        onSelect={(exercise) => {
+          const warning = getInjuryWarning(
+            exercise,
+            intake?.current_injuries ?? null,
+            intake?.past_injuries    ?? null,
+          );
+          setShowPicker(false);
+          if (warning) {
+            setPendingExercise(exercise);
+            setInjuryWarning(warning);
+          } else {
+            addExercise(exercise);
+          }
+        }}
         onClose={() => setShowPicker(false)}
       />
     );
@@ -673,6 +785,45 @@ export default function NewWorkoutScreen() {
             : <Text style={styles.saveBtnText}>{mode === 'log' ? 'Save Workout' : 'Assign Workout'}</Text>}
         </TouchableOpacity>
       )}
+
+      {/* ── Injury risk confirmation modal ─────────────────────────── */}
+      <Modal transparent animationType="fade" visible={pendingExercise !== null}>
+        <View style={styles.overlay}>
+          <View style={[styles.warnCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <View style={[styles.warnCardHeader, { borderBottomColor: t.border }]}>
+              <Ionicons name="warning" size={22} color={colors.warning} />
+              <Text style={[styles.warnCardTitle, { color: t.textPrimary }]}>Injury Risk</Text>
+            </View>
+            <Text style={[styles.warnCardBody, { color: t.textSecondary }]}>
+              {injuryWarning?.message}
+            </Text>
+            {injuryWarning?.isCurrent && (
+              <View style={[styles.injuryBadge, { backgroundColor: colors.error + '18' }]}>
+                <Ionicons name="alert-circle-outline" size={13} color={colors.error} />
+                <Text style={[styles.injuryBadgeText, { color: colors.error }]}>Current injury on file</Text>
+              </View>
+            )}
+            <View style={styles.warnCardActions}>
+              <TouchableOpacity
+                style={[styles.warnBtn, { borderColor: t.border, backgroundColor: t.background }]}
+                onPress={() => { setPendingExercise(null); setInjuryWarning(null); }}
+              >
+                <Text style={[styles.warnBtnCancelText, { color: t.textPrimary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.warnBtn, styles.warnBtnAdd]}
+                onPress={() => {
+                  if (pendingExercise) addExercise(pendingExercise);
+                  setPendingExercise(null);
+                  setInjuryWarning(null);
+                }}
+              >
+                <Text style={styles.warnBtnAddText}>Add Anyway</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -680,6 +831,38 @@ export default function NewWorkoutScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerBtn: { marginRight: spacing.sm },
+  // ── Injury warning modal ──
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center', alignItems: 'center', padding: spacing.lg,
+  },
+  warnCard: {
+    width: '100%', borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden',
+  },
+  warnCardHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    padding: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  warnCardTitle: { ...typography.body, fontWeight: '700' },
+  warnCardBody: { ...typography.body, padding: spacing.md, paddingBottom: spacing.sm },
+  injuryBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+    marginHorizontal: spacing.md, marginBottom: spacing.sm,
+    paddingVertical: spacing.xs, paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  injuryBadgeText: { ...typography.label, fontWeight: '600' },
+  warnCardActions: {
+    flexDirection: 'row', gap: spacing.sm,
+    padding: spacing.md, paddingTop: spacing.sm,
+  },
+  warnBtn: {
+    flex: 1, paddingVertical: spacing.sm, borderRadius: radius.md,
+    borderWidth: 1, alignItems: 'center',
+  },
+  warnBtnAdd: { backgroundColor: colors.primary, borderColor: colors.primary },
+  warnBtnCancelText: { ...typography.body, fontWeight: '600' },
+  warnBtnAddText: { ...typography.body, fontWeight: '600', color: colors.textInverse },
   // ── Mode toggle ──
   modeToggle: {
     flexDirection: 'row', borderRadius: radius.md, borderWidth: 1,

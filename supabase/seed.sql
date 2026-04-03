@@ -175,7 +175,96 @@ INSERT INTO exercises (name, muscle_group, category) VALUES
   ('Ice Skater Steps',                    'Legs',      'cardio'),
   -- Flexibility / Mobility
   ('Cobra Stretch',                       'Back',      'flexibility'),
-  ('Hip Circles',                         'Hips',      'flexibility')
+  ('Hip Circles',                         'Hips',      'flexibility'),
+
+  -- ── Stretches ──────────────────────────────────────────────────────
+  -- Back
+  ('Child''s Pose',                        'Back',       'stretch'),
+  ('Cat-Cow Stretch',                      'Back',       'stretch'),
+  ('Thoracic Spine Rotation',              'Back',       'stretch'),
+  ('Thread the Needle',                    'Back',       'stretch'),
+  ('Prone Cobra',                          'Back',       'stretch'),
+  ('Supine Twist',                         'Back',       'stretch'),
+  ('Lat Doorway Stretch',                  'Back',       'stretch'),
+  ('Levator Scapulae Stretch',             'Back',       'stretch'),
+  ('Downward Dog',                         'Back',       'stretch'),
+  -- Chest
+  ('Doorway Chest Stretch',                'Chest',      'stretch'),
+  ('Chest Opener Stretch',                 'Chest',      'stretch'),
+  ('Pec Minor Stretch',                    'Chest',      'stretch'),
+  -- Shoulders
+  ('Cross-Body Shoulder Stretch',          'Shoulders',  'stretch'),
+  ('Shoulder Sleeper Stretch',             'Shoulders',  'stretch'),
+  ('Neck Side Stretch',                    'Shoulders',  'stretch'),
+  ('Neck Flexion Stretch',                 'Shoulders',  'stretch'),
+  ('Posterior Shoulder Stretch',           'Shoulders',  'stretch'),
+  -- Arms
+  ('Overhead Tricep Stretch',              'Arms',       'stretch'),
+  ('Bicep Wall Stretch',                   'Arms',       'stretch'),
+  ('Forearm Flexor Stretch',               'Arms',       'stretch'),
+  -- Hips
+  ('Hip Flexor Stretch',                   'Hips',       'stretch'),
+  ('90/90 Hip Stretch',                    'Hips',       'stretch'),
+  ('Butterfly Stretch',                    'Hips',       'stretch'),
+  ('Pigeon Pose',                          'Hips',       'stretch'),
+  ('Figure Four Stretch',                  'Hips',       'stretch'),
+  -- Glutes
+  ('Piriformis Stretch',                   'Glutes',     'stretch'),
+  ('Seated Glute Stretch',                 'Glutes',     'stretch'),
+  -- Legs
+  ('Standing Quad Stretch',                'Legs',       'stretch'),
+  ('Lying Quad Stretch',                   'Legs',       'stretch'),
+  ('Standing Hamstring Stretch',           'Legs',       'stretch'),
+  ('Seated Hamstring Stretch',             'Legs',       'stretch'),
+  ('Seated Forward Fold',                  'Legs',       'stretch'),
+  ('IT Band Stretch',                      'Legs',       'stretch'),
+  ('Couch Stretch',                        'Legs',       'stretch'),
+  ('Standing Calf Stretch',                'Legs',       'stretch'),
+  ('World''s Greatest Stretch',            'Full Body',  'stretch'),
+
+  -- ── Hand & Wrist Stretches ─────────────────────────────────────────
+  ('Wrist Flexor Stretch',                 'Hands',      'stretch'),
+  ('Wrist Extensor Stretch',               'Hands',      'stretch'),
+  ('Prayer Stretch',                       'Hands',      'stretch'),
+  ('Reverse Prayer Stretch',               'Hands',      'stretch'),
+  ('Finger Extension Stretch',             'Hands',      'stretch'),
+  ('Thumb Stretch',                        'Hands',      'stretch'),
+  ('Wrist Circles',                        'Hands',      'stretch'),
+  ('Tendon Glide',                         'Hands',      'stretch'),
+
+  -- ── Hand & Wrist Strength ──────────────────────────────────────────
+  ('Wrist Curls',                          'Hands',      'strength'),
+  ('Wrist Extensions',                     'Hands',      'strength'),
+  ('Reverse Wrist Curls',                  'Hands',      'strength'),
+  ('Grip Squeezes',                        'Hands',      'strength'),
+  ('Pinch Grip Hold',                      'Hands',      'strength'),
+  ('Dead Hang',                            'Hands',      'strength'),
+  ('Finger Curls',                         'Hands',      'strength'),
+  ('Towel Grip Row',                       'Hands',      'strength'),
+  ('Forearm Pronation & Supination',       'Hands',      'strength'),
+  ('Rice Bucket Training',                 'Hands',      'strength'),
+
+  -- ── Foot & Ankle Stretches ─────────────────────────────────────────
+  ('Plantar Fascia Stretch',               'Feet',       'stretch'),
+  ('Achilles Tendon Stretch',              'Feet',       'stretch'),
+  ('Toe Flexor Stretch',                   'Feet',       'stretch'),
+  ('Ankle Circles',                        'Feet',       'stretch'),
+  ('Toe Spread Stretch',                   'Feet',       'stretch'),
+  ('Ankle Dorsiflexion Stretch',           'Feet',       'stretch'),
+  ('Seated Calf & Ankle Stretch',          'Feet',       'stretch'),
+
+  -- ── Foot & Ankle Strength / Mobility ──────────────────────────────
+  ('Ankle Alphabet',                       'Feet',       'strength'),
+  ('Towel Toe Scrunches',                  'Feet',       'strength'),
+  ('Marble Pickup',                        'Feet',       'strength'),
+  ('Short Foot Exercise',                  'Feet',       'strength'),
+  ('Toe Raises',                           'Feet',       'strength'),
+  ('Single Leg Heel Raise',                'Feet',       'strength'),
+  ('Foot Doming',                          'Feet',       'strength'),
+  ('Ankle Stability Balance',              'Feet',       'strength'),
+  ('Resistance Band Ankle Inversion',      'Feet',       'strength'),
+  ('Resistance Band Ankle Eversion',       'Feet',       'strength'),
+  ('Intrinsic Foot Strengthening',         'Feet',       'strength')
 ON CONFLICT (name) DO NOTHING;
 
 -- ─── Workout Templates ────────────────────────────────────────────
@@ -185,53 +274,53 @@ ON CONFLICT (name) DO NOTHING;
 INSERT INTO workout_templates (name, split, subgroup, exercise_names) VALUES
 
   -- ── Full Body / Standard (guide-based 3-day sessions) ─────────
-  ('Session A: Full Body', 'Full Body', 'Standard', ARRAY[
+  ('Full Body 1', 'Full Body', 'Standard', ARRAY[
     'Back Squat', 'Bench Press', 'Bent-Over Row', 'Overhead Press', 'Plank'
   ]),
-  ('Session B: Full Body', 'Full Body', 'Standard', ARRAY[
+  ('Full Body 2', 'Full Body', 'Standard', ARRAY[
     'Goblet Squat', 'Romanian Deadlift', 'Incline Dumbbell Press', 'Lat Pulldown', 'Dead Bug'
   ]),
-  ('Session C: Full Body', 'Full Body', 'Standard', ARRAY[
+  ('Full Body 3', 'Full Body', 'Standard', ARRAY[
     'Deadlift', 'Front Squat', 'Push-Up', 'Cable Row', 'Pallof Press'
   ]),
 
   -- ── Full Body / Phase 1 ───────────────────────────────────────
-  ('Workout A: Push Focus',   'Full Body', 'Phase 1', ARRAY['Air Squat', 'Glute Bridge', 'Incline Push-up', 'Floor Press + Mod Push-up', 'Dips', 'Plank (Variations)', 'Mountain Climbers + Air Squats', 'Cobra Stretch', 'Bear Crawl', 'Glute Bridge Hold']),
-  ('Workout B: Pull Focus',   'Full Body', 'Phase 1', ARRAY['Reverse Lunge', 'Single-Leg Reach (Bulg Squat)', 'Pull up/Lat Pulldown', 'Mid Row', 'RDL', 'Cable Pullover', 'Towel Curls', 'Hammer Curl', 'Bear Crawl', 'Glute Bridge (Pulsing)']),
-  ('Workout C: Stability',    'Full Body', 'Phase 1', ARRAY['Box Squat', 'Step-ups/Weighted', 'Landmine', 'Squat Press (DB/Bar)', 'Cable Squat Row', 'Cable Torso Rotations', 'Scapular Push-ups', 'Scapular Pull-up', 'Plank Taps', 'BW Back Extensions']),
-  ('Workout D: Lateral/Total','Full Body', 'Phase 1', ARRAY['Lateral Lunge', 'Wall Sit', 'Plank-to-Pushup', 'Box Jump', 'Side Planks', 'Ball Squat Toss', 'Single-Leg Step-Up', 'Hip Circles', 'Mountain Climbers', 'In-Out Jumping Jacks']),
+  ('Push Emphasis',   'Full Body', 'Phase 1', ARRAY['Air Squat', 'Glute Bridge', 'Incline Push-up', 'Floor Press + Mod Push-up', 'Dips', 'Plank (Variations)', 'Mountain Climbers + Air Squats', 'Cobra Stretch', 'Bear Crawl', 'Glute Bridge Hold']),
+  ('Pull Emphasis',   'Full Body', 'Phase 1', ARRAY['Reverse Lunge', 'Single-Leg Reach (Bulg Squat)', 'Pull up/Lat Pulldown', 'Mid Row', 'RDL', 'Cable Pullover', 'Towel Curls', 'Hammer Curl', 'Bear Crawl', 'Glute Bridge (Pulsing)']),
+  ('Stability',       'Full Body', 'Phase 1', ARRAY['Box Squat', 'Step-ups/Weighted', 'Landmine', 'Squat Press (DB/Bar)', 'Cable Squat Row', 'Cable Torso Rotations', 'Scapular Push-ups', 'Scapular Pull-up', 'Plank Taps', 'BW Back Extensions']),
+  ('Lateral & Total', 'Full Body', 'Phase 1', ARRAY['Lateral Lunge', 'Wall Sit', 'Plank-to-Pushup', 'Box Jump', 'Side Planks', 'Ball Squat Toss', 'Single-Leg Step-Up', 'Hip Circles', 'Mountain Climbers', 'In-Out Jumping Jacks']),
 
   -- ── Full Body / Phase 2 ───────────────────────────────────────
-  ('Workout A: Push Focus (P2)',    'Full Body', 'Phase 2', ARRAY['Skater Jumps', 'Jump Squats', 'Tempo Push-ups', 'Chest Pass (Med Ball)', 'Plank Jacks', 'Flutter Kicks', 'T-Pushups', 'High Knees (s)', 'Box Jump', 'Deadbug (Weighted)']),
-  ('Workout B: Pull Focus (P2)',    'Full Body', 'Phase 2', ARRAY['Box Step-ups', 'Walking Lunges', 'Chin-up Negatives', 'Med Ball Slams', 'Mountain Climbers', 'Bicycle Crunches', 'Cable Face Pulls', 'Butt Kicks (s)', 'Single-Leg Hops', 'Plank (Weighted)']),
-  ('Workout C: Shoulder Focus',     'Full Body', 'Phase 2', ARRAY['Rope Ladder Broad Jumps', 'Lateral Bounds', 'Med Ball Overhead Hold', 'Wall Balls', 'Russian Twists', 'Static Squat Cable Torso Rotations', 'Pike Push-ups', 'Jumping Jacks (s)', 'Pilates Squat + Squat', 'Side Plank Dips']),
-  ('Workout D: Agility/Total',      'Full Body', 'Phase 2', ARRAY['Shuttle Runs (yd)', 'Speed Skaters', 'V-Ups/Knee Raises', 'Burpees', 'Spiderman Push-ups', 'Plank with Knee-to-Elbow', 'Mountain Climber Burpee', 'Ice Skater Steps', 'Squat Thrusts', 'Deadlift']),
+  ('Push Emphasis',      'Full Body', 'Phase 2', ARRAY['Skater Jumps', 'Jump Squats', 'Tempo Push-ups', 'Chest Pass (Med Ball)', 'Plank Jacks', 'Flutter Kicks', 'T-Pushups', 'High Knees (s)', 'Box Jump', 'Deadbug (Weighted)']),
+  ('Pull Emphasis',      'Full Body', 'Phase 2', ARRAY['Box Step-ups', 'Walking Lunges', 'Chin-up Negatives', 'Med Ball Slams', 'Mountain Climbers', 'Bicycle Crunches', 'Cable Face Pulls', 'Butt Kicks (s)', 'Single-Leg Hops', 'Plank (Weighted)']),
+  ('Shoulder Emphasis',  'Full Body', 'Phase 2', ARRAY['Rope Ladder Broad Jumps', 'Lateral Bounds', 'Med Ball Overhead Hold', 'Wall Balls', 'Russian Twists', 'Static Squat Cable Torso Rotations', 'Pike Push-ups', 'Jumping Jacks (s)', 'Pilates Squat + Squat', 'Side Plank Dips']),
+  ('Agility & Total',    'Full Body', 'Phase 2', ARRAY['Shuttle Runs (yd)', 'Speed Skaters', 'V-Ups/Knee Raises', 'Burpees', 'Spiderman Push-ups', 'Plank with Knee-to-Elbow', 'Mountain Climber Burpee', 'Ice Skater Steps', 'Squat Thrusts', 'Deadlift']),
 
   -- ── Full Body / Phase 3 ───────────────────────────────────────
-  ('Workout A: Chest/Push',  'Full Body', 'Phase 3', ARRAY['DB Goblet Squat', 'RDL (Dumbbells)', 'DB Bench Press', 'DB Incline Press', 'Deadbug (Weighted)', 'Pallof Press', 'Dips/Band Flyes', 'Inchworm Push-Up', 'Calf Raise', 'Weighted Sit-up']),
-  ('Workout B: Back/Pull',   'Full Body', 'Phase 3', ARRAY['DB Split Squat', 'Leg Press + Leg Machines', 'Lat Pulldown', 'Seated Cable Row', 'Cable Woodchops', 'Plank with Row', 'Cable Face Pulls', 'Bicep Curls', 'Single-Leg Bridge', 'Reverse Crunch']),
-  ('Workout C: Shoulders',   'Full Body', 'Phase 3', ARRAY['KB Deadlift', 'Hamstring Curl', 'DB Overhead Press', 'Cable/Band Lateral Raise', 'Hanging Leg Raises', 'Landmine Rotation', 'Burpee DB Press', 'Diamond + Wide Pushups', 'Wall Sits (Weighted)', 'Windshields/Alternate Knee Raises']),
-  ('Workout D: Total Body',  'Full Body', 'Phase 3', ARRAY['DB Step-ups', 'Goblet Lateral Lunge', 'DB Renegade Row', 'Push-up (Weighted)', 'Medicine Ball Rotational Toss', 'Suitcase Carry (L/R)', 'Hammer Curl', 'Box Dips (Assist)', 'Lunge with Twist', 'Farmer''s Walk']),
+  ('Chest & Push',    'Full Body', 'Phase 3', ARRAY['DB Goblet Squat', 'RDL (Dumbbells)', 'DB Bench Press', 'DB Incline Press', 'Deadbug (Weighted)', 'Pallof Press', 'Dips/Band Flyes', 'Inchworm Push-Up', 'Calf Raise', 'Weighted Sit-up']),
+  ('Back & Pull',     'Full Body', 'Phase 3', ARRAY['DB Split Squat', 'Leg Press + Leg Machines', 'Lat Pulldown', 'Seated Cable Row', 'Cable Woodchops', 'Plank with Row', 'Cable Face Pulls', 'Bicep Curls', 'Single-Leg Bridge', 'Reverse Crunch']),
+  ('Shoulders & Arms','Full Body', 'Phase 3', ARRAY['KB Deadlift', 'Hamstring Curl', 'DB Overhead Press', 'Cable/Band Lateral Raise', 'Hanging Leg Raises', 'Landmine Rotation', 'Burpee DB Press', 'Diamond + Wide Pushups', 'Wall Sits (Weighted)', 'Windshields/Alternate Knee Raises']),
+  ('Total Body',      'Full Body', 'Phase 3', ARRAY['DB Step-ups', 'Goblet Lateral Lunge', 'DB Renegade Row', 'Push-up (Weighted)', 'Medicine Ball Rotational Toss', 'Suitcase Carry (L/R)', 'Hammer Curl', 'Box Dips (Assist)', 'Lunge with Twist', 'Farmer''s Walk']),
 
   -- ── Upper / Lower / Upper ─────────────────────────────────────
-  ('Upper A: Strength', 'Upper / Lower', 'Upper', ARRAY['Bench Press', 'Barbell Row', 'Overhead Press', 'Lat Pulldown', 'Barbell Curl', 'Tricep Pushdown']),
-  ('Upper B: Volume',   'Upper / Lower', 'Upper', ARRAY['Incline Dumbbell Press', 'Cable Row', 'Dumbbell Shoulder Press', 'Chest-Supported Row', 'Hammer Curl', 'Overhead Tricep Extension']),
+  ('Upper 1', 'Upper / Lower', 'Upper', ARRAY['Bench Press', 'Barbell Row', 'Overhead Press', 'Lat Pulldown', 'Barbell Curl', 'Tricep Pushdown']),
+  ('Upper 2', 'Upper / Lower', 'Upper', ARRAY['Incline Dumbbell Press', 'Cable Row', 'Dumbbell Shoulder Press', 'Chest-Supported Row', 'Hammer Curl', 'Overhead Tricep Extension']),
 
   -- ── Upper / Lower / Lower ─────────────────────────────────────
-  ('Lower A: Strength', 'Upper / Lower', 'Lower', ARRAY['Barbell Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl', 'Calf Raise']),
-  ('Lower B: Volume',   'Upper / Lower', 'Lower', ARRAY['Deadlift', 'Bulgarian Split Squat', 'Leg Press', 'Leg Curl', 'Hip Thrust']),
+  ('Lower 1', 'Upper / Lower', 'Lower', ARRAY['Barbell Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl', 'Calf Raise']),
+  ('Lower 2', 'Upper / Lower', 'Lower', ARRAY['Deadlift', 'Bulgarian Split Squat', 'Leg Press', 'Leg Curl', 'Hip Thrust']),
 
   -- ── Push / Pull / Legs / Push ─────────────────────────────────
-  ('Push Day 1', 'Push / Pull / Legs', 'Push', ARRAY['Bench Press', 'Overhead Press', 'Incline Dumbbell Press', 'Cable Lateral Raise', 'Tricep Pushdown', 'Overhead Tricep Extension']),
-  ('Push Day 2', 'Push / Pull / Legs', 'Push', ARRAY['Overhead Press', 'Incline Dumbbell Press', 'Dips', 'Cable Fly', 'Cable Lateral Raise', 'Tricep Rope Pushdown']),
+  ('Push 1', 'Push / Pull / Legs', 'Push', ARRAY['Bench Press', 'Overhead Press', 'Incline Dumbbell Press', 'Cable Lateral Raise', 'Tricep Pushdown', 'Overhead Tricep Extension']),
+  ('Push 2', 'Push / Pull / Legs', 'Push', ARRAY['Overhead Press', 'Incline Dumbbell Press', 'Dips', 'Cable Fly', 'Cable Lateral Raise', 'Tricep Rope Pushdown']),
 
   -- ── Push / Pull / Legs / Pull ─────────────────────────────────
-  ('Pull Day 1', 'Push / Pull / Legs', 'Pull', ARRAY['Barbell Row', 'Lat Pulldown', 'Cable Row', 'Face Pull', 'Barbell Curl', 'Hammer Curl']),
-  ('Pull Day 2', 'Push / Pull / Legs', 'Pull', ARRAY['Deadlift', 'Lat Pulldown', 'Chest-Supported Row', 'Face Pull', 'Hammer Curl', 'Cable Row']),
+  ('Pull 1', 'Push / Pull / Legs', 'Pull', ARRAY['Barbell Row', 'Lat Pulldown', 'Cable Row', 'Face Pull', 'Barbell Curl', 'Hammer Curl']),
+  ('Pull 2', 'Push / Pull / Legs', 'Pull', ARRAY['Deadlift', 'Lat Pulldown', 'Chest-Supported Row', 'Face Pull', 'Hammer Curl', 'Cable Row']),
 
   -- ── Push / Pull / Legs / Legs ─────────────────────────────────
-  ('Legs Day 1', 'Push / Pull / Legs', 'Legs', ARRAY['Barbell Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl', 'Calf Raise', 'Plank', 'Hanging Leg Raise']),
-  ('Legs Day 2', 'Push / Pull / Legs', 'Legs', ARRAY['Front Squat', 'Romanian Deadlift', 'Bulgarian Split Squat', 'Leg Curl', 'Hip Thrust', 'Calf Raise', 'Ab Wheel Rollout']),
+  ('Legs 1', 'Push / Pull / Legs', 'Legs', ARRAY['Barbell Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl', 'Calf Raise', 'Plank', 'Hanging Leg Raise']),
+  ('Legs 2', 'Push / Pull / Legs', 'Legs', ARRAY['Front Squat', 'Romanian Deadlift', 'Bulgarian Split Squat', 'Leg Curl', 'Hip Thrust', 'Calf Raise', 'Ab Wheel Rollout']),
 
   -- ── Abs & Core / Core Fundamentals ───────────────────────────
   ('Core: Beginner',      'Abs & Core', 'Core Fundamentals', ARRAY['Plank', 'Dead Bug', 'Bird Dog', 'Pallof Press', 'Glute Bridge', 'Side Plank']),
@@ -244,7 +333,7 @@ INSERT INTO workout_templates (name, split, subgroup, exercise_names) VALUES
   ('Abs: Variation C', 'Abs & Core', 'Ab Circuits', ARRAY['Plank', 'Deadbugs', 'V-Ups', 'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises', 'Plank Shoulder Taps', 'Plank In and Outs', 'Decline Russian Twists', 'Knee to Elbows', 'Toe Taps']),
   ('Abs: Variation D', 'Abs & Core', 'Ab Circuits', ARRAY['Decline Russian Twists', 'Knee to Elbows', 'Toe Taps', 'V-Ups', 'Center Decline', 'Teapots', 'Single Leg Decline', 'Knee/Leg Raises', 'Plank', 'Plank Shoulder Taps', 'Deadbugs', 'Plank In and Outs'])
 
-ON CONFLICT (name, split) DO NOTHING;
+ON CONFLICT (name, split, subgroup) DO NOTHING;
 
 -- ─── Migration: backfill missing muscle_group values ──────────────
 -- Run this in the Supabase SQL editor to fix existing rows.

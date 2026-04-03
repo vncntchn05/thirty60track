@@ -6,7 +6,7 @@ import { colors, spacing, typography, useTheme } from '@/constants/theme';
 // Library base width is 200px; scale so the body fills the available column width.
 const BASE_W = 200;
 
-type MuscleGroup = 'Shoulders' | 'Chest' | 'Arms' | 'Core' | 'Hips' | 'Back' | 'Glutes' | 'Legs';
+type MuscleGroup = 'Shoulders' | 'Chest' | 'Arms' | 'Core' | 'Hips' | 'Back' | 'Glutes' | 'Legs' | 'Hands' | 'Feet';
 
 const GROUP_SLUGS: Record<MuscleGroup, Slug[]> = {
   Chest:     ['chest'],
@@ -17,6 +17,8 @@ const GROUP_SLUGS: Record<MuscleGroup, Slug[]> = {
   Back:      ['upper-back', 'lower-back'],
   Glutes:    ['gluteal'],
   Legs:      ['quadriceps', 'hamstring', 'calves', 'tibialis'],
+  Hands:     ['hands'],
+  Feet:      ['feet', 'ankles'],
 };
 
 const SLUG_TO_GROUP: Partial<Record<Slug, MuscleGroup>> = {
@@ -36,6 +38,9 @@ const SLUG_TO_GROUP: Partial<Record<Slug, MuscleGroup>> = {
   hamstring:     'Legs',
   calves:        'Legs',
   tibialis:      'Legs',
+  hands:         'Hands',
+  feet:          'Feet',
+  ankles:        'Feet',
 };
 
 type Props = {

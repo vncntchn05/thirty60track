@@ -64,7 +64,7 @@ CREATE TABLE exercises (
   name          TEXT        NOT NULL UNIQUE,
   muscle_group  TEXT,       -- e.g. 'Chest', 'Back', 'Legs'
   category      TEXT        NOT NULL DEFAULT 'strength',
-                            -- 'strength' | 'cardio' | 'flexibility' | 'other'
+                            -- 'strength' | 'cardio' | 'flexibility' | 'stretch' | 'other'
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -1375,3 +1375,166 @@ UPDATE workout_templates SET subgroup = 'Push'             WHERE split = 'Push /
 UPDATE workout_templates SET subgroup = 'Pull'             WHERE split = 'Push / Pull / Legs' AND name LIKE 'Pull%';
 UPDATE workout_templates SET subgroup = 'Legs'             WHERE split = 'Push / Pull / Legs' AND name LIKE 'Legs%';
 UPDATE workout_templates SET subgroup = 'Core Fundamentals'WHERE split = 'Abs & Core'         AND name LIKE 'Core:%';
+
+-- ============================================================
+-- Migration 021 — workout_templates: clean up naming
+-- Removes "Workout A/B/C/D:" letter prefixes; names now reflect
+-- only the target area / emphasis.
+-- Upgrades unique constraint from (name, split) to
+-- (name, split, subgroup) so the same focus name can appear in
+-- different subgroups within the same split.
+-- ============================================================
+
+ALTER TABLE workout_templates
+  DROP CONSTRAINT IF EXISTS workout_templates_name_split_key;
+
+ALTER TABLE workout_templates
+  ADD CONSTRAINT workout_templates_name_split_subgroup_key
+  UNIQUE (name, split, subgroup);
+
+-- Full Body / Standard
+UPDATE workout_templates SET name = 'Full Body 1' WHERE name = 'Session A: Full Body'    AND split = 'Full Body' AND subgroup = 'Standard';
+UPDATE workout_templates SET name = 'Full Body 2' WHERE name = 'Session B: Full Body'    AND split = 'Full Body' AND subgroup = 'Standard';
+UPDATE workout_templates SET name = 'Full Body 3' WHERE name = 'Session C: Full Body'    AND split = 'Full Body' AND subgroup = 'Standard';
+
+-- Full Body / Phase 1
+UPDATE workout_templates SET name = 'Push Emphasis'   WHERE name = 'Workout A: Push Focus'    AND split = 'Full Body' AND subgroup = 'Phase 1';
+UPDATE workout_templates SET name = 'Pull Emphasis'   WHERE name = 'Workout B: Pull Focus'    AND split = 'Full Body' AND subgroup = 'Phase 1';
+UPDATE workout_templates SET name = 'Stability'       WHERE name = 'Workout C: Stability'     AND split = 'Full Body' AND subgroup = 'Phase 1';
+UPDATE workout_templates SET name = 'Lateral & Total' WHERE name = 'Workout D: Lateral/Total' AND split = 'Full Body' AND subgroup = 'Phase 1';
+
+-- Full Body / Phase 2
+UPDATE workout_templates SET name = 'Push Emphasis'     WHERE name = 'Workout A: Push Focus (P2)' AND split = 'Full Body' AND subgroup = 'Phase 2';
+UPDATE workout_templates SET name = 'Pull Emphasis'     WHERE name = 'Workout B: Pull Focus (P2)' AND split = 'Full Body' AND subgroup = 'Phase 2';
+UPDATE workout_templates SET name = 'Shoulder Emphasis' WHERE name = 'Workout C: Shoulder Focus'  AND split = 'Full Body' AND subgroup = 'Phase 2';
+UPDATE workout_templates SET name = 'Agility & Total'   WHERE name = 'Workout D: Agility/Total'   AND split = 'Full Body' AND subgroup = 'Phase 2';
+
+-- Full Body / Phase 3
+UPDATE workout_templates SET name = 'Chest & Push'    WHERE name = 'Workout A: Chest/Push' AND split = 'Full Body' AND subgroup = 'Phase 3';
+UPDATE workout_templates SET name = 'Back & Pull'     WHERE name = 'Workout B: Back/Pull'  AND split = 'Full Body' AND subgroup = 'Phase 3';
+UPDATE workout_templates SET name = 'Shoulders & Arms'WHERE name = 'Workout C: Shoulders'  AND split = 'Full Body' AND subgroup = 'Phase 3';
+UPDATE workout_templates SET name = 'Total Body'      WHERE name = 'Workout D: Total Body' AND split = 'Full Body' AND subgroup = 'Phase 3';
+
+-- Upper / Lower
+UPDATE workout_templates SET name = 'Upper 1' WHERE name = 'Upper A: Strength' AND split = 'Upper / Lower' AND subgroup = 'Upper';
+UPDATE workout_templates SET name = 'Upper 2' WHERE name = 'Upper B: Volume'   AND split = 'Upper / Lower' AND subgroup = 'Upper';
+UPDATE workout_templates SET name = 'Lower 1' WHERE name = 'Lower A: Strength' AND split = 'Upper / Lower' AND subgroup = 'Lower';
+UPDATE workout_templates SET name = 'Lower 2' WHERE name = 'Lower B: Volume'   AND split = 'Upper / Lower' AND subgroup = 'Lower';
+
+-- Push / Pull / Legs
+UPDATE workout_templates SET name = 'Push 1' WHERE name = 'Push Day 1' AND split = 'Push / Pull / Legs' AND subgroup = 'Push';
+UPDATE workout_templates SET name = 'Push 2' WHERE name = 'Push Day 2' AND split = 'Push / Pull / Legs' AND subgroup = 'Push';
+UPDATE workout_templates SET name = 'Pull 1' WHERE name = 'Pull Day 1' AND split = 'Push / Pull / Legs' AND subgroup = 'Pull';
+UPDATE workout_templates SET name = 'Pull 2' WHERE name = 'Pull Day 2' AND split = 'Push / Pull / Legs' AND subgroup = 'Pull';
+UPDATE workout_templates SET name = 'Legs 1' WHERE name = 'Legs Day 1' AND split = 'Push / Pull / Legs' AND subgroup = 'Legs';
+UPDATE workout_templates SET name = 'Legs 2' WHERE name = 'Legs Day 2' AND split = 'Push / Pull / Legs' AND subgroup = 'Legs';
+
+-- ============================================================
+-- Migration 022 — Add stretch category + Hands/Feet exercises
+-- Adds:
+--   • 36 stretches across all muscle groups
+--   • 8 hand/wrist stretches  (muscle_group = 'Hands')
+--   • 10 hand/wrist strength  (muscle_group = 'Hands')
+--   • 7 foot/ankle stretches  (muscle_group = 'Feet')
+--   • 11 foot/ankle strength  (muscle_group = 'Feet')
+-- ============================================================
+
+INSERT INTO exercises (name, muscle_group, category) VALUES
+
+  -- ── Back Stretches ─────────────────────────────────────────────
+  ('Child''s Pose',               'Back',      'stretch'),
+  ('Cat-Cow Stretch',             'Back',      'stretch'),
+  ('Thoracic Spine Rotation',     'Back',      'stretch'),
+  ('Thread the Needle',           'Back',      'stretch'),
+  ('Prone Cobra',                 'Back',      'stretch'),
+  ('Supine Twist',                'Back',      'stretch'),
+  ('Lat Doorway Stretch',         'Back',      'stretch'),
+  ('Levator Scapulae Stretch',    'Back',      'stretch'),
+  ('Downward Dog',                'Back',      'stretch'),
+
+  -- ── Chest Stretches ────────────────────────────────────────────
+  ('Doorway Chest Stretch',       'Chest',     'stretch'),
+  ('Chest Opener Stretch',        'Chest',     'stretch'),
+  ('Pec Minor Stretch',           'Chest',     'stretch'),
+
+  -- ── Shoulder Stretches ─────────────────────────────────────────
+  ('Cross-Body Shoulder Stretch', 'Shoulders', 'stretch'),
+  ('Shoulder Sleeper Stretch',    'Shoulders', 'stretch'),
+  ('Neck Side Stretch',           'Shoulders', 'stretch'),
+  ('Neck Flexion Stretch',        'Shoulders', 'stretch'),
+  ('Posterior Shoulder Stretch',  'Shoulders', 'stretch'),
+
+  -- ── Arm Stretches ──────────────────────────────────────────────
+  ('Overhead Tricep Stretch',     'Arms',      'stretch'),
+  ('Bicep Wall Stretch',          'Arms',      'stretch'),
+  ('Forearm Flexor Stretch',      'Arms',      'stretch'),
+
+  -- ── Hip Stretches ──────────────────────────────────────────────
+  ('Hip Flexor Stretch',          'Hips',      'stretch'),
+  ('90/90 Hip Stretch',           'Hips',      'stretch'),
+  ('Butterfly Stretch',           'Hips',      'stretch'),
+  ('Pigeon Pose',                 'Hips',      'stretch'),
+  ('Figure Four Stretch',         'Hips',      'stretch'),
+
+  -- ── Glute Stretches ────────────────────────────────────────────
+  ('Piriformis Stretch',          'Glutes',    'stretch'),
+  ('Seated Glute Stretch',        'Glutes',    'stretch'),
+
+  -- ── Leg Stretches ──────────────────────────────────────────────
+  ('Standing Quad Stretch',       'Legs',      'stretch'),
+  ('Lying Quad Stretch',          'Legs',      'stretch'),
+  ('Standing Hamstring Stretch',  'Legs',      'stretch'),
+  ('Seated Hamstring Stretch',    'Legs',      'stretch'),
+  ('Seated Forward Fold',         'Legs',      'stretch'),
+  ('IT Band Stretch',             'Legs',      'stretch'),
+  ('Couch Stretch',               'Legs',      'stretch'),
+  ('Standing Calf Stretch',       'Legs',      'stretch'),
+
+  -- ── Full Body Stretch ──────────────────────────────────────────
+  ('World''s Greatest Stretch',   'Full Body', 'stretch'),
+
+  -- ── Hand & Wrist Stretches ─────────────────────────────────────
+  ('Wrist Flexor Stretch',             'Hands', 'stretch'),
+  ('Wrist Extensor Stretch',           'Hands', 'stretch'),
+  ('Prayer Stretch',                   'Hands', 'stretch'),
+  ('Reverse Prayer Stretch',           'Hands', 'stretch'),
+  ('Finger Extension Stretch',         'Hands', 'stretch'),
+  ('Thumb Stretch',                    'Hands', 'stretch'),
+  ('Wrist Circles',                    'Hands', 'stretch'),
+  ('Tendon Glide',                     'Hands', 'stretch'),
+
+  -- ── Hand & Wrist Strength ──────────────────────────────────────
+  ('Wrist Curls',                      'Hands', 'strength'),
+  ('Wrist Extensions',                 'Hands', 'strength'),
+  ('Reverse Wrist Curls',              'Hands', 'strength'),
+  ('Grip Squeezes',                    'Hands', 'strength'),
+  ('Pinch Grip Hold',                  'Hands', 'strength'),
+  ('Dead Hang',                        'Hands', 'strength'),
+  ('Finger Curls',                     'Hands', 'strength'),
+  ('Towel Grip Row',                   'Hands', 'strength'),
+  ('Forearm Pronation & Supination',   'Hands', 'strength'),
+  ('Rice Bucket Training',             'Hands', 'strength'),
+
+  -- ── Foot & Ankle Stretches ─────────────────────────────────────
+  ('Plantar Fascia Stretch',           'Feet',  'stretch'),
+  ('Achilles Tendon Stretch',          'Feet',  'stretch'),
+  ('Toe Flexor Stretch',               'Feet',  'stretch'),
+  ('Ankle Circles',                    'Feet',  'stretch'),
+  ('Toe Spread Stretch',               'Feet',  'stretch'),
+  ('Ankle Dorsiflexion Stretch',       'Feet',  'stretch'),
+  ('Seated Calf & Ankle Stretch',      'Feet',  'stretch'),
+
+  -- ── Foot & Ankle Strength / Mobility ───────────────────────────
+  ('Ankle Alphabet',                   'Feet',  'strength'),
+  ('Towel Toe Scrunches',              'Feet',  'strength'),
+  ('Marble Pickup',                    'Feet',  'strength'),
+  ('Short Foot Exercise',              'Feet',  'strength'),
+  ('Toe Raises',                       'Feet',  'strength'),
+  ('Single Leg Heel Raise',            'Feet',  'strength'),
+  ('Foot Doming',                      'Feet',  'strength'),
+  ('Ankle Stability Balance',          'Feet',  'strength'),
+  ('Resistance Band Ankle Inversion',  'Feet',  'strength'),
+  ('Resistance Band Ankle Eversion',   'Feet',  'strength'),
+  ('Intrinsic Foot Strengthening',     'Feet',  'strength')
+
+ON CONFLICT (name) DO NOTHING;

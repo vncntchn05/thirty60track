@@ -22,6 +22,7 @@ const CATEGORIES: { value: ExerciseCategory; label: string }[] = [
   { value: 'strength',    label: 'Strength' },
   { value: 'cardio',      label: 'Cardio' },
   { value: 'flexibility', label: 'Flexibility' },
+  { value: 'stretch',     label: 'Stretch' },
   { value: 'other',       label: 'Other' },
 ];
 

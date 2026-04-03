@@ -19,7 +19,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 
   {
     id: 'FB-A',
-    name: 'Session A: Full Body',
+    name: 'Full Body 1',
     split: 'Full Body',
     subgroup: 'Standard',
     exerciseNames: [
@@ -32,7 +32,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'FB-B',
-    name: 'Session B: Full Body',
+    name: 'Full Body 2',
     split: 'Full Body',
     subgroup: 'Standard',
     exerciseNames: [
@@ -45,7 +45,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'FB-C',
-    name: 'Session C: Full Body',
+    name: 'Full Body 3',
     split: 'Full Body',
     subgroup: 'Standard',
     exerciseNames: [
@@ -61,7 +61,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 
   {
     id: 'P1-A',
-    name: 'Workout A: Push Focus',
+    name: 'Push Emphasis',
     split: 'Full Body',
     subgroup: 'Phase 1',
     exerciseNames: [
@@ -79,7 +79,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P1-B',
-    name: 'Workout B: Pull Focus',
+    name: 'Pull Emphasis',
     split: 'Full Body',
     subgroup: 'Phase 1',
     exerciseNames: [
@@ -97,7 +97,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P1-C',
-    name: 'Workout C: Stability',
+    name: 'Stability',
     split: 'Full Body',
     subgroup: 'Phase 1',
     exerciseNames: [
@@ -115,7 +115,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P1-D',
-    name: 'Workout D: Lateral/Total',
+    name: 'Lateral & Total',
     split: 'Full Body',
     subgroup: 'Phase 1',
     exerciseNames: [
@@ -136,7 +136,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 
   {
     id: 'P2-A',
-    name: 'Workout A: Push Focus (P2)',
+    name: 'Push Emphasis',
     split: 'Full Body',
     subgroup: 'Phase 2',
     exerciseNames: [
@@ -154,7 +154,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P2-B',
-    name: 'Workout B: Pull Focus (P2)',
+    name: 'Pull Emphasis',
     split: 'Full Body',
     subgroup: 'Phase 2',
     exerciseNames: [
@@ -172,7 +172,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P2-C',
-    name: 'Workout C: Shoulder Focus (P2)',
+    name: 'Shoulder Emphasis',
     split: 'Full Body',
     subgroup: 'Phase 2',
     exerciseNames: [
@@ -190,7 +190,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P2-D',
-    name: 'Workout D: Agility/Total (P2)',
+    name: 'Agility & Total',
     split: 'Full Body',
     subgroup: 'Phase 2',
     exerciseNames: [
@@ -211,7 +211,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 
   {
     id: 'P3-A',
-    name: 'Workout A: Chest/Push (P3)',
+    name: 'Chest & Push',
     split: 'Full Body',
     subgroup: 'Phase 3',
     exerciseNames: [
@@ -229,7 +229,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P3-B',
-    name: 'Workout B: Back/Pull (P3)',
+    name: 'Back & Pull',
     split: 'Full Body',
     subgroup: 'Phase 3',
     exerciseNames: [
@@ -247,7 +247,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P3-C',
-    name: 'Workout C: Shoulders (P3)',
+    name: 'Shoulders & Arms',
     split: 'Full Body',
     subgroup: 'Phase 3',
     exerciseNames: [
@@ -265,7 +265,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'P3-D',
-    name: 'Workout D: Total Body (P3)',
+    name: 'Total Body',
     split: 'Full Body',
     subgroup: 'Phase 3',
     exerciseNames: [
@@ -287,7 +287,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 
   {
     id: 'UL-UA',
-    name: 'Upper A: Strength',
+    name: 'Upper 1',
     split: 'Upper / Lower',
     subgroup: 'Upper',
     exerciseNames: [
@@ -301,7 +301,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'UL-UB',
-    name: 'Upper B: Volume',
+    name: 'Upper 2',
     split: 'Upper / Lower',
     subgroup: 'Upper',
     exerciseNames: [
@@ -318,7 +318,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 
   {
     id: 'UL-LA',
-    name: 'Lower A: Strength',
+    name: 'Lower 1',
     split: 'Upper / Lower',
     subgroup: 'Lower',
     exerciseNames: [
@@ -331,7 +331,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'UL-LB',
-    name: 'Lower B: Volume',
+    name: 'Lower 2',
     split: 'Upper / Lower',
     subgroup: 'Lower',
     exerciseNames: [
@@ -348,7 +348,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 
   {
     id: 'PPL-Push-1',
-    name: 'Push Day 1',
+    name: 'Push 1',
     split: 'Push / Pull / Legs',
     subgroup: 'Push',
     exerciseNames: [
@@ -362,7 +362,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'PPL-Push-2',
-    name: 'Push Day 2',
+    name: 'Push 2',
     split: 'Push / Pull / Legs',
     subgroup: 'Push',
     exerciseNames: [
@@ -379,7 +379,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 
   {
     id: 'PPL-Pull-1',
-    name: 'Pull Day 1',
+    name: 'Pull 1',
     split: 'Push / Pull / Legs',
     subgroup: 'Pull',
     exerciseNames: [
@@ -393,7 +393,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'PPL-Pull-2',
-    name: 'Pull Day 2',
+    name: 'Pull 2',
     split: 'Push / Pull / Legs',
     subgroup: 'Pull',
     exerciseNames: [
@@ -410,7 +410,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 
   {
     id: 'PPL-Legs-1',
-    name: 'Legs Day 1',
+    name: 'Legs 1',
     split: 'Push / Pull / Legs',
     subgroup: 'Legs',
     exerciseNames: [
@@ -425,7 +425,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   },
   {
     id: 'PPL-Legs-2',
-    name: 'Legs Day 2',
+    name: 'Legs 2',
     split: 'Push / Pull / Legs',
     subgroup: 'Legs',
     exerciseNames: [

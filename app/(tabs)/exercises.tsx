@@ -19,13 +19,14 @@ import { EncyclopediaPanel } from '@/components/exercises/EncyclopediaPanel';
 import { WorkoutGuides } from '@/components/exercises/WorkoutGuides';
 import { useAuth } from '@/lib/auth';
 
-const CATEGORIES: ExerciseCategory[] = ['strength', 'cardio', 'flexibility', 'other'];
+const CATEGORIES: ExerciseCategory[] = ['strength', 'cardio', 'flexibility', 'stretch', 'other'];
 
 const CATEGORY_LABEL: Record<ExerciseCategory, string> = {
-  strength: 'Strength',
-  cardio: 'Cardio',
+  strength:    'Strength',
+  cardio:      'Cardio',
   flexibility: 'Flexibility',
-  other: 'Other',
+  stretch:     'Stretch',
+  other:       'Other',
 };
 
 const EQUIPMENT_FILTERS: (EquipmentType | 'All')[] = [

@@ -115,21 +115,22 @@ Templates are stored in the database and fully editable from within the app (via
 | Split | Subgroups | Templates |
 |---|---|---|
 | Full Body | Standard, Phase 1, Phase 2, Phase 3 | Total Body, Stability, Lateral/Total, Agility/Total, and Phase 1–3 progressions |
-| Upper / Lower | Upper, Lower | Push/pull upper sessions and squat/hinge lower sessions |
-| Push / Pull / Legs | Push, Pull, Legs | Push Focus, Chest/Push, Pull Focus, Back/Pull, and leg-day variants |
+| Upper / Lower | Upper, Lower | Push Emphasis, Pull Emphasis, Strength Focus, Hypertrophy Focus, Power Focus upper sessions; Squat Focus, Hinge Focus, Unilateral Focus lower sessions |
+| Push / Pull / Legs | Push, Pull, Legs | Chest Emphasis, Push Strength, Chest & Shoulders, Shoulder Emphasis, Tricep Focus; Back Emphasis, Pull Strength, Back & Biceps, Rear Delt & Traps, Bicep Focus; Quad Emphasis, Hamstring & Glute Focus, Unilateral Leg, Power & Plyometrics |
 | Abs & Core | Core Fundamentals, Ab Circuits | Tiered core work (beginner → intermediate → advanced) and Abs Variations A–D |
 
 Templates are displayed grouped by split and subgroup in both the picker and the editor. They are matched to live exercises in the database when loading a workout. Any unmatched exercises are listed so they can be added manually. Trainers can create, rename, reorder exercises in, and delete templates at any time; each template carries a `split` and `subgroup` field that controls where it appears in the grouped list.
 
 ### Exercise Library
-- [x] Shared exercise library (150+ exercises seeded across all muscle groups)
+- [x] Shared exercise library (220+ exercises seeded across all muscle groups, including stretches and hand/wrist/foot/ankle exercises)
 - [x] Dedicated **Exercises tab** — browse, search, and manage the full library
 - [x] Group exercises by muscle group or category (collapsible sections)
-- [x] **Interactive body map** — SVG body diagram (powered by `react-native-body-highlighter`) occupies the left half of the exercise library screen and the in-workout exercise picker; tap any muscle region to filter by that muscle group; hover highlights the region in light gold before selecting; selected region turns full gold and dims all others; Front/Back toggle switches diagram view; tap the selected label's × to clear; the body map column auto-sizes to fill available space via `onLayout`
+- [x] **Interactive body map** — SVG body diagram (powered by `react-native-body-highlighter`) occupies the left half of the exercise library screen and the in-workout exercise picker; tap any muscle region to filter by that muscle group; hover highlights the region in light gold before selecting; selected region turns full gold and dims all others; Front/Back toggle switches diagram view; tap the selected label's × to clear; the body map column auto-sizes to fill available space via `onLayout`; **Hands** and **Feet** are clickable regions that filter to hand/wrist and foot/ankle exercises respectively
 - [x] **Equipment filter chips** — horizontal chip row (All / Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other) filters the list in real time; works alongside the group-by selector and search
-- [x] **Add custom exercises** — name, muscle group, category (strength / cardio / flexibility / other), equipment type, tutorial URL, and form notes; all fields available inline in the Exercises tab and in the in-workout picker
+- [x] **Add custom exercises** — name, muscle group, category (strength / cardio / flexibility / stretch / other), equipment type, tutorial URL, and form notes; all fields available inline in the Exercises tab and in the in-workout picker
 - [x] **Muscle synonym search** — searching "biceps", "quads", "lats", etc. resolves to the matching broad muscle group (Arms, Legs, Back…) so exercises surface even when the group label doesn't match the query exactly
 - [x] **External exercise database** — search the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (~800 exercises, public domain) directly from the exercise library and the in-workout picker; results show only exercises not already in the library; tapping Add imports the exercise (name, muscle group, category) into the local library; in the workout picker, Add also immediately selects the exercise; database is fetched on mount and cached in memory for the session; the "FROM DATABASE" section is always visible (not just when searching) and shows up to 20 results when no query is active; cards are the same size as local library exercise cards
+- [x] **Injury contraindication warning** — when a trainer adds an exercise to a workout, the app checks the client's current and past injuries (from their intake form) and shows a modal warning if the exercise conflicts with a known injury; badge is red for current injuries, yellow for past; trainer can Cancel or proceed with Add Anyway
 - [x] Exercise search when logging a workout
 - [x] **In-workout picker equipment filter** — same equipment chip row in the exercise picker modal when logging or assigning a workout
 - [x] Exercises auto-inserted by workout templates when missing from the library
@@ -215,6 +216,7 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] Trainer Nutrition tab — accessible from the client detail screen (Progress / Workouts / Assigned / **Nutrition** / Media); full goal editing enabled
 - [x] **Open Food Facts integration** — food search queries both USDA FoodData Central and Open Food Facts in parallel; results are interleaved with a source badge ("USDA" or "Open Food Facts") so users know where each item came from
 - [x] **Barcode scanning** — dedicated Scan tab in the Add Food modal; uses the device camera to scan EAN-8, EAN-13, UPC-A, and UPC-E barcodes; product looked up via Open Food Facts API and macros pre-filled automatically; graceful "product not found" state with retry; camera permission prompt on first use
+- [x] **Calorie & macro overage warning** — when adding a food entry, the app calculates whether the addition would push any macro (calories, protein, carbs, or fat) over the client's daily goal; if so, a modal lists all exceeded macros with current vs. target values; trainer can Cancel or proceed with Add Anyway
 - [x] **Recipes** — trainers and clients can create, edit, and delete named recipes (e.g. "Post-workout shake"); each recipe holds any number of ingredients sourced from USDA + Open Food Facts search; per-ingredient weight drives live macro totals and a per-100g breakdown; logging a recipe simply requires entering a serving weight — macros are scaled automatically; recipes are stored per-client in Supabase with full RLS for both trainer and client access
 
 ### UI & Theme
@@ -388,8 +390,8 @@ public/
   favicon.png
 
 supabase/
-  schema.sql                        # Source-of-truth DDL (migrations 001–019 + 016b + Recipes + Workout Guides)
-  seed.sql                          # 150+ exercises across all muscle groups
+  schema.sql                        # Source-of-truth DDL (migrations 001–022 + 016b + Recipes + Workout Guides, all inline)
+  seed.sql                          # 220+ exercises across all muscle groups (strength, cardio, flexibility, stretch, hands, feet)
   seed_test_client.sql              # Full year of realistic test data (youth hockey player)
   migration_016_form_notes.sql      # Backfills form_notes for all 150 seeded exercises from free-exercise-db instructions (run once; guarded with WHERE form_notes IS NULL OR form_notes = '')
   migrations/
@@ -434,7 +436,7 @@ Run these in order in the **Supabase SQL Editor**:
 
 ```
 1. supabase/schema.sql          — creates all tables, triggers, RLS policies, and all migrations
-2. supabase/seed.sql            — populates the exercise library (150+ exercises)
+2. supabase/seed.sql            — populates the exercise library (220+ exercises)
 ```
 
 `schema.sql` is the single source of truth and includes all incremental migrations inline:
@@ -459,6 +461,8 @@ Run these in order in the **Supabase SQL Editor**:
 - **015** — adds `equipment TEXT` column to `exercises`; classifies all 100 seeded exercises (Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other)
 - **019** — adds `split TEXT` column to `workout_templates`; drops `UNIQUE(name)` and replaces with `UNIQUE(name, split)`; backfills all 32 seeded templates with their correct split label (Full Body / Upper / Lower / Push / Pull / Legs / Abs & Core)
 - **020** — adds `subgroup TEXT` column to `workout_templates`; re-homes Phase 1/2/3 templates under Full Body with phase subgroups; merges old Abs split into Abs & Core; backfills all subgroup labels by name pattern
+- **021** — renames all workout templates to remove "Workout A/B/C/D" prefixes; templates now use descriptive target-area names (e.g. "Push Emphasis", "Quad Focus"); drops `UNIQUE(name, split)` and replaces with `UNIQUE(name, split, subgroup)` to allow same-named templates in different subgroups
+- **022** — adds `'stretch'` as a valid exercise category; seeds 72 new exercises: 36 stretches across all major muscle groups, 8 hand/wrist stretches, 10 hand/wrist strength exercises, 7 foot/ankle stretches, 11 foot/ankle strength exercises (muscle_group `'Hands'` / `'Feet'`)
 - **016b** (scheduling) — `trainer_availability` (recurring weekly + specific-date slots; free-form start/end times; `day_of_week` nullable with CHECK constraint ensuring exactly one of `day_of_week` / `specific_date` is set); `scheduled_sessions` (status: `pending | confirmed | completed | cancelled`; `confirmed_at`, `cancelled_at`, `cancelled_by`); `client_credits` (balance per client); `credit_transactions` (ledger with reason: `grant | session_deduct | session_refund`); RLS for both trainers and clients on all four tables
 - **Recipes** — `recipes` table (name, description, client_id, trainer_id); `recipe_ingredients` table (food_name, usda_food_id, weight_g, per-100g macro columns, sort_order; cascades on recipe delete); RLS for both trainer (`trainer_id = auth.uid()`) and client (`client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())`)
 - **Workout Guides** — `workout_guides` table (topic, section_key, content, updated_at; UNIQUE on topic+section_key); read policy for all authenticated users; write policy restricted to trainers (`EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid())`)

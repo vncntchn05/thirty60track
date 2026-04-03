@@ -14,10 +14,11 @@ import type { ExerciseCategory, EquipmentType } from '@/types';
 import { EQUIPMENT_TYPES } from '@/types';
 
 const CATEGORY_LABEL: Record<ExerciseCategory, string> = {
-  strength: 'Strength',
-  cardio: 'Cardio',
+  strength:    'Strength',
+  cardio:      'Cardio',
   flexibility: 'Flexibility',
-  other: 'Other',
+  stretch:     'Stretch',
+  other:       'Other',
 };
 
 /** Converts a free-exercise-db slug to a human-readable label. */

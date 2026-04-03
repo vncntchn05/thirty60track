@@ -54,7 +54,7 @@ export type ClientIntake = {
 
 export type UpdateClientIntake = Partial<Omit<ClientIntake, 'id' | 'client_id' | 'updated_at'>>;
 
-export type ExerciseCategory = 'strength' | 'cardio' | 'flexibility' | 'other';
+export type ExerciseCategory = 'strength' | 'cardio' | 'flexibility' | 'stretch' | 'other';
 
 export const EQUIPMENT_TYPES = {
   Barbell:    'Barbell',

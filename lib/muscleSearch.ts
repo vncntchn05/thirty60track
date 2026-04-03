@@ -6,6 +6,8 @@ const MUSCLE_SYNONYMS: Record<string, string[]> = {
   shoulders:   ['delt', 'delts', 'deltoid', 'deltoids', 'rotator', 'cuff'],
   core:        ['abs', 'ab', 'abdominal', 'abdominals', 'oblique', 'obliques', 'transverse'],
   glutes:      ['glute', 'gluteus', 'gluteal', 'butt', 'hip'],
+  hands:       ['wrist', 'wrists', 'finger', 'fingers', 'grip', 'palm', 'knuckle', 'thumb', 'pinch'],
+  feet:        ['foot', 'ankle', 'ankles', 'toe', 'toes', 'plantar', 'achilles', 'heel', 'metatarsal'],
   'full body': ['compound', 'total body'],
 };
 
