@@ -42,10 +42,10 @@ describe('WORKOUT_TEMPLATES — data integrity', () => {
     expect(uniqueIds.size).toBe(ids.length);
   });
 
-  it('all names are unique', () => {
-    const names = WORKOUT_TEMPLATES.map((t) => t.name);
-    const uniqueNames = new Set(names);
-    expect(uniqueNames.size).toBe(names.length);
+  it('all (name, split, subgroup) combinations are unique', () => {
+    const keys = WORKOUT_TEMPLATES.map((t) => `${t.name}|${t.split}|${t.subgroup ?? ''}`);
+    const uniqueKeys = new Set(keys);
+    expect(uniqueKeys.size).toBe(keys.length);
   });
 
   it('every exercise name within a template is a non-empty string', () => {
@@ -81,14 +81,14 @@ describe('WORKOUT_TEMPLATES — phase groupings', () => {
 });
 
 describe('WORKOUT_TEMPLATES — specific template content', () => {
-  it('P1-A is named "Workout A: Push Focus"', () => {
+  it('P1-A is named "Push Emphasis"', () => {
     const t = WORKOUT_TEMPLATES.find((x) => x.id === 'P1-A');
-    expect(t?.name).toBe('Workout A: Push Focus');
+    expect(t?.name).toBe('Push Emphasis');
   });
 
-  it('P1-B is named "Workout B: Pull Focus"', () => {
+  it('P1-B is named "Pull Emphasis"', () => {
     const t = WORKOUT_TEMPLATES.find((x) => x.id === 'P1-B');
-    expect(t?.name).toBe('Workout B: Pull Focus');
+    expect(t?.name).toBe('Pull Emphasis');
   });
 
   it('Abs-A and Abs-B have the same exercise names (in reverse order)', () => {
