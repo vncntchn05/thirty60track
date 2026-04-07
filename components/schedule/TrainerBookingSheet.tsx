@@ -10,7 +10,7 @@ import { useClients } from '@/hooks/useClients';
 import { useClientCredits } from '@/hooks/useCredits';
 import { bookSessionForClient } from '@/hooks/useSchedule';
 import { supabase } from '@/lib/supabase';
-import type { TrainerAvailability, ClientWithStats } from '@/types';
+import type { ClientWithStats } from '@/types';
 
 // ─── Shared date/time helpers (mirrors BookingSheet) ──────────
 
@@ -27,43 +27,29 @@ function toIso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function parseHHMM(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
 
-function getUpcomingDates(slots: TrainerAvailability[]): Date[] {
-  const weeklyDays   = new Set(slots.filter((s) => s.day_of_week !== null).map((s) => s.day_of_week as number));
-  const specificIsos = new Set(slots.filter((s) => s.specific_date !== null).map((s) => s.specific_date as string));
+// Trainers can book on any day — return all dates for the next 60 days.
+function getUpcomingDates(): Date[] {
   const dates: Date[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   for (let i = 0; i < 60; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
-    if (weeklyDays.has(d.getDay()) || specificIsos.has(toIso(d))) dates.push(d);
+    dates.push(d);
   }
   return dates;
 }
 
 type TimeOption = { h: number; m: number; durations: (30 | 60)[] };
 
-function getTimeOptions(slots: TrainerAvailability[], date: Date): TimeOption[] {
-  const dayIso  = toIso(date);
-  const windows = slots.filter((s) =>
-    (s.day_of_week !== null && s.day_of_week === date.getDay()) ||
-    (s.specific_date !== null && s.specific_date === dayIso),
-  );
+// Trainers can book at any time — return all 15-min slots from 6 AM to 10 PM.
+function getTimeOptions(): TimeOption[] {
   const options: TimeOption[] = [];
-  for (const w of windows) {
-    const startMin = parseHHMM(w.start_time);
-    const endMin   = parseHHMM(w.end_time);
-    for (let m = startMin; m < endMin - 15; m += 15) {
-      const durations: (30 | 60)[] = [];
-      if (m + 30 <= endMin) durations.push(30);
-      if (m + 60 <= endMin) durations.push(60);
-      if (durations.length > 0) options.push({ h: Math.floor(m / 60), m: m % 60, durations });
-    }
+  const startMin = 6 * 60;   // 6:00 AM
+  const endMin   = 22 * 60;  // 10:00 PM
+  for (let m = startMin; m < endMin; m += 15) {
+    options.push({ h: Math.floor(m / 60), m: m % 60, durations: [30, 60] });
   }
   return options;
 }
@@ -77,7 +63,6 @@ type Step = 'client' | 'date' | 'time' | 'confirm';
 type Props = {
   visible: boolean;
   trainerId: string;
-  availSlots: TrainerAvailability[];
   onClose: () => void;
   onBooked: () => void;
 };
@@ -118,7 +103,7 @@ function ClientRow({
 
 // ─── Main component ───────────────────────────────────────────
 
-export function TrainerBookingSheet({ visible, trainerId, availSlots, onClose, onBooked }: Props) {
+export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: Props) {
   const t = useTheme();
   const { clients, loading: clientsLoading } = useClients();
 
@@ -157,8 +142,8 @@ export function TrainerBookingSheet({ visible, trainerId, availSlots, onClose, o
       });
   }, [visible, clients]);
 
-  const upcomingDates = getUpcomingDates(availSlots);
-  const timeOptions   = selectedDate ? getTimeOptions(availSlots, selectedDate) : [];
+  const upcomingDates = getUpcomingDates();
+  const timeOptions   = selectedDate ? getTimeOptions() : [];
 
   function handleClose() {
     setStep('client');
@@ -296,81 +281,67 @@ export function TrainerBookingSheet({ visible, trainerId, availSlots, onClose, o
 
           {/* ── Step: Date ── */}
           {step === 'date' && (
-            upcomingDates.length === 0 ? (
-              <View style={styles.centered}>
-                <Ionicons name="calendar-outline" size={40} color={t.textSecondary as string} />
-                <Text style={[styles.emptyText, { color: t.textSecondary }]}>No availability set</Text>
-                <Text style={[styles.emptyHint, { color: t.textSecondary }]}>Add availability slots first</Text>
-              </View>
-            ) : (
-              <ScrollView contentContainerStyle={styles.dateGrid}>
-                {upcomingDates.map((d) => {
-                  const iso = toIso(d);
-                  const isSelected = selectedDate && toIso(selectedDate) === iso;
-                  return (
-                    <TouchableOpacity
-                      key={iso}
-                      style={[
-                        styles.dateCard,
-                        { borderColor: t.border, backgroundColor: t.surface },
-                        isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
-                      ]}
-                      onPress={() => selectDate(d)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.dateDow, { color: isSelected ? colors.primary : t.textSecondary }]}>
-                        {DAY_ABBR[d.getDay()]}
-                      </Text>
-                      <Text style={[styles.dateDay, { color: isSelected ? colors.primary : t.textPrimary }]}>
-                        {d.getDate()}
-                      </Text>
-                      <Text style={[styles.dateMon, { color: isSelected ? colors.primary : t.textSecondary }]}>
-                        {MONTH_ABBR[d.getMonth()]}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )
+            <ScrollView contentContainerStyle={styles.dateGrid}>
+              {upcomingDates.map((d) => {
+                const iso = toIso(d);
+                const isSelected = selectedDate && toIso(selectedDate) === iso;
+                return (
+                  <TouchableOpacity
+                    key={iso}
+                    style={[
+                      styles.dateCard,
+                      { borderColor: t.border, backgroundColor: t.surface },
+                      isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
+                    ]}
+                    onPress={() => selectDate(d)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.dateDow, { color: isSelected ? colors.primary : t.textSecondary }]}>
+                      {DAY_ABBR[d.getDay()]}
+                    </Text>
+                    <Text style={[styles.dateDay, { color: isSelected ? colors.primary : t.textPrimary }]}>
+                      {d.getDate()}
+                    </Text>
+                    <Text style={[styles.dateMon, { color: isSelected ? colors.primary : t.textSecondary }]}>
+                      {MONTH_ABBR[d.getMonth()]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           )}
 
           {/* ── Step: Time ── */}
           {step === 'time' && (
-            timeOptions.length === 0 ? (
-              <View style={styles.centered}>
-                <Text style={[styles.emptyText, { color: t.textSecondary }]}>No time slots available</Text>
-              </View>
-            ) : (
-              <ScrollView contentContainerStyle={styles.timeList}>
-                {timeOptions.map((opt) => (
-                  opt.durations.map((dur) => {
-                    const isSelected = selectedTime?.h === opt.h && selectedTime?.m === opt.m && selectedDuration === dur;
-                    return (
-                      <TouchableOpacity
-                        key={`${opt.h}:${opt.m}-${dur}`}
-                        style={[
-                          styles.timeRow,
-                          { borderColor: t.border, backgroundColor: t.surface },
-                          isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
-                        ]}
-                        onPress={() => selectTime(opt, dur)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.timeText, { color: isSelected ? colors.primary : t.textPrimary }]}>
-                          {fmtTime(opt.h, opt.m)}
+            <ScrollView contentContainerStyle={styles.timeList}>
+              {timeOptions.map((opt) => (
+                opt.durations.map((dur) => {
+                  const isSelected = selectedTime?.h === opt.h && selectedTime?.m === opt.m && selectedDuration === dur;
+                  return (
+                    <TouchableOpacity
+                      key={`${opt.h}:${opt.m}-${dur}`}
+                      style={[
+                        styles.timeRow,
+                        { borderColor: t.border, backgroundColor: t.surface },
+                        isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
+                      ]}
+                      onPress={() => selectTime(opt, dur)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.timeText, { color: isSelected ? colors.primary : t.textPrimary }]}>
+                        {fmtTime(opt.h, opt.m)}
+                      </Text>
+                      <View style={[styles.durBadge, { backgroundColor: isSelected ? colors.primary : t.background }]}>
+                        <Text style={[styles.durText, { color: isSelected ? colors.textInverse : t.textSecondary }]}>
+                          {dur}min · {dur === 30 ? 1 : 2} cr
                         </Text>
-                        <View style={[styles.durBadge, { backgroundColor: isSelected ? colors.primary : t.background }]}>
-                          <Text style={[styles.durText, { color: isSelected ? colors.textInverse : t.textSecondary }]}>
-                            {dur}min · {dur === 30 ? 1 : 2} cr
-                          </Text>
-                        </View>
-                        {isSelected && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-                      </TouchableOpacity>
-                    );
-                  })
-                ))}
-              </ScrollView>
-            )
+                      </View>
+                      {isSelected && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+                    </TouchableOpacity>
+                  );
+                })
+              ))}
+            </ScrollView>
           )}
 
           {/* ── Step: Confirm ── */}

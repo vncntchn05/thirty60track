@@ -1,7 +1,7 @@
 import { useState, lazy, Suspense, useCallback } from 'react';
 import {
   StyleSheet, Text, View, FlatList, ScrollView,
-  TouchableOpacity, ActivityIndicator, TextInput, Alert, Pressable,
+  TouchableOpacity, ActivityIndicator, TextInput, Modal, Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,6 +61,9 @@ export default function ClientDetailScreen() {
   const t = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>('progress');
   const [workoutViewMode, setWorkoutViewMode] = useState<ViewMode>('calendar');
+  type DayOption = { text: string; onPress: () => void };
+  const [dayOptions, setDayOptions] = useState<DayOption[]>([]);
+  const [dayOptionsTitle, setDayOptionsTitle] = useState('');
 
   const { trainer } = useAuth();
   const { client, loading: clientLoading, error: clientError, updateClient, deleteClient } = useClient(id);
@@ -75,11 +78,10 @@ export default function ClientDetailScreen() {
 
   function handleCalendarDayPress(iso: string) {
     const dayWorkouts  = workouts.filter(w => w.performed_at.slice(0, 10) === iso);
-    const dayAssigned  = assignedWorkouts.filter(a => a.scheduled_date.slice(0, 10) === iso);
+    const dayAssigned  = assignedWorkouts.filter(a => a.status === 'assigned' && a.scheduled_date.slice(0, 10) === iso);
     const daySessions  = clientSessions.filter(s => s.status === 'confirmed' && toIso(new Date(s.scheduled_at)) === iso);
 
-    type Option = { text: string; onPress: () => void };
-    const options: Option[] = [];
+    const options: DayOption[] = [];
 
     dayWorkouts.forEach(w => options.push({
       text: `Logged workout`,
@@ -90,18 +92,15 @@ export default function ClientDetailScreen() {
       onPress: () => router.push(`/workout/assigned/${a.id}` as never),
     }));
     daySessions.forEach(s => options.push({
-      text: `Session: ${fmtTime(s.scheduled_at)}`,
+      text: `Session at ${fmtTime(s.scheduled_at)}`,
       onPress: () => router.push(`/(tabs)/schedule?weekOf=${iso}` as never),
     }));
 
     if (options.length === 1) {
       options[0].onPress();
     } else if (options.length > 1) {
-      Alert.alert(
-        iso,
-        undefined,
-        [...options.map(o => ({ text: o.text, onPress: o.onPress })), { text: 'Cancel', style: 'cancel' as const }],
-      );
+      setDayOptionsTitle(isoToLocal(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+      setDayOptions(options);
     }
   }
 
@@ -302,6 +301,35 @@ export default function ClientDetailScreen() {
           <Text style={styles.fabLabel}>Log Workout</Text>
         </TouchableOpacity>
       )}
+
+      {/* ── Day picker modal (multiple items on same day) ── */}
+      <Modal
+        visible={dayOptions.length > 0}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDayOptions([])}
+      >
+        <Pressable style={styles.dayModalBackdrop} onPress={() => setDayOptions([])}>
+          <Pressable style={[styles.dayModalSheet, { backgroundColor: t.surface }]} onPress={() => {}}>
+            <Text style={[styles.dayModalTitle, { color: t.textPrimary }]}>{dayOptionsTitle}</Text>
+            <Text style={[styles.dayModalSubtitle, { color: t.textSecondary }]}>Select an item:</Text>
+            {dayOptions.map((opt, i) => (
+              <TouchableOpacity
+                key={i}
+                style={[styles.dayModalOption, { borderColor: t.border }]}
+                onPress={() => { setDayOptions([]); opt.onPress(); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.dayModalOptionText, { color: t.textPrimary }]}>{opt.text}</Text>
+                <Ionicons name="chevron-forward" size={16} color={t.textSecondary as string} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={() => setDayOptions([])} style={styles.dayModalCancel}>
+              <Text style={[styles.dayModalCancelText, { color: t.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1043,6 +1071,28 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
   },
   fabLabel: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+
+  // ── Day picker modal ──
+  dayModalBackdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  dayModalSheet: {
+    width: 300, borderRadius: 16,
+    padding: spacing.md, gap: spacing.sm,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 12, elevation: 10,
+  },
+  dayModalTitle: { ...typography.heading3, fontWeight: '700' },
+  dayModalSubtitle: { ...typography.bodySmall },
+  dayModalOption: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: spacing.sm, paddingHorizontal: spacing.sm,
+    borderRadius: radius.md, borderWidth: 1,
+  },
+  dayModalOptionText: { ...typography.body, fontWeight: '600', flex: 1 },
+  dayModalCancel: { alignItems: 'center', paddingVertical: spacing.sm, marginTop: spacing.xs },
+  dayModalCancelText: { ...typography.body },
 
   // ── Delete confirmation bar ──
   deleteBar: {

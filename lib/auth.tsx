@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .from('trainers')
       .select('id, full_name, email, avatar_url, created_at')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (trainerData) {
       setTrainer(trainerData);
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .from('clients')
       .select('id')
       .eq('auth_user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (clientData) {
       setTrainer(null);

@@ -201,7 +201,6 @@ export default function ScheduleScreen() {
         <TrainerBookingSheet
           visible={bookSheetOpen}
           trainerId={myTrainerId}
-          availSlots={availSlots}
           onClose={() => setBookSheetOpen(false)}
           onBooked={refetch}
         />

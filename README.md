@@ -80,7 +80,8 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 - [x] **Weekly timetable** — full-screen 7-day grid (8 AM–8 PM) that fills the available height without scrolling; faint gold bands show trainer availability windows; session blocks are colour-coded by status (red = pending, green = confirmed, gold = completed); "now" red line on today's column; today's column has a subtle gold tint
 - [x] **Week navigation** — prev/next chevrons plus a tap-to-open week picker modal; week picker shows session dots on dates that have sessions
 - [x] **Trainer selector** — when multiple trainers exist, a horizontal chip strip above the timetable lets any trainer view a colleague's schedule; the Availability FAB is hidden when viewing another trainer's schedule
-- [x] **Client booking** — 3-step flow: pick date → pick time (15-min increments within any availability window) → confirm; each time slot shows 30 min (1 credit) and 60 min (2 credits) buttons; gold = affordable, amber outline = can't afford, dimmed = doesn't fit window
+- [x] **Client booking** — 3-step flow: pick date (only availability days shown) → pick time (15-min increments within any availability window) → confirm; each time slot shows 30 min (1 credit) and 60 min (2 credits) buttons; gold = affordable, amber outline = can't afford, dimmed = doesn't fit window
+- [x] **Trainer booking** — trainers book sessions on behalf of clients from the same 3-step flow; date and time are unrestricted (all 60 days, all 15-min slots from 6 AM–10 PM) regardless of availability settings
 - [x] **Session management** — trainers can confirm, cancel, or mark sessions complete directly from the timetable; clients can view or cancel their own sessions; credits are deducted on confirm and refunded on trainer-initiated cancel of a confirmed session
 - [x] **Client schedule segment** — the client Workouts tab has a "Schedule" segment showing the same full-screen timetable with availability bands and session blocks; includes a "Book Session" FAB and the credit balance pill (`★ Credits: N`) in the week nav bar
 - [x] **Schedule tab deep-link** — tapping a confirmed session dot in the Workout Calendar navigates to the Schedule tab (trainer) or switches to the Schedule segment (client) pre-scrolled to the correct week
@@ -151,7 +152,7 @@ Clients have their own separate tab navigator with distinct screens:
 
 - [x] **Home dashboard** — greeting, total sessions, weekly streak, last workout card, quick actions
 - [x] **One-time intake form** — shown on first login; collects full name, date of birth, phone, address, emergency contact, occupation, current/past injuries, chronic conditions, medications, activity level, goals, and timeframe; disappears once submitted
-- [x] **Workout history — calendar + list view** — the Workouts segment defaults to a full-screen monthly calendar; gold dots = logged workouts, green = assigned, dark green = confirmed sessions; tap the month/year title to jump to any month/year via a picker modal; a toggle icon in the segment bar switches to the classic card list; tapping a date with indicators navigates directly (single item) or shows a choice sheet (multiple items); confirmed session dots switch to the Schedule segment at the correct week
+- [x] **Workout history — calendar + list view** — the Workouts segment defaults to a full-screen monthly calendar; gold dots = logged workouts, green = assigned, dark green = confirmed sessions; tap the month/year title to jump to any month/year via a picker modal; a toggle icon in the segment bar switches to the classic card list; tapping a date with a single item navigates directly; tapping a date with multiple items (e.g. a logged workout + a confirmed session) shows a custom in-app modal listing each item — works on web where native `Alert.alert` is limited; confirmed session dots switch to the Schedule segment at the correct week
 - [x] **Self-log workouts** — clients can log their own workouts (exercises + sets + body metrics) with per-exercise unit toggle
 - [x] **Complete assigned workouts** — pre-filled prescribed sets; client fills in actual values and confirms via a bottom confirmation bar; saved to workout log automatically
 - [x] **Schedule segment** — second segment in the Workouts tab; shows the full-screen weekly timetable with gold availability bands and colour-coded session blocks; week nav + week picker modal; "Book Session" FAB opens the 3-step booking flow; credit balance pill shown in the week nav bar
@@ -332,14 +333,15 @@ components/
     CalendarStrip.tsx         # Week strip with session dots; exports sameDay, getMondayOfWeek helpers
     SessionSheet.tsx          # Bottom sheet — trainer: confirm/cancel/complete; client: view/cancel
     AvailabilitySheet.tsx     # Trainer manages recurring/specific-date availability slots with free-form TimePicker (0/15/30/45 min chips)
-    BookingSheet.tsx          # 3-step client booking: date → time (15-min increments, 30/60 min duration) → confirm; credit check per option
+    BookingSheet.tsx          # 3-step client booking: date (availability days only) → time (15-min increments within availability windows, 30/60 min duration) → confirm; credit check per option
+    TrainerBookingSheet.tsx   # 3-step trainer booking on behalf of a client: date (all 60 days, no availability restriction) → time (all 15-min slots 6 AM–10 PM) → confirm; credit deduction shown
     WeekPickerModal.tsx       # Modal week picker with session dots; 7-column calendar grid
   workout/
     ExercisePicker.tsx        # Searchable exercise picker with body map (left) + equipment chips + list (right); used when logging or editing workouts
     DbExerciseSection.tsx     # "FROM DATABASE" result rows with optional Add button (hidden when onAdd not provided — client read-only mode)
     TemplatePicker.tsx        # Phase-grouped template browser
     TemplateEditor.tsx        # Create / edit / delete workout templates
-    WorkoutCalendar.tsx       # Full-screen monthly calendar; gold/green/dark-green dots per day; tap month/year title to open month-year picker modal; onDayPress callback for navigation
+    WorkoutCalendar.tsx       # Full-screen monthly calendar; gold/green/dark-green dots per day; tap month/year title to open month-year picker modal; onDayPress callback fires for any day with dots; single-item days navigate directly, multi-item days show a custom Modal picker (web-safe — avoids Alert.alert limitations)
   client/
     MediaGallery.tsx          # Photo/video gallery — grid, upload modal, detail/edit modal
     IntakeForm.tsx            # Client intake form (first-time and edit modes)
@@ -387,7 +389,7 @@ index.js                # Custom entry point — installs a console.error filter
 
 lib/
   supabase.ts              # Supabase client singleton
-  auth.tsx                 # AuthContext + useAuth (role detection, client linking, auth recovery)
+  auth.tsx                 # AuthContext + useAuth (role detection via maybeSingle — no 406 noise for client users, client linking, auth recovery)
   unreadContext.tsx        # UnreadProvider + useUnread() — global unread count via Realtime subscriptions on messages INSERT and conversation_participants UPDATE
   slugify.ts               # Name → URL slug helpers (clientSlug, slugify)
   generateReportPdf.ts     # HTML report builder + SVG chart generator + expo-print/sharing wrapper
