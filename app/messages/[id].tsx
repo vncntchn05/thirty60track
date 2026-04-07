@@ -264,7 +264,12 @@ export default function ConversationScreen() {
         router.push(`${exercisesBase}?tab=guides&topic=${msg.attachment_id}` as never);
         break;
       case 'workout':
-        router.push(`/workout/${msg.attachment_id}` as never);
+        // Clients always view shared workouts as read-only (can't edit another client's data)
+        if (role === 'client') {
+          router.push(`/workout/${msg.attachment_id}?readonly=true` as never);
+        } else {
+          router.push(`/workout/${msg.attachment_id}` as never);
+        }
         break;
       case 'assigned_workout':
         // Clients view their own assigned workouts via the session screen (read/complete flow).

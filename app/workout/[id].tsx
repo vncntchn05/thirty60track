@@ -49,7 +49,8 @@ function parseOptionalFloat(v: string): number | null {
 // ─── Screen ───────────────────────────────────────────────────────
 
 export default function WorkoutDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, readonly } = useLocalSearchParams<{ id: string; readonly?: string }>();
+  const isReadOnly = readonly === 'true';
   const router = useRouter();
   const navigation = useNavigation();
   const t = useTheme();
@@ -237,9 +238,11 @@ export default function WorkoutDetailScreen() {
               <TouchableOpacity onPress={() => router.replace('/(tabs)/' as never)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="home-outline" size={22} color={colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setConfirmingDelete(true); setDeleteError(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="trash-outline" size={22} color={colors.error} />
-              </TouchableOpacity>
+              {!isReadOnly && (
+                <TouchableOpacity onPress={() => { setConfirmingDelete(true); setDeleteError(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="trash-outline" size={22} color={colors.error} />
+                </TouchableOpacity>
+              )}
             </View>
           ),
         }}
@@ -259,18 +262,21 @@ export default function WorkoutDetailScreen() {
               bodyFatPercent={workout.body_fat_percent}
               trainerName={workout.logged_by_role === 'trainer' ? (workout.trainer?.full_name ?? null) : (workout.client?.full_name ?? null)}
               onSave={updateWorkout}
-              onDirtyChange={handleSubDirtyChange}
+              onDirtyChange={isReadOnly ? undefined : handleSubDirtyChange}
+              readOnly={isReadOnly}
               t={t}
             />
-            <GroupCard
-              peers={groupPeers}
-              allClients={clients}
-              currentClientId={workout.client_id}
-              trainerId={user?.id ?? ''}
-              onAdd={addToGroup}
-              onRemove={removeFromGroup}
-              t={t}
-            />
+            {!isReadOnly && (
+              <GroupCard
+                peers={groupPeers}
+                allClients={clients}
+                currentClientId={workout.client_id}
+                trainerId={user?.id ?? ''}
+                onAdd={addToGroup}
+                onRemove={removeFromGroup}
+                t={t}
+              />
+            )}
           </>
         }
         renderSectionHeader={({ section }) => {
@@ -302,8 +308,8 @@ export default function WorkoutDetailScreen() {
                 ]}>
                   {section.title}
                 </Text>
-                {/* Chain icon — available on all sections except the first */}
-                {sectionIdx > 0 && (
+                {/* Chain icon — available on all sections except the first; hidden in read-only mode */}
+                {sectionIdx > 0 && !isReadOnly && (
                   <TouchableOpacity
                     onPress={() => handleToggleSupersetLink(sectionIdx)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -327,10 +333,12 @@ export default function WorkoutDetailScreen() {
             onDelete={() => { setDeleteSetId(item.id); setDeleteError(null); }}
             onSave={(payload) => updateSet(item.id, payload)}
             onDirtyChange={handleSubDirtyChange}
+            readOnly={isReadOnly}
             t={t}
           />
         )}
         renderSectionFooter={({ section }) => {
+          if (isReadOnly) return null;
           const isAdding = pendingExercise?.id === section.exerciseId;
           if (isAdding) {
             return (
@@ -358,7 +366,7 @@ export default function WorkoutDetailScreen() {
           );
         }}
         ListFooterComponent={
-          isNewExercise && pendingExercise ? (
+          !isReadOnly && isNewExercise && pendingExercise ? (
             <View style={styles.newExerciseBlock}>
               <Text style={styles.exerciseTitle}>{pendingExercise.name}</Text>
               <AddSetForm
@@ -428,7 +436,7 @@ export default function WorkoutDetailScreen() {
       )}
 
       {/* FAB — add a new exercise to this workout */}
-      {!confirmingDelete && !deleteSetId && !showUnsavedBar && (
+      {!isReadOnly && !confirmingDelete && !deleteSetId && !showUnsavedBar && (
         <TouchableOpacity
           style={styles.fab}
           onPress={openPickerForNewExercise}
@@ -619,10 +627,11 @@ type WorkoutHeaderProps = {
   trainerName: string | null;
   onSave: (p: UpdateWorkout) => Promise<{ error: string | null }>;
   onDirtyChange?: (dirty: boolean, save?: () => Promise<void>) => void;
+  readOnly?: boolean;
   t: Theme;
 };
 
-function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, trainerName, onSave, onDirtyChange, t }: WorkoutHeaderProps) {
+function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, trainerName, onSave, onDirtyChange, readOnly, t }: WorkoutHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dateVal, setDateVal] = useState(performedAt);
@@ -730,9 +739,11 @@ function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, train
     <View style={[styles.headerCard, { backgroundColor: t.surface, borderColor: t.border }]}>
       <View style={styles.headerRow}>
         <Text style={[styles.dateText, { color: t.textPrimary }]}>{displayDate}</Text>
-        <TouchableOpacity onPress={startEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="pencil" size={16} color={colors.primary} />
-        </TouchableOpacity>
+        {!readOnly && (
+          <TouchableOpacity onPress={startEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="pencil" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
       {trainerName ? <Text style={[styles.trainerText, { color: t.textSecondary }]}>Logged by {trainerName}</Text> : null}
       {hasMetrics && (
@@ -753,7 +764,7 @@ function WorkoutHeader({ performedAt, notes, bodyWeightKg, bodyFatPercent, train
       )}
       {notes
         ? <Text style={[styles.notesText, { color: t.textSecondary }]}>{notes}</Text>
-        : <Text style={[styles.notesEmpty, { color: t.textSecondary }]}>Tap pencil to add notes or body metrics</Text>}
+        : !readOnly && <Text style={[styles.notesEmpty, { color: t.textSecondary }]}>Tap pencil to add notes or body metrics</Text>}
     </View>
   );
 }
@@ -766,10 +777,11 @@ type SetRowProps = {
   onDelete: () => void;
   onSave: (p: UpdateWorkoutSet) => Promise<{ error: string | null }>;
   onDirtyChange?: (dirty: boolean, save?: () => Promise<void>) => void;
+  readOnly?: boolean;
   t: Theme;
 };
 
-function SetRow({ set, supersetColor, onDelete, onSave, onDirtyChange, t }: SetRowProps) {
+function SetRow({ set, supersetColor, onDelete, onSave, onDirtyChange, readOnly, t }: SetRowProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const initUnit: WeightUnit = set.duration_seconds != null ? 'secs' : set.weight_kg != null ? 'kg' : 'lbs';
@@ -887,12 +899,16 @@ function SetRow({ set, supersetColor, onDelete, onSave, onDirtyChange, t }: SetR
         <Text style={[styles.setDetail, { color: t.textPrimary }]}>{parts.join(' · ') || '—'}</Text>
         {set.notes ? <Text style={[styles.setNotes, { color: t.textSecondary }]}>{set.notes}</Text> : null}
       </View>
-      <TouchableOpacity onPress={startEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="pencil" size={15} color={colors.primary} />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="trash-outline" size={15} color={colors.error} />
-      </TouchableOpacity>
+      {!readOnly && (
+        <>
+          <TouchableOpacity onPress={startEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="pencil" size={15} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="trash-outline" size={15} color={colors.error} />
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 }
