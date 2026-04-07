@@ -9,6 +9,7 @@ import { getMondayOfWeek } from '@/components/schedule/CalendarStrip';
 import { WeeklyTimetable } from '@/components/schedule/WeeklyTimetable';
 import { SessionSheet } from '@/components/schedule/SessionSheet';
 import { AvailabilitySheet } from '@/components/schedule/AvailabilitySheet';
+import { TrainerBookingSheet } from '@/components/schedule/TrainerBookingSheet';
 import { WeekPickerModal } from '@/components/schedule/WeekPickerModal';
 import { colors, spacing, typography, useTheme } from '@/constants/theme';
 import type { ScheduledSessionWithDetails, Trainer } from '@/types';
@@ -55,6 +56,7 @@ export default function ScheduleScreen() {
   }, [weekOf]);
   const [activeSession, setActiveSession] = useState<ScheduledSessionWithDetails | null>(null);
   const [availSheetOpen, setAvailSheetOpen] = useState(false);
+  const [bookSheetOpen, setBookSheetOpen] = useState(false);
   const [weekPickerOpen, setWeekPickerOpen] = useState(false);
 
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
@@ -167,10 +169,16 @@ export default function ScheduleScreen() {
       />
 
       {isViewingOwn && (
-        <TouchableOpacity style={styles.fab} onPress={() => setAvailSheetOpen(true)}>
-          <Ionicons name="time-outline" size={20} color={colors.textInverse} />
-          <Text style={styles.fabLabel}>Availability</Text>
-        </TouchableOpacity>
+        <View style={styles.fabStack}>
+          <TouchableOpacity style={styles.fab} onPress={() => setBookSheetOpen(true)}>
+            <Ionicons name="calendar-outline" size={20} color={colors.textInverse} />
+            <Text style={styles.fabLabel}>Book Session</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={() => setAvailSheetOpen(true)}>
+            <Ionicons name="time-outline" size={20} color={colors.primary} />
+            <Text style={[styles.fabLabel, { color: colors.primary }]}>Availability</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       <SessionSheet
@@ -186,6 +194,16 @@ export default function ScheduleScreen() {
           visible={availSheetOpen}
           trainerId={myTrainerId}
           onClose={() => setAvailSheetOpen(false)}
+        />
+      ) : null}
+
+      {myTrainerId ? (
+        <TrainerBookingSheet
+          visible={bookSheetOpen}
+          trainerId={myTrainerId}
+          availSlots={availSlots}
+          onClose={() => setBookSheetOpen(false)}
+          onBooked={refetch}
         />
       ) : null}
 
@@ -232,14 +250,22 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 52, left: 0, right: 0, zIndex: 20,
     alignItems: 'center', paddingTop: spacing.md,
   },
-  fab: {
+  fabStack: {
     position: 'absolute', bottom: spacing.xl, right: spacing.md,
+    alignItems: 'flex-end', gap: spacing.sm,
+  },
+  fab: {
     backgroundColor: colors.primary,
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: spacing.sm, paddingHorizontal: spacing.md, gap: spacing.xs,
     borderRadius: 9999,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3, shadowRadius: 4, elevation: 5,
+  },
+  fabSecondary: {
+    backgroundColor: colors.primary + '18',
+    borderWidth: 1, borderColor: colors.primary,
+    shadowOpacity: 0,
   },
   fabLabel: { ...typography.body, fontWeight: '700', color: colors.textInverse },
 });

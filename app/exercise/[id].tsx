@@ -5,7 +5,10 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { Video, ResizeMode } from 'expo-av';
 import { useExercise } from '@/hooks/useExercises';
+import { useExerciseMedia } from '@/hooks/useExerciseMedia';
 import { getDbImageUrls } from '@/lib/exerciseDb';
 import { APPROXIMATED_EXERCISES, EXERCISE_VARIANTS } from '@/lib/exerciseVariants';
 import { useAuth } from '@/lib/auth';
@@ -33,12 +36,15 @@ export default function ExerciseDetailScreen() {
   const { role } = useAuth();
   const isTrainer = role === 'trainer';
   const { exercise, loading, error, updateExercise } = useExercise(id);
+  const { media: customMedia, loading: mediaLoading, uploadMedia, deleteMedia } = useExerciseMedia(id ?? '');
 
   const [formNotes, setFormNotes] = useState('');
   const [helpUrl, setHelpUrl] = useState('');
   const [equipment, setEquipment] = useState<EquipmentType | null>(null);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [customLightbox, setCustomLightbox] = useState<{ uri: string; type: 'image' | 'video' } | null>(null);
 
   // Variant tabs
   const variants = exercise ? (EXERCISE_VARIANTS[exercise.name] ?? null) : null;
@@ -74,6 +80,45 @@ export default function ExerciseDetailScreen() {
     helpUrl !== (exercise.help_url ?? '') ||
     equipment !== (exercise.equipment ?? null)
   );
+
+  async function handlePickMedia() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('Permission required', 'Allow access to your media library to upload.'); return; }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      quality: 0.85,
+      videoMaxDuration: 120,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    const isVideo = asset.type === 'video';
+    const mimeType = isVideo ? (asset.mimeType ?? 'video/mp4') : (asset.mimeType ?? 'image/jpeg');
+
+    setUploading(true);
+    const { error: err } = await uploadMedia({
+      uri: asset.uri,
+      mimeType,
+      mediaType: isVideo ? 'video' : 'image',
+      caption: null,
+    });
+    setUploading(false);
+    if (err) Alert.alert('Upload failed', err);
+  }
+
+  async function handleDeleteMedia(mediaId: string) {
+    Alert.alert('Delete media', 'Remove this item?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          const { error: err } = await deleteMedia(mediaId);
+          if (err) Alert.alert('Error', err);
+        },
+      },
+    ]);
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -213,6 +258,75 @@ export default function ExerciseDetailScreen() {
           </Pressable>
         </Modal>
 
+        {/* Custom media lightbox */}
+        <Modal visible={customLightbox !== null} transparent animationType="fade" onRequestClose={() => setCustomLightbox(null)}>
+          <Pressable style={styles.lightboxOverlay} onPress={() => setCustomLightbox(null)}>
+            {customLightbox?.type === 'image' ? (
+              <Image source={{ uri: customLightbox.uri }} style={styles.lightboxImage} resizeMode="contain" />
+            ) : customLightbox?.type === 'video' ? (
+              <Pressable onPress={(e) => e.stopPropagation()}>
+                <Video
+                  source={{ uri: customLightbox.uri }}
+                  style={styles.lightboxVideo}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay
+                />
+              </Pressable>
+            ) : null}
+          </Pressable>
+        </Modal>
+
+        {/* ── Custom Media ── */}
+        <View style={styles.customMediaHeader}>
+          <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Custom Media</Text>
+          {isTrainer && (
+            uploading
+              ? <ActivityIndicator size="small" color={colors.primary} />
+              : (
+                <TouchableOpacity onPress={handlePickMedia} style={styles.addMediaBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+                </TouchableOpacity>
+              )
+          )}
+        </View>
+
+        {mediaLoading ? (
+          <ActivityIndicator color={colors.primary} style={{ alignSelf: 'flex-start' }} />
+        ) : customMedia.length === 0 ? (
+          <Text style={[styles.mediaEmpty, { color: t.textSecondary }]}>
+            {isTrainer ? 'Tap + to upload images or videos' : 'No custom media uploaded yet'}
+          </Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mediaRow} contentContainerStyle={styles.mediaRowContent}>
+            {customMedia.map((item) => (
+              <View key={item.id} style={styles.mediaThumbWrap}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setCustomLightbox({ uri: item.url, type: item.media_type as 'image' | 'video' })}
+                >
+                  {item.media_type === 'image' ? (
+                    <Image source={{ uri: item.url }} style={[styles.mediaThumb, { backgroundColor: t.surface }]} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.mediaThumb, styles.videoThumb, { backgroundColor: t.surface }]}>
+                      <Ionicons name="play-circle" size={32} color={colors.textInverse} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+                {isTrainer && (
+                  <TouchableOpacity
+                    style={styles.deleteMediaBtn}
+                    onPress={() => handleDeleteMedia(item.id)}
+                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                  >
+                    <Ionicons name="close-circle" size={18} color={colors.error} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
         <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Equipment</Text>
         {isTrainer ? (
           <View style={styles.chipWrap}>
@@ -346,6 +460,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   lightboxImage: { width: '90%', height: '80%' },
+  lightboxVideo: { width: 320, height: 240 },
+
+  customMediaHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
+  addMediaBtn: { padding: 2 },
+  mediaEmpty: { ...typography.bodySmall, fontStyle: 'italic' },
+  mediaRow: { flexGrow: 0 },
+  mediaRowContent: { gap: spacing.sm, paddingVertical: spacing.xs },
+  mediaThumbWrap: { position: 'relative' },
+  mediaThumb: { width: 100, height: 130, borderRadius: radius.md },
+  videoThumb: {
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a',
+  },
+  deleteMediaBtn: {
+    position: 'absolute', top: -6, right: -6,
+    backgroundColor: 'white', borderRadius: 9,
+  },
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {

@@ -417,3 +417,58 @@ export type WorkoutGuideEntry = {
   content: string;
   updated_at: string;
 };
+
+// ─── Direct Messaging (Migration 019) ────────────────────────
+
+export type Conversation = {
+  id: string;
+  created_by: string;
+  is_group: boolean;
+  title: string | null;
+  created_at: string;
+};
+
+export type ConversationParticipant = {
+  conversation_id: string;
+  user_id: string;
+  joined_at: string;
+};
+
+export type ExerciseMediaType = 'image' | 'video';
+
+export type ExerciseMedia = {
+  id: string;
+  exercise_id: string;
+  trainer_id: string;
+  storage_path: string;
+  media_type: ExerciseMediaType;
+  caption: string | null;
+  created_at: string;
+};
+
+export type MessageAttachmentType = 'exercise' | 'workout' | 'assigned_workout' | 'guide';
+
+export type DirectMessage = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  reply_to_id: string | null;
+  attachment_type: MessageAttachmentType | null;
+  attachment_id: string | null;
+  attachment_title: string | null;
+  attachment_subtitle: string | null;
+  created_at: string;
+};
+
+export type ParticipantInfo = {
+  user_id: string;
+  name: string;
+  role: 'trainer' | 'client';
+};
+
+export type ConversationWithDetails = Conversation & {
+  participants: ParticipantInfo[];
+  last_message: DirectMessage | null;
+  unread: boolean;
+};

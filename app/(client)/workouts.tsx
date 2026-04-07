@@ -15,8 +15,9 @@ import { SessionSheet } from '@/components/schedule/SessionSheet';
 import { BookingSheet } from '@/components/schedule/BookingSheet';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { WorkoutWithTrainer, AssignedWorkoutWithDetails, ScheduledSessionWithDetails } from '@/types';
+import ExercisesScreen from '@/app/(tabs)/exercises';
 
-type Segment   = 'workouts' | 'schedule';
+type Segment   = 'workouts' | 'exercises' | 'schedule';
 type ViewMode  = 'calendar' | 'list';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -215,14 +216,14 @@ export default function ClientWorkoutsScreen() {
 
       {/* Segment control */}
       <View style={[styles.segmentBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-        {(['workouts', 'schedule'] as Segment[]).map((seg) => (
+        {(['workouts', 'exercises', 'schedule'] as Segment[]).map((seg) => (
           <TouchableOpacity
             key={seg}
             style={[styles.segBtn, segment === seg && styles.segBtnActive]}
             onPress={() => setSegment(seg)}
           >
             <Text style={[styles.segText, { color: segment === seg ? colors.primary : t.textSecondary }]}>
-              {seg === 'workouts' ? 'Workouts' : 'Schedule'}
+              {seg === 'workouts' ? 'Workouts' : seg === 'exercises' ? 'Exercises' : 'Schedule'}
             </Text>
             {segment === seg && <View style={styles.segIndicator} />}
           </TouchableOpacity>
@@ -303,6 +304,13 @@ export default function ClientWorkoutsScreen() {
             <Text style={styles.fabLabel}>Log Workout</Text>
           </TouchableOpacity>
         </>
+      )}
+
+      {/* ── Exercises segment ── */}
+      {segment === 'exercises' && (
+        <View style={{ flex: 1 }}>
+          <ExercisesScreen />
+        </View>
       )}
 
       {/* ── Schedule segment ── */}

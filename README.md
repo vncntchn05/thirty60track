@@ -142,7 +142,8 @@ Templates are displayed grouped by split and subgroup in both the picker and the
 - [x] **DB variant tabs** — 74 exercises with multiple free-exercise-db equivalents (e.g. Bench Press has 16: Powerlifting, With Bands, With Chains, Close-Grip, Decline, Smith Machine…) show a horizontal scrollable chip row above the images; tapping a variant chip swaps the images to that variant; all 239 variant slugs verified on disk
 - [x] **Approximation disclaimer** — 61 exercises that have no direct DB equivalent (custom combos, trainer-named variants, etc.) show an italic disclaimer beneath the images when no specific variant is selected
 - [x] **Client read-only exercise library** — clients can browse the Exercises tab (positioned between Workouts and Progress in the client tab bar) and open exercise detail pages, but cannot add exercises, import from DB, edit form notes, equipment, or tutorial URL, or use the Edit Templates FAB; all edit controls are hidden and fields render as plain text
-- [x] **Workout Guides** — third tab ("Guides") in the exercise library right-column tab bar; 10 beginner-friendly guide topics (Getting Started, Full Body, Upper/Lower, Push/Pull/Legs, Exercise Selection, Progressive Overload, Sets/Reps/Intensity, Warm-Up & Cool-Down, Deload Weeks, Abs & Core); each topic has 4 richly written sections with inline Wikipedia and PubMed hyperlinks; trainers can edit any section in-app (saved to Supabase; overrides shown to clients with "customised by your trainer" note); body map integration — selecting a muscle on the body map shows a spotlight callout indicating which split day trains that muscle and its primary exercises
+- [x] **Workout Guides** — third tab ("Guides") in the exercise library right-column tab bar; 10 beginner-friendly guide topics (Getting Started, Full Body, Upper/Lower, Push/Pull/Legs, Exercise Selection, Progressive Overload, Sets/Reps/Intensity, Warm-Up & Cool-Down, Deload Weeks, Abs & Core); each topic has 4 richly written sections with inline Wikipedia and PubMed hyperlinks; trainers can edit any section in-app (saved to Supabase; overrides shown to clients with "customised by your trainer" note); body map integration — selecting a muscle on the body map shows a spotlight callout indicating which split day trains that muscle and its primary exercises; accepts `?tab=guides&topic=<key>` URL params to deep-link directly into a specific topic
+- [x] **Custom exercise media** — trainers can upload photos and videos to any exercise detail page (stored in the `exercise-media` Supabase Storage bucket); thumbnails appear in a horizontally scrollable row on the detail screen; tap to open a full-screen lightbox (image) or inline video player; trainers can delete their own uploads with a confirmation prompt
 
 ### Client Portal
 
@@ -219,6 +220,20 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] **Calorie & macro overage warning** — when adding a food entry, the app calculates whether the addition would push any macro (calories, protein, carbs, or fat) over the client's daily goal; if so, a modal lists all exceeded macros with current vs. target values; trainer can Cancel or proceed with Add Anyway
 - [x] **Recipes** — trainers and clients can create, edit, and delete named recipes (e.g. "Post-workout shake"); each recipe holds any number of ingredients sourced from USDA + Open Food Facts search; per-ingredient weight drives live macro totals and a per-100g breakdown; logging a recipe simply requires entering a serving weight — macros are scaled automatically; recipes are stored per-client in Supabase with full RLS for both trainer and client access
 
+### Direct Messaging
+
+- [x] **Conversations list** — a dedicated Messages tab (both trainer and client navigators) shows all conversations, ordered by latest message; each card displays the other participant's name, message preview, and timestamp
+- [x] **Unread indicators** — conversations with unread messages are highlighted with a gold tint on the card; the tab bar icon shows a yellow dot when any unread conversation exists; dot disappears as soon as the conversation is opened
+- [x] **Start new conversation** — trainers can open a new conversation with any of their clients; clients can open conversations with their trainer; duplicate conversations are prevented (re-opens existing thread)
+- [x] **Message thread** — real-time chat view with sent/received bubble alignment; messages load in reverse-chronological order with infinite scroll; new messages appear instantly via Supabase Realtime
+- [x] **Reply/threading** — long-press any message to reply; replied-to message preview shown above the reply bubble; tapping the preview scrolls to the original message
+- [x] **Attachment system** — tap the paperclip icon to open the attachment picker modal; four tabs: Exercise, Workout, Assigned Workout, Guide; attached items render as tappable cards in the message bubble
+- [x] **Attachment deep-linking** — tapping an attached exercise opens its detail page (`/exercise/[id]`); tapping a guide opens the Exercises tab pre-scrolled to the matching guide topic (`?tab=guides&topic=<key>`); tapping an assigned workout routes trainers to the edit screen and clients to the read-only session view
+- [x] **Client attachment restrictions** — clients can only attach their own workouts and assigned workouts (picker filters by `client_id`); clients routed to read-only session view when tapping an assigned workout attachment (not the trainer edit screen)
+- [x] **Automatic session messages** — a system message is sent automatically when a session is requested, confirmed, or cancelled; messages appear in the conversation thread between trainer and client
+- [x] **Conversation search** — filter the conversations list by participant name in real time
+- [x] **Mark as read** — opening a conversation marks it as read by updating `last_read_at` in `conversation_participants`; unread count refreshes globally via Realtime subscription
+
 ### UI & Theme
 - [x] **Forced dark theme** — deep charcoal (`#111111`) background, `#1C1C1C` surfaces, gold (`#B88C32`) accents across iOS, Android, and Web
 - [x] Design token system (`constants/theme.ts`) — colors, spacing, typography, radius
@@ -258,6 +273,10 @@ credit_transactions         — ledger of every grant, session_deduct, and sessi
 recipes                     — named recipe per client/trainer (name, description); RLS for both trainer and client
 recipe_ingredients          — one row per ingredient in a recipe (food_name, usda_food_id, weight_g, per-100g macros); cascades on recipe delete
 workout_guides              — trainer-editable guide content keyed by (topic, section_key); all authenticated users can read; only trainers can write
+exercise_media              — trainer-uploaded photos/videos per exercise (storage_path, media_type, uploaded_by); stored in `exercise-media` bucket
+conversations               — one row per conversation thread (created_at)
+conversation_participants   — maps users to conversations (user_id, role, last_read_at); UPDATE policy lets participants write own last_read_at
+messages                    — one row per message (conversation_id, sender_id, sender_role, content, reply_to_id FK, attachment_type, attachment_id, attachment_title, attachment_subtitle, created_at)
 ```
 
 `workout_sets.superset_group` is a nullable integer that groups exercises into supersets within a workout. Sets for exercises in the same superset share the same group number, scoped to the workout.
@@ -280,6 +299,7 @@ app/
   (tabs)/index.tsx          # Trainer: client list + search bar
   (tabs)/exercises.tsx      # Trainer: exercise library — browse, group, add; Edit Templates FAB
   (tabs)/schedule.tsx       # Trainer: weekly timetable + trainer selector + availability FAB; reads ?weekOf= param to jump to a week
+  (tabs)/messages.tsx       # Trainer: conversations list + unread dot on tab icon
   (tabs)/profile.tsx        # Trainer: profile + sign out
   (client)/index.tsx                    # Client: home dashboard + intake gate (shows intake form on first login)
   (client)/workouts.tsx                 # Client: Workouts segment (calendar/list toggle, default calendar) + Schedule segment (timetable + booking)
@@ -288,8 +308,10 @@ app/
   (client)/nutrition.tsx                # Client: daily nutrition log + macro summary (goal read-only)
   (client)/media.tsx                    # Client: photo/video gallery
   (client)/profile.tsx                  # Client: personal info (read-only) + editable intake info
+  (client)/messages.tsx                 # Client: conversations list + unread dot on tab icon
   (client)/workout/log.tsx              # Client: self-log a workout
   (client)/session/[id].tsx            # Client: workout detail view (back → workouts tab)
+  messages/[id].tsx                     # Message thread — real-time chat, reply/threading, attachment picker, deep-link routing
   exercise/[id].tsx                     # Exercise detail — form images + variant tabs + form notes + tutorial link; edit controls shown to trainers only
   client/[id].tsx                       # Trainer: client detail — info+intake card, body metrics, charts, workouts, assigned, media
   client/new.tsx                        # Add client form (duplicate name guard)
@@ -322,9 +344,14 @@ components/
     MediaGallery.tsx          # Photo/video gallery — grid, upload modal, detail/edit modal
     IntakeForm.tsx            # Client intake form (first-time and edit modes)
     ReportCardButton.tsx      # Period picker + data fetching + PDF generation trigger
+  messaging/
+    MessagesScreen.tsx        # Shared conversations list (used by both trainer and client tabs); search bar, unread highlighting, new conversation FAB
+    ConversationCard.tsx      # Single conversation row — gold tint + bold name when unread; timestamp color shifts to gold
+    NewConversationModal.tsx  # Modal to start a new conversation; lists eligible participants; prevents duplicates
+    AttachmentPickerModal.tsx # Slide-up sheet with Exercise / Workout / Assigned / Guide tabs; search; client sees only own workouts
   exercises/
     EncyclopediaPanel.tsx    # Muscle group reference — anatomy, warm-up, injuries, rehab; inline Wikipedia links; trainer-editable sections saved to Supabase
-    WorkoutGuides.tsx        # 9-topic workout planning guide (Full Body / Upper-Lower / PPL / Progressive Overload / etc.); inline Wikipedia + PubMed links; muscle spotlight from body map; trainer-editable per section
+    WorkoutGuides.tsx        # 9-topic workout planning guide (Full Body / Upper-Lower / PPL / Progressive Overload / etc.); inline Wikipedia + PubMed links; muscle spotlight from body map; trainer-editable per section; accepts initialTopicKey prop to pre-select a topic on mount
   ui/
     BodyMap.tsx               # Interactive SVG body diagram (react-native-body-highlighter); tap/hover to filter by muscle group; Front/Back toggle; hover = light gold, selected = full gold, others dimmed
     ChangePasswordModal.tsx   # In-app change password sheet (re-authenticates with current password, then updateUser)
@@ -346,6 +373,8 @@ hooks/
   useNutrition.ts            # Nutrition log CRUD + goal upsert; fetches trainer_id from clients table for client accounts
   useRecipes.ts              # useRecipes(clientId) — live recipe list; saveRecipe (create/update with ingredient replace); deleteRecipe
   useWorkoutGuides.ts        # Load all workout_guide rows; getEntry(topic, sectionKey); upsertEntry (trainer-only write)
+  useExerciseMedia.ts        # Exercise media CRUD — upload (blob → exercise-media bucket → DB), list, delete own uploads
+  useMessaging.ts            # useConversations (with unread flag), useMessages, sendMessage, markConversationRead, createConversation
   useTrainers.ts             # Fetch all trainers except the current user
   useSchedule.ts             # useTrainerAvailability, useAvailabilityForClient, useTrainerSessions, useClientSessions, useSessionsForClient (trainer views a client's sessions); requestSession, confirmSession, cancelSession, completeSession mutations
   useCredits.ts              # useClientCredits (balance), useCreditTransactions (ledger), grantCredits mutation
@@ -359,6 +388,7 @@ index.js                # Custom entry point — installs a console.error filter
 lib/
   supabase.ts              # Supabase client singleton
   auth.tsx                 # AuthContext + useAuth (role detection, client linking, auth recovery)
+  unreadContext.tsx        # UnreadProvider + useUnread() — global unread count via Realtime subscriptions on messages INSERT and conversation_participants UPDATE
   slugify.ts               # Name → URL slug helpers (clientSlug, slugify)
   generateReportPdf.ts     # HTML report builder + SVG chart generator + expo-print/sharing wrapper
   usda.ts                  # USDA FoodData Central search client; in-memory cache; per-100g macro scaling
@@ -466,6 +496,9 @@ Run these in order in the **Supabase SQL Editor**:
 - **016b** (scheduling) — `trainer_availability` (recurring weekly + specific-date slots; free-form start/end times; `day_of_week` nullable with CHECK constraint ensuring exactly one of `day_of_week` / `specific_date` is set); `scheduled_sessions` (status: `pending | confirmed | completed | cancelled`; `confirmed_at`, `cancelled_at`, `cancelled_by`); `client_credits` (balance per client); `credit_transactions` (ledger with reason: `grant | session_deduct | session_refund`); RLS for both trainers and clients on all four tables
 - **Recipes** — `recipes` table (name, description, client_id, trainer_id); `recipe_ingredients` table (food_name, usda_food_id, weight_g, per-100g macro columns, sort_order; cascades on recipe delete); RLS for both trainer (`trainer_id = auth.uid()`) and client (`client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())`)
 - **Workout Guides** — `workout_guides` table (topic, section_key, content, updated_at; UNIQUE on topic+section_key); read policy for all authenticated users; write policy restricted to trainers (`EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid())`)
+- **Exercise Media** — `exercise_media` table (exercise_id, storage_path, media_type, uploaded_by); `exercise-media` Supabase Storage bucket (authenticated write, public read); trainers can delete their own uploads; requires Storage bucket setup (same pattern as `client-media`)
+- **Messaging (019b)** — `conversations` table; `conversation_participants` table (user_id, role); `messages` table (sender_id, sender_role, content, reply_to_id self-FK, attachment_type, attachment_id, attachment_title, attachment_subtitle); RLS: participants can read their own conversations and messages; any participant can insert messages; automatic system messages on session state changes
+- **Unread tracking (021)** — `ALTER TABLE conversation_participants ADD COLUMN last_read_at TIMESTAMPTZ`; UPDATE RLS policy so each participant can update their own `last_read_at`; unread state computed client-side by comparing `messages.created_at > last_read_at`
 
 **Migration 007 also requires Storage setup** — create a public bucket named `client-media` in Supabase Dashboard → Storage, then run the four storage object policies included (commented out) at the bottom of `schema.sql`.
 

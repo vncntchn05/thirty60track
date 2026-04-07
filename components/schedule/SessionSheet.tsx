@@ -59,7 +59,7 @@ export function SessionSheet({ session, role, trainerId, onClose, onChanged }: P
   async function handleConfirm() {
     if (!trainerId) return;
     setLoading(true); setErr(null);
-    const { error } = await confirmSession(s.id, s.client_id, trainerId, s.duration_minutes);
+    const { error } = await confirmSession(s.id, s.client_id, trainerId, s.duration_minutes, s.scheduled_at);
     setLoading(false);
     if (error) { setErr(error); return; }
     onChanged();

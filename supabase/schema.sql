@@ -1538,3 +1538,236 @@ INSERT INTO exercises (name, muscle_group, category) VALUES
   ('Intrinsic Foot Strengthening',     'Feet',  'strength')
 
 ON CONFLICT (name) DO NOTHING;
+
+
+-- ─── Migration 019: Direct Messaging ─────────────────────────
+
+CREATE TABLE IF NOT EXISTS conversations (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_by  UUID        NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  is_group    BOOLEAN     NOT NULL DEFAULT FALSE,
+  title       TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS conversation_participants (
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id         UUID NOT NULL REFERENCES auth.users(id)   ON DELETE CASCADE,
+  joined_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (conversation_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id     UUID        NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id           UUID        NOT NULL REFERENCES auth.users(id)    ON DELETE CASCADE,
+  body                TEXT        NOT NULL CHECK (length(trim(body)) > 0),
+  reply_to_id         UUID        REFERENCES messages(id) ON DELETE SET NULL,
+  attachment_type     TEXT        CHECK (attachment_type IN ('exercise', 'workout', 'assigned_workout', 'guide')),
+  attachment_id       TEXT,
+  attachment_title    TEXT,
+  attachment_subtitle TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS messages_conv_created_idx       ON messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS conv_participants_user_id_idx   ON conversation_participants(user_id);
+
+-- Enable Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+
+-- RLS
+ALTER TABLE conversations             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversation_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages                  ENABLE ROW LEVEL SECURITY;
+
+-- SECURITY DEFINER helper: returns the current user's conversation IDs without
+-- triggering RLS on conversation_participants (avoids infinite recursion).
+CREATE OR REPLACE FUNCTION get_my_conversation_ids()
+RETURNS SETOF UUID
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid();
+$$;
+
+-- conversations: visible to participants only
+CREATE POLICY "participants can view conversations"
+  ON conversations FOR SELECT
+  USING (id IN (SELECT get_my_conversation_ids()));
+
+CREATE POLICY "authenticated users can create conversations"
+  ON conversations FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+-- participants: use the security definer function to avoid self-referential recursion
+CREATE POLICY "participants can view other participants"
+  ON conversation_participants FOR SELECT
+  USING (conversation_id IN (SELECT get_my_conversation_ids()));
+
+CREATE POLICY "conversation creator can add participants"
+  ON conversation_participants FOR INSERT
+  WITH CHECK (
+    conversation_id IN (
+      SELECT id FROM conversations WHERE created_by = auth.uid()
+    )
+    OR user_id = auth.uid()
+  );
+
+-- messages: read/write for participants
+CREATE POLICY "participants can view messages"
+  ON messages FOR SELECT
+  USING (conversation_id IN (SELECT get_my_conversation_ids()));
+
+CREATE POLICY "participants can send messages"
+  ON messages FOR INSERT
+  WITH CHECK (
+    sender_id = auth.uid()
+    AND conversation_id IN (SELECT get_my_conversation_ids())
+  );
+
+-- SECURITY DEFINER functions for creating conversations.
+-- These run as the function owner so they can bypass RLS while still
+-- correctly calling auth.uid() inside the function body.
+
+CREATE OR REPLACE FUNCTION create_dm_conversation(other_user_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  conv_id  UUID;
+  caller   UUID := auth.uid();
+BEGIN
+  IF caller IS NULL THEN
+    RAISE EXCEPTION 'not authenticated';
+  END IF;
+
+  -- Return existing 1-to-1 conversation if one already exists
+  SELECT c.id INTO conv_id
+  FROM conversations c
+  JOIN conversation_participants cp1
+    ON cp1.conversation_id = c.id AND cp1.user_id = caller
+  JOIN conversation_participants cp2
+    ON cp2.conversation_id = c.id AND cp2.user_id = other_user_id
+  WHERE c.is_group = FALSE
+  LIMIT 1;
+
+  IF conv_id IS NOT NULL THEN
+    RETURN conv_id;
+  END IF;
+
+  -- Create new DM conversation
+  INSERT INTO conversations (created_by, is_group)
+  VALUES (caller, FALSE)
+  RETURNING id INTO conv_id;
+
+  INSERT INTO conversation_participants (conversation_id, user_id)
+  VALUES (conv_id, caller), (conv_id, other_user_id);
+
+  RETURN conv_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION create_group_conversation(p_title TEXT, p_participant_ids UUID[])
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  conv_id UUID;
+  caller  UUID := auth.uid();
+  uid     UUID;
+BEGIN
+  IF caller IS NULL THEN
+    RAISE EXCEPTION 'not authenticated';
+  END IF;
+
+  INSERT INTO conversations (created_by, is_group, title)
+  VALUES (caller, TRUE, NULLIF(trim(p_title), ''))
+  RETURNING id INTO conv_id;
+
+  -- Add creator
+  INSERT INTO conversation_participants (conversation_id, user_id)
+  VALUES (conv_id, caller);
+
+  -- Add each participant (skip duplicates and the caller if passed in)
+  FOREACH uid IN ARRAY p_participant_ids LOOP
+    IF uid <> caller THEN
+      INSERT INTO conversation_participants (conversation_id, user_id)
+      VALUES (conv_id, uid)
+      ON CONFLICT DO NOTHING;
+    END IF;
+  END LOOP;
+
+  RETURN conv_id;
+END;
+$$;
+
+-- ─── Migration 019b: Message attachments & reply threading ────
+-- Run on existing databases to add the new columns.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id         UUID REFERENCES messages(id) ON DELETE SET NULL;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_type     TEXT CHECK (attachment_type IN ('exercise', 'workout', 'assigned_workout', 'guide'));
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_id       TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_title    TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachment_subtitle TEXT;
+
+-- ─── Migration 020: Exercise Media ───────────────────────────
+-- Trainers can attach custom images and videos to any exercise.
+-- Storage bucket: exercise-media (create in Supabase Dashboard → Storage)
+
+CREATE TABLE IF NOT EXISTS exercise_media (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  exercise_id  UUID        NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+  trainer_id   UUID        NOT NULL REFERENCES trainers(id)  ON DELETE CASCADE,
+  storage_path TEXT        NOT NULL,
+  media_type   TEXT        NOT NULL DEFAULT 'image' CHECK (media_type IN ('image', 'video')),
+  caption      TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS exercise_media_exercise_id_idx ON exercise_media(exercise_id);
+
+ALTER TABLE exercise_media ENABLE ROW LEVEL SECURITY;
+
+-- All authenticated users can view
+CREATE POLICY "authenticated users can view exercise media"
+  ON exercise_media FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
+-- Only the uploading trainer can insert
+CREATE POLICY "trainers can upload exercise media"
+  ON exercise_media FOR INSERT
+  WITH CHECK (trainer_id = auth.uid());
+
+-- Only the uploading trainer can delete their own media
+CREATE POLICY "trainers can delete own exercise media"
+  ON exercise_media FOR DELETE
+  USING (trainer_id = auth.uid());
+
+-- ─── Migration 021: Unread message tracking ───────────────────
+-- Add last_read_at to conversation_participants so each participant
+-- can track when they last read a conversation.
+
+ALTER TABLE conversation_participants
+  ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ;
+
+-- Allow participants to update their own last_read_at
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'conversation_participants'
+      AND policyname = 'participants can update own last_read_at'
+  ) THEN
+    CREATE POLICY "participants can update own last_read_at"
+      ON conversation_participants FOR UPDATE
+      USING (user_id = auth.uid())
+      WITH CHECK (user_id = auth.uid());
+  END IF;
+END $$;

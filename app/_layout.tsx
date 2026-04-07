@@ -4,6 +4,7 @@ import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Image, StyleSheet, View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { UnreadProvider } from '@/lib/unreadContext';
 import { SkiaAvailableContext } from '@/lib/skia';
 import { colors, useTheme } from '@/constants/theme';
 
@@ -70,6 +71,7 @@ function RootNavigator() {
       <Stack.Screen name="client/[id]" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Client' }} />
       <Stack.Screen name="workout/new" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Log Workout', presentation: 'modal' }} />
       <Stack.Screen name="workout/[id]" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Workout' }} />
+      <Stack.Screen name="messages/[id]" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Message' }} />
     </Stack>
   );
 }
@@ -104,16 +106,18 @@ export default function RootLayout() {
   return (
     <SkiaAvailableContext.Provider value={skiaAvailable}>
       <AuthProvider>
-        <Head>
-          <title>thirty60track</title>
-          <link rel="icon" href="/favicon.png" type="image/png" />
-          <link rel="shortcut icon" href="/favicon.png" type="image/png" />
-          <meta name="description" content="Thirty60 fitness tracking app" />
-          <meta name="theme-color" content="#111111" />
-          <style>{`html,body{background:#111111;}`}</style>
-        </Head>
-        <StatusBar style="light" />
-        <RootNavigator />
+        <UnreadProvider>
+          <Head>
+            <title>thirty60track</title>
+            <link rel="icon" href="/favicon.png" type="image/png" />
+            <link rel="shortcut icon" href="/favicon.png" type="image/png" />
+            <meta name="description" content="Thirty60 fitness tracking app" />
+            <meta name="theme-color" content="#111111" />
+            <style>{`html,body{background:#111111;}`}</style>
+          </Head>
+          <StatusBar style="light" />
+          <RootNavigator />
+        </UnreadProvider>
       </AuthProvider>
     </SkiaAvailableContext.Provider>
   );

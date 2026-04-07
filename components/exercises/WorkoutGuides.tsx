@@ -25,6 +25,7 @@ type Props = {
   selectedMuscle: string | null;
   onSelectMuscle: (m: string | null) => void;
   isTrainer: boolean;
+  initialTopicKey?: string | null;
 };
 
 // ─── Inline-link renderer ─────────────────────────────────────
@@ -597,11 +598,13 @@ const RICH_CONTENT: Record<string, Record<string, Seg[]>> = {
 
 // ─── Component ────────────────────────────────────────────────
 
-export function WorkoutGuides({ selectedMuscle, onSelectMuscle, isTrainer }: Props) {
+export function WorkoutGuides({ selectedMuscle, onSelectMuscle, isTrainer, initialTopicKey }: Props) {
   const t = useTheme();
   const { getEntry, upsertEntry } = useWorkoutGuides();
 
-  const [activeTopic, setActiveTopic] = useState<GuideTopic | null>(null);
+  const [activeTopic, setActiveTopic] = useState<GuideTopic | null>(() =>
+    initialTopicKey ? (TOPICS.find((tp) => tp.key === initialTopicKey) ?? null) : null
+  );
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});

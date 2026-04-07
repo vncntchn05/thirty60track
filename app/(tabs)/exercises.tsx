@@ -4,7 +4,7 @@ import {
   TextInput, ActivityIndicator, Alert, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useExercises } from '@/hooks/useExercises';
 import { resolveGroupsFromQuery } from '@/lib/muscleSearch';
 import { TemplateEditor } from '@/components/workout/TemplateEditor';
@@ -65,6 +65,7 @@ export default function ExercisesScreen() {
   const { role } = useAuth();
   const isTrainer = role === 'trainer';
   const { exercises, loading, error, createExercise } = useExercises();
+  const { tab: tabParam, topic: topicParam } = useLocalSearchParams<{ tab?: string; topic?: string }>();
   const [query, setQuery] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('none');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -78,7 +79,9 @@ export default function ExercisesScreen() {
   const [formHelpUrl, setFormHelpUrl] = useState('');
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentType | 'All'>('All');
   const [muscleFilter, setMuscleFilter] = useState<string | null>(null);
-  const [rightTab, setRightTab] = useState<RightTab>('exercises');
+  const [rightTab, setRightTab] = useState<RightTab>(
+    tabParam === 'guides' ? 'guides' : tabParam === 'encyclopedia' ? 'encyclopedia' : 'exercises'
+  );
   const [saving, setSaving] = useState(false);
 
   // ── External DB ────────────────────────────────────────────────
@@ -305,36 +308,48 @@ export default function ExercisesScreen() {
   }
 
   const totalFiltered = fullSections.reduce((n, s) => n + s.count, 0);
+  const isVertical = rightTab !== 'exercises';
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
-      {/* Main row: body map left, tabs+content right */}
-      <View style={styles.mainRow}>
-        {/* Left column: body map */}
-        <View style={[styles.bodyMapCol, { borderRightColor: t.border }]}>
-          <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+      {/* Tab bar — always at top */}
+      <View style={[styles.rightTabBar, { borderBottomColor: t.border }]}>
+        {(['exercises', 'encyclopedia', 'guides'] as RightTab[]).map((tab) => {
+          const active = rightTab === tab;
+          const label = tab === 'exercises' ? 'Exercises' : tab === 'encyclopedia' ? 'Encyclopedia' : 'Guides';
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.rightTabBtn, active && { borderBottomColor: colors.primary }]}
+              onPress={() => setRightTab(tab)}
+            >
+              <Text style={[styles.rightTabText, { color: active ? colors.primary : t.textSecondary }]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Main area: vertical for encyclopedia/guides, horizontal for exercises */}
+      <View style={[styles.mainRow, isVertical && styles.mainCol]}>
+        {/* Body map */}
+        <View style={[
+          isVertical ? styles.bodyMapRow : styles.bodyMapCol,
+          { borderRightColor: t.border, borderBottomColor: t.border },
+        ]}>
+          {isVertical ? (
+            <View style={styles.bodyMapRowInner}>
+              <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+            </View>
+          ) : (
+            <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+          )}
         </View>
 
-        {/* Right column: tab bar + content */}
+        {/* Content column */}
         <View style={styles.listCol}>
-          {/* Tab bar */}
-          <View style={[styles.rightTabBar, { borderBottomColor: t.border }]}>
-            {(['exercises', 'encyclopedia', 'guides'] as RightTab[]).map((tab) => {
-              const active = rightTab === tab;
-              const label = tab === 'exercises' ? 'Exercises' : tab === 'encyclopedia' ? 'Encyclopedia' : 'Guides';
-              return (
-                <TouchableOpacity
-                  key={tab}
-                  style={[styles.rightTabBtn, active && { borderBottomColor: colors.primary }]}
-                  onPress={() => setRightTab(tab)}
-                >
-                  <Text style={[styles.rightTabText, { color: active ? colors.primary : t.textSecondary }]}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          {/* (tab bar moved above) */}
 
           {rightTab === 'exercises' ? (
             <>
@@ -565,6 +580,7 @@ export default function ExercisesScreen() {
               selectedMuscle={muscleFilter}
               onSelectMuscle={setMuscleFilter}
               isTrainer={isTrainer}
+              initialTopicKey={topicParam ?? null}
             />
           )}
         </View>
@@ -627,7 +643,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   mainRow: { flex: 1, flexDirection: 'row' },
+  mainCol: { flexDirection: 'column' },
   bodyMapCol: { flex: 1, borderRightWidth: 1 },
+  bodyMapRow: { borderBottomWidth: 1, alignItems: 'center', paddingVertical: spacing.sm },
+  bodyMapRowInner: { width: 200, height: 300 },
   listCol: { flex: 1 },
 
   rightTabBar: {

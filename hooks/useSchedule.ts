@@ -155,6 +155,53 @@ export function useSessionsForClient(clientId: string, trainerId: string) {
   return { sessions, loading, refetch: load };
 }
 
+// ─── Auto-message helper ──────────────────────────────────────
+
+function fmtSessionLine(scheduledAt: string, durationMinutes: number): string {
+  const d = new Date(scheduledAt);
+  const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${dateStr} at ${timeStr} (${durationMinutes}min)`;
+}
+
+/**
+ * Sends an automatic DM between trainer and client after a session event.
+ * Looks up the client's auth_user_id if only the clients-table UUID is known.
+ * Non-blocking — caller should not await this if it is non-critical.
+ */
+async function sendSessionAutoMessage(
+  otherAuthUserId: string,
+  body: string,
+): Promise<void> {
+  try {
+    const { data: convId, error } = await supabase.rpc('create_dm_conversation', {
+      other_user_id: otherAuthUserId,
+    });
+    if (error || !convId) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from('messages').insert({
+      conversation_id: convId as string,
+      sender_id: user.id,
+      body,
+    });
+  } catch {
+    // Never let a notification failure bubble up and break the main operation
+  }
+}
+
+/** Resolve a clients-table UUID → auth_user_id. */
+async function getClientAuthUserId(clientId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('clients')
+    .select('auth_user_id')
+    .eq('id', clientId)
+    .single();
+  return data?.auth_user_id ?? null;
+}
+
 // ─── Session mutations (shared) ───────────────────────────────
 
 export async function requestSession(
@@ -174,6 +221,13 @@ export async function requestSession(
     .select()
     .single();
   if (error) return { data: null, error: error.message };
+
+  // Notify trainer — fire-and-forget
+  sendSessionAutoMessage(
+    payload.trainer_id,
+    `📅 Session requested — ${fmtSessionLine(payload.scheduled_at, payload.duration_minutes)}`,
+  );
+
   return { data: data as ScheduledSession, error: null };
 }
 
@@ -182,6 +236,7 @@ export async function confirmSession(
   clientId: string,
   trainerId: string,
   durationMinutes: 30 | 60,
+  scheduledAt: string,
 ): Promise<{ error: string | null }> {
   const creditCost = durationMinutes === 30 ? 1 : 2;
 
@@ -222,6 +277,15 @@ export async function confirmSession(
       note: `Session confirmed (${durationMinutes}min)`,
     });
   if (txErr) return { error: txErr.message };
+
+  // 5. Notify client — fire-and-forget
+  getClientAuthUserId(clientId).then((clientAuthId) => {
+    if (!clientAuthId) return;
+    sendSessionAutoMessage(
+      clientAuthId,
+      `✅ Session confirmed — ${fmtSessionLine(scheduledAt, durationMinutes)}. ${creditCost} credit${creditCost > 1 ? 's' : ''} deducted.`,
+    );
+  });
 
   return { error: null };
 }
@@ -288,4 +352,74 @@ export async function completeSession(sessionId: string): Promise<{ error: strin
     .update({ status: 'completed', updated_at: new Date().toISOString() })
     .eq('id', sessionId);
   return { error: error?.message ?? null };
+}
+
+// Trainer books a session on behalf of a client — immediately confirmed, credits deducted.
+export async function bookSessionForClient(
+  trainerId: string,
+  clientId: string,
+  scheduledAt: string,
+  durationMinutes: 30 | 60,
+  notes?: string | null,
+): Promise<{ data: ScheduledSession | null; error: string | null }> {
+  const creditCost = durationMinutes === 30 ? 1 : 2;
+  const now = new Date().toISOString();
+
+  // 1. Insert session as confirmed
+  const { data: session, error: sessionErr } = await supabase
+    .from('scheduled_sessions')
+    .insert({
+      trainer_id: trainerId,
+      client_id: clientId,
+      scheduled_at: scheduledAt,
+      duration_minutes: durationMinutes,
+      notes: notes ?? null,
+      status: 'confirmed',
+      confirmed_at: now,
+    })
+    .select()
+    .single();
+  if (sessionErr) return { data: null, error: sessionErr.message };
+
+  // 2. Read client's current balance
+  const { data: credits } = await supabase
+    .from('client_credits')
+    .select('balance')
+    .eq('client_id', clientId)
+    .single();
+  const currentBalance = credits?.balance ?? 0;
+
+  // 3. Deduct credits (allow going negative — trainer override)
+  const { error: creditErr } = await supabase
+    .from('client_credits')
+    .upsert({
+      client_id: clientId,
+      balance: currentBalance - creditCost,
+      updated_at: now,
+    });
+  if (creditErr) return { data: null, error: creditErr.message };
+
+  // 4. Record transaction
+  const { error: txErr } = await supabase
+    .from('credit_transactions')
+    .insert({
+      client_id: clientId,
+      trainer_id: trainerId,
+      session_id: (session as ScheduledSession).id,
+      amount: -creditCost,
+      reason: 'session_deduct',
+      note: `Session booked by trainer (${durationMinutes}min)`,
+    });
+  if (txErr) return { data: null, error: txErr.message };
+
+  // 5. Notify client — fire-and-forget
+  getClientAuthUserId(clientId).then((clientAuthId) => {
+    if (!clientAuthId) return;
+    sendSessionAutoMessage(
+      clientAuthId,
+      `📅 Session booked — ${fmtSessionLine(scheduledAt, durationMinutes)}. ${creditCost} credit${creditCost > 1 ? 's' : ''} deducted.`,
+    );
+  });
+
+  return { data: session as ScheduledSession, error: null };
 }
