@@ -124,11 +124,11 @@ export function AttachmentPickerModal({ visible, onClose, onSelect, role, client
         q = q.eq('client_id', clientId);
       }
       const { data } = await q;
-      return (data ?? []).map((w: { id: string; performed_at: string; clients: { full_name: string } | null }) => ({
+      return (data ?? []).map((w: { id: string; performed_at: string; clients: { full_name: string }[] | null }) => ({
         type: 'workout',
         id: w.id,
         title: `Workout — ${new Date(w.performed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-        subtitle: w.clients?.full_name ?? '',
+        subtitle: (Array.isArray(w.clients) ? w.clients[0]?.full_name : (w.clients as { full_name: string } | null)?.full_name) ?? '',
       }));
     }
 

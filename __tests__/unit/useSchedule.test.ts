@@ -145,28 +145,28 @@ describe('confirmSession()', () => {
   it('returns null error on full success (60min, 2 credits)', async () => {
     setupConfirmMocks({ creditBalance: 5 });
 
-    const result = await confirmSession('sess-1', 'c-1', 't-1', 60);
+    const result = await confirmSession('sess-1', 'c-1', 't-1', 60, '2026-01-01T10:00:00Z');
     expect(result.error).toBeNull();
   });
 
   it('returns null error on full success (30min, 1 credit)', async () => {
     setupConfirmMocks({ creditBalance: 3 });
 
-    const result = await confirmSession('sess-1', 'c-1', 't-1', 30);
+    const result = await confirmSession('sess-1', 'c-1', 't-1', 30, '2026-01-01T10:00:00Z');
     expect(result.error).toBeNull();
   });
 
   it('returns error immediately when session update fails', async () => {
     setupConfirmMocks({ sessionUpdateError: 'update failed' });
 
-    const result = await confirmSession('sess-1', 'c-1', 't-1', 60);
+    const result = await confirmSession('sess-1', 'c-1', 't-1', 60, '2026-01-01T10:00:00Z');
     expect(result.error).toBe('update failed');
   });
 
   it('returns error when credit upsert fails', async () => {
     setupConfirmMocks({ creditBalance: 5, creditUpsertError: 'upsert failed' });
 
-    const result = await confirmSession('sess-1', 'c-1', 't-1', 60);
+    const result = await confirmSession('sess-1', 'c-1', 't-1', 60, '2026-01-01T10:00:00Z');
     expect(result.error).toBe('upsert failed');
   });
 
@@ -199,7 +199,7 @@ describe('confirmSession()', () => {
       return { insert: jest.fn().mockResolvedValue({ error: null }) };
     });
 
-    await confirmSession('sess-1', 'c-1', 't-1', 60); // costs 2, balance 1 → should be 0
+    await confirmSession('sess-1', 'c-1', 't-1', 60, '2026-01-01T10:00:00Z'); // costs 2, balance 1 → should be 0
 
     // The Math.max(0, ...) guard means balance never goes negative
     if (upsertArg) {

@@ -57,7 +57,7 @@ function getTimeOptions(slots: TrainerAvailability[], date: Date): TimeOption[] 
   const options: TimeOption[] = [];
   for (const w of windows) {
     const startMin = parseHHMM(w.start_time);
-    const endMin   = startMin + w.duration_minutes;
+    const endMin   = parseHHMM(w.end_time);
     for (let m = startMin; m < endMin - 15; m += 15) {
       const durations: (30 | 60)[] = [];
       if (m + 30 <= endMin) durations.push(30);
