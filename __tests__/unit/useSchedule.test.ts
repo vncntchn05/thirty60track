@@ -138,6 +138,15 @@ describe('confirmSession()', () => {
           }),
         };
       }
+      if (table === 'clients') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
       return {};
     });
   }
@@ -193,6 +202,15 @@ describe('confirmSession()', () => {
           upsert: jest.fn().mockImplementation((arg: { balance: number }) => {
             upsertArg = arg;
             return Promise.resolve({ error: null });
+          }),
+        };
+      }
+      if (table === 'clients') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            }),
           }),
         };
       }
@@ -252,6 +270,15 @@ describe('cancelSession()', () => {
         return {
           insert: jest.fn().mockResolvedValue({
             error: opts.txError ? { message: opts.txError } : null,
+          }),
+        };
+      }
+      if (table === 'clients') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            }),
           }),
         };
       }
