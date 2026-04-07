@@ -1,21 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Modal, View, Text, TouchableOpacity, FlatList,
   StyleSheet, ActivityIndicator, ScrollView,
-  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { useClients } from '@/hooks/useClients';
-import { useClientCredits } from '@/hooks/useCredits';
 import { bookSessionForClient } from '@/hooks/useSchedule';
 import { supabase } from '@/lib/supabase';
 import type { ClientWithStats } from '@/types';
 
-// ─── Shared date/time helpers (mirrors BookingSheet) ──────────
+// ─── Helpers ──────────────────────────────────────────────────
 
-const DAY_ABBR   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAY_ABBR    = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTH_ABBR  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function fmtTime(h: number, m: number): string {
   const period = h >= 12 ? 'PM' : 'AM';
@@ -27,45 +26,129 @@ function toIso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function getMonthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
-// Trainers can book on any day — return all dates for the next 60 days.
-function getUpcomingDates(): Date[] {
-  const dates: Date[] = [];
+type MonthItem = { key: string; year: number; month: number; label: string };
+
+function getTrainerMonths(): MonthItem[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const seen = new Set<string>();
+  const months: MonthItem[] = [];
   for (let i = 0; i < 60; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
-    dates.push(d);
+    const key = getMonthKey(d);
+    if (!seen.has(key)) {
+      seen.add(key);
+      months.push({ key, year: d.getFullYear(), month: d.getMonth(), label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}` });
+    }
+  }
+  return months;
+}
+
+function getDatesForTrainer(monthItem: MonthItem): Date[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dates: Date[] = [];
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    if (d.getFullYear() === monthItem.year && d.getMonth() === monthItem.month) dates.push(d);
   }
   return dates;
 }
 
-type TimeOption = { h: number; m: number; durations: (30 | 60)[] };
+type TimeOption = { h: number; m: number };
 
-// Trainers can book at any time — return all 15-min slots from 6 AM to 10 PM.
-function getTimeOptions(): TimeOption[] {
-  const options: TimeOption[] = [];
-  const startMin = 6 * 60;   // 6:00 AM
-  const endMin   = 22 * 60;  // 10:00 PM
-  for (let m = startMin; m < endMin; m += 15) {
-    options.push({ h: Math.floor(m / 60), m: m % 60, durations: [30, 60] });
+function getAllTimeSlots(): TimeOption[] {
+  const opts: TimeOption[] = [];
+  for (let m = 6 * 60; m < 22 * 60; m += 15) {
+    opts.push({ h: Math.floor(m / 60), m: m % 60 });
   }
-  return options;
+  return opts;
 }
 
-// ─── Step types ───────────────────────────────────────────────
+// ─── Vertical scroll picker ───────────────────────────────────
 
-type Step = 'client' | 'date' | 'time' | 'confirm';
+const ITEM_H       = 52;
+const VISIBLE_ROWS = 5;
+const PICKER_H     = ITEM_H * VISIBLE_ROWS;
 
-// ─── Props ────────────────────────────────────────────────────
+type PickerItem = { key: string; label: string; sublabel?: string };
 
-type Props = {
-  visible: boolean;
-  trainerId: string;
-  onClose: () => void;
-  onBooked: () => void;
-};
+function VerticalPicker({
+  items,
+  initialIdx,
+  onSelect,
+  t,
+}: {
+  items: PickerItem[];
+  initialIdx: number;
+  onSelect: (idx: number) => void;
+  t: ReturnType<typeof useTheme>;
+}) {
+  const ref = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      ref.current?.scrollTo({ y: initialIdx * ITEM_H, animated: false });
+    }, 80);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function snap(e: { nativeEvent: { contentOffset: { y: number } } }) {
+    const i = Math.max(0, Math.min(Math.round(e.nativeEvent.contentOffset.y / ITEM_H), items.length - 1));
+    onSelect(i);
+  }
+
+  return (
+    <View style={pStyles.wrap}>
+      <View style={[pStyles.indicator, { borderColor: colors.primary }]} pointerEvents="none" />
+      <ScrollView
+        ref={ref}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
+        onMomentumScrollEnd={snap}
+        onScrollEndDrag={snap}
+      >
+        {items.map((item, i) => (
+          <TouchableOpacity
+            key={item.key}
+            style={pStyles.item}
+            onPress={() => {
+              ref.current?.scrollTo({ y: i * ITEM_H, animated: true });
+              onSelect(i);
+            }}
+            activeOpacity={0.6}
+          >
+            <Text style={[pStyles.itemLabel, { color: t.textPrimary }]}>{item.label}</Text>
+            {item.sublabel ? (
+              <Text style={[pStyles.itemSublabel, { color: t.textSecondary }]}>{item.sublabel}</Text>
+            ) : null}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const pStyles = StyleSheet.create({
+  wrap: { height: PICKER_H, overflow: 'hidden' },
+  indicator: {
+    position: 'absolute', left: 32, right: 32,
+    top: ITEM_H * 2, height: ITEM_H,
+    borderTopWidth: 1.5, borderBottomWidth: 1.5,
+    zIndex: 10,
+  },
+  item: { height: ITEM_H, justifyContent: 'center', alignItems: 'center' },
+  itemLabel:    { ...typography.body, fontWeight: '600', textAlign: 'center' },
+  itemSublabel: { ...typography.bodySmall, textAlign: 'center' },
+});
 
 // ─── Client row ───────────────────────────────────────────────
 
@@ -101,22 +184,35 @@ function ClientRow({
   );
 }
 
+// ─── Types / props ────────────────────────────────────────────
+
+type Step = 'client' | 'month' | 'date' | 'time' | 'confirm';
+
+type Props = {
+  visible: boolean;
+  trainerId: string;
+  onClose: () => void;
+  onBooked: () => void;
+};
+
 // ─── Main component ───────────────────────────────────────────
 
 export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: Props) {
   const t = useTheme();
   const { clients, loading: clientsLoading } = useClients();
 
-  const [step, setStep] = useState<Step>('client');
-  const [selectedClient, setSelectedClient] = useState<ClientWithStats | null>(null);
-  const [selectedDate, setSelectedDate]   = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime]   = useState<TimeOption | null>(null);
-  const [selectedDuration, setSelectedDuration] = useState<30 | 60>(60);
-  const [clientBalance, setClientBalance] = useState<number | null>(null);
-  const [submitting, setSubmitting]       = useState(false);
-  const [error, setError]                 = useState<string | null>(null);
+  const [step, setStep]                         = useState<Step>('client');
+  const [selectedClient, setSelectedClient]     = useState<ClientWithStats | null>(null);
+  const [monthIdx, setMonthIdx]                 = useState(0);
+  const [dateIdx, setDateIdx]                   = useState(0);
+  const [timeIdx, setTimeIdx]                   = useState(0);
+  const [duration, setDuration]                 = useState<30 | 60>(60);
+  const [clientBalance, setClientBalance]       = useState<number | null>(null);
+  const [allBalances, setAllBalances]           = useState<Record<string, number>>({});
+  const [submitting, setSubmitting]             = useState(false);
+  const [error, setError]                       = useState<string | null>(null);
 
-  // Fetch selected client's credit balance when they're chosen
+  // Fetch selected client's balance
   useEffect(() => {
     if (!selectedClient) return;
     supabase
@@ -127,8 +223,7 @@ export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: P
       .then(({ data }) => setClientBalance(data?.balance ?? 0));
   }, [selectedClient]);
 
-  // All client balances for the list (batch fetch)
-  const [allBalances, setAllBalances] = useState<Record<string, number>>({});
+  // Batch fetch balances for client list
   useEffect(() => {
     if (!visible || !clients.length) return;
     supabase
@@ -142,122 +237,128 @@ export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: P
       });
   }, [visible, clients]);
 
-  const upcomingDates = getUpcomingDates();
-  const timeOptions   = selectedDate ? getTimeOptions() : [];
+  const trainerMonths = useMemo(() => getTrainerMonths(), []);
+  const selectedMonth = trainerMonths[monthIdx] ?? null;
+
+  const datesInMonth = useMemo(
+    () => (selectedMonth ? getDatesForTrainer(selectedMonth) : []),
+    [selectedMonth],
+  );
+  const selectedDate = datesInMonth[dateIdx] ?? null;
+
+  const allTimeSlots  = useMemo(() => getAllTimeSlots(), []);
+  const selectedTimeSlot = allTimeSlots[timeIdx] ?? null;
+
+  const creditCost         = duration === 30 ? 1 : 2;
+  const balanceAfter       = clientBalance !== null ? clientBalance - creditCost : null;
+  const insufficientCredits = clientBalance !== null && clientBalance < creditCost;
 
   function handleClose() {
-    setStep('client');
-    setSelectedClient(null);
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setSelectedDuration(60);
-    setClientBalance(null);
-    setError(null);
+    setStep('client'); setSelectedClient(null);
+    setMonthIdx(0); setDateIdx(0); setTimeIdx(0);
+    setDuration(60); setClientBalance(null); setError(null);
     onClose();
+  }
+
+  function goBack() {
+    if (step === 'month')   setStep('client');
+    if (step === 'date')    setStep('month');
+    if (step === 'time')    setStep('date');
+    if (step === 'confirm') setStep('time');
   }
 
   function selectClient(c: ClientWithStats) {
     setSelectedClient(c);
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setStep('date');
+    setMonthIdx(0); setDateIdx(0); setTimeIdx(0);
+    setStep('month');
   }
 
-  function selectDate(d: Date) {
-    setSelectedDate(d);
-    setSelectedTime(null);
-    setStep('time');
-  }
-
-  function selectTime(opt: TimeOption, dur: 30 | 60) {
-    setSelectedTime(opt);
-    setSelectedDuration(dur);
-    setStep('confirm');
-  }
+  function goToDate() { setDateIdx(0); setStep('date'); }
+  function goToTime() { setTimeIdx(0); setStep('time'); }
+  function goToConfirm() { setStep('confirm'); }
 
   async function handleBook() {
-    if (!selectedClient || !selectedDate || !selectedTime) return;
+    if (!selectedClient || !selectedDate || !selectedTimeSlot) return;
     setSubmitting(true);
     setError(null);
-
     const dt = new Date(selectedDate);
-    dt.setHours(selectedTime.h, selectedTime.m, 0, 0);
-
+    dt.setHours(selectedTimeSlot.h, selectedTimeSlot.m, 0, 0);
     const { error: err } = await bookSessionForClient(
       trainerId,
       selectedClient.id,
       dt.toISOString(),
-      selectedDuration,
+      duration,
     );
-
     setSubmitting(false);
     if (err) { setError(err); return; }
     handleClose();
     onBooked();
   }
 
-  const creditCost    = selectedDuration === 30 ? 1 : 2;
-  const balanceAfter  = clientBalance !== null ? clientBalance - creditCost : null;
-  const insufficientCredits = clientBalance !== null && clientBalance < creditCost;
-
-  // ─── Step header ───────────────────────────────────────────
-
   const stepTitles: Record<Step, string> = {
     client:  'Select Client',
-    date:    'Select Date',
-    time:    'Select Time',
+    month:   'Pick a Month',
+    date:    'Pick a Date',
+    time:    'Pick a Time',
     confirm: 'Confirm Booking',
   };
 
-  function goBack() {
-    if (step === 'date')    setStep('client');
-    if (step === 'time')    setStep('date');
-    if (step === 'confirm') setStep('time');
-  }
+  // Picker item lists
+  const monthItems: PickerItem[] = trainerMonths.map((m) => ({ key: m.key, label: m.label }));
+  const dateItems: PickerItem[]  = datesInMonth.map((d) => ({
+    key: toIso(d),
+    label: `${DAY_ABBR[d.getDay()]}, ${MONTH_ABBR[d.getMonth()]} ${d.getDate()}`,
+  }));
+  const timeItems: PickerItem[]  = allTimeSlots.map((opt) => ({
+    key: `${opt.h}:${opt.m}`,
+    label: fmtTime(opt.h, opt.m),
+  }));
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.container, { backgroundColor: t.background }]}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <TouchableOpacity style={styles.backdrop} onPress={handleClose} activeOpacity={1} />
+      <View style={[styles.sheet, step === 'client' && styles.sheetTall, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <View style={styles.handle} />
 
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: t.border }]}>
-            <TouchableOpacity
-              onPress={step === 'client' ? handleClose : goBack}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name={step === 'client' ? 'close' : 'chevron-back'} size={24} color={t.textPrimary as string} />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: t.textPrimary }]}>{stepTitles[step]}</Text>
-            <View style={{ width: 24 }} />
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: t.border }]}>
+          <TouchableOpacity
+            onPress={step === 'client' ? handleClose : goBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name={step === 'client' ? 'close' : 'chevron-back'} size={22} color={t.textPrimary as string} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: t.textPrimary }]}>{stepTitles[step]}</Text>
+          <View style={{ width: 22 }} />
+        </View>
+
+        {/* Context bar (shows selected client / date breadcrumb) */}
+        {step !== 'client' && selectedClient && (
+          <View style={[styles.contextBar, { backgroundColor: t.background, borderBottomColor: t.border }]}>
+            <Text style={[styles.contextText, { color: t.textSecondary }]} numberOfLines={1}>
+              {selectedClient.full_name}
+              {selectedDate ? `  ·  ${DAY_ABBR[selectedDate.getDay()]} ${MONTH_ABBR[selectedDate.getMonth()]} ${selectedDate.getDate()}` : ''}
+              {selectedTimeSlot && step === 'confirm' ? `  ·  ${fmtTime(selectedTimeSlot.h, selectedTimeSlot.m)}` : ''}
+            </Text>
+            {clientBalance !== null && (
+              <Text style={[styles.contextBalance, { color: clientBalance > 0 ? colors.primary : colors.error }]}>
+                {clientBalance} cr
+              </Text>
+            )}
           </View>
+        )}
 
-          {/* Context pill showing selected items */}
-          {step !== 'client' && (
-            <View style={[styles.contextBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-              {selectedClient && (
-                <Text style={[styles.contextText, { color: t.textSecondary }]}>
-                  {selectedClient.full_name}
-                  {selectedDate ? `  ·  ${DAY_ABBR[selectedDate.getDay()]} ${MONTH_ABBR[selectedDate.getMonth()]} ${selectedDate.getDate()}` : ''}
-                  {selectedTime ? `  ·  ${fmtTime(selectedTime.h, selectedTime.m)}` : ''}
-                </Text>
-              )}
-              {clientBalance !== null && (
-                <Text style={[styles.contextBalance, { color: clientBalance > 0 ? colors.primary : colors.error }]}>
-                  {clientBalance} credits
-                </Text>
-              )}
-            </View>
-          )}
+        {/* Error */}
+        {error && (
+          <View style={[styles.errorRow, { backgroundColor: colors.error + '18' }]}>
+            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          </View>
+        )}
 
-          {/* Error */}
-          {error && (
-            <View style={[styles.errorRow, { backgroundColor: colors.error + '18' }]}>
-              <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-            </View>
-          )}
+        {/* Body */}
+        <View style={[styles.body, step === 'client' && styles.bodyFlex]}>
 
-          {/* ── Step: Client ── */}
+          {/* ── Client step ── */}
           {step === 'client' && (
             clientsLoading ? (
               <View style={styles.centered}><ActivityIndicator color={colors.primary} /></View>
@@ -279,76 +380,91 @@ export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: P
             )
           )}
 
-          {/* ── Step: Date ── */}
+          {/* ── Month step ── */}
+          {step === 'month' && (
+            <View style={styles.pickerStep}>
+              <VerticalPicker
+                key="month-picker"
+                items={monthItems}
+                initialIdx={monthIdx}
+                onSelect={setMonthIdx}
+                t={t}
+              />
+              <TouchableOpacity style={styles.nextBtn} onPress={goToDate}>
+                <Text style={styles.nextBtnText}>Continue</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textInverse} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── Date step ── */}
           {step === 'date' && (
-            <ScrollView contentContainerStyle={styles.dateGrid}>
-              {upcomingDates.map((d) => {
-                const iso = toIso(d);
-                const isSelected = selectedDate && toIso(selectedDate) === iso;
-                return (
-                  <TouchableOpacity
-                    key={iso}
-                    style={[
-                      styles.dateCard,
-                      { borderColor: t.border, backgroundColor: t.surface },
-                      isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
-                    ]}
-                    onPress={() => selectDate(d)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.dateDow, { color: isSelected ? colors.primary : t.textSecondary }]}>
-                      {DAY_ABBR[d.getDay()]}
-                    </Text>
-                    <Text style={[styles.dateDay, { color: isSelected ? colors.primary : t.textPrimary }]}>
-                      {d.getDate()}
-                    </Text>
-                    <Text style={[styles.dateMon, { color: isSelected ? colors.primary : t.textSecondary }]}>
-                      {MONTH_ABBR[d.getMonth()]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            datesInMonth.length === 0 ? (
+              <Text style={[styles.emptyText, { color: t.textSecondary }]}>
+                No dates available in {selectedMonth?.label}.
+              </Text>
+            ) : (
+              <View style={styles.pickerStep}>
+                <VerticalPicker
+                  key={`date-picker-${selectedMonth?.key}`}
+                  items={dateItems}
+                  initialIdx={dateIdx}
+                  onSelect={setDateIdx}
+                  t={t}
+                />
+                <TouchableOpacity style={styles.nextBtn} onPress={goToTime}>
+                  <Text style={styles.nextBtnText}>Continue</Text>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textInverse} />
+                </TouchableOpacity>
+              </View>
+            )
           )}
 
-          {/* ── Step: Time ── */}
+          {/* ── Time step ── */}
           {step === 'time' && (
-            <ScrollView contentContainerStyle={styles.timeList}>
-              {timeOptions.map((opt) => (
-                opt.durations.map((dur) => {
-                  const isSelected = selectedTime?.h === opt.h && selectedTime?.m === opt.m && selectedDuration === dur;
-                  return (
-                    <TouchableOpacity
-                      key={`${opt.h}:${opt.m}-${dur}`}
-                      style={[
-                        styles.timeRow,
-                        { borderColor: t.border, backgroundColor: t.surface },
-                        isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + '18' },
-                      ]}
-                      onPress={() => selectTime(opt, dur)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.timeText, { color: isSelected ? colors.primary : t.textPrimary }]}>
-                        {fmtTime(opt.h, opt.m)}
-                      </Text>
-                      <View style={[styles.durBadge, { backgroundColor: isSelected ? colors.primary : t.background }]}>
-                        <Text style={[styles.durText, { color: isSelected ? colors.textInverse : t.textSecondary }]}>
-                          {dur}min · {dur === 30 ? 1 : 2} cr
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.timeContent}>
+              <VerticalPicker
+                key={`time-picker-${selectedDate ? toIso(selectedDate) : 'none'}`}
+                items={timeItems}
+                initialIdx={timeIdx}
+                onSelect={setTimeIdx}
+                t={t}
+              />
+              <View style={styles.durationSection}>
+                <Text style={[styles.durationHint, { color: t.textSecondary }]}>Select duration</Text>
+                <View style={styles.durationRow}>
+                  {([30, 60] as const).map((dur) => {
+                    const cost = dur === 30 ? 1 : 2;
+                    const isSelected = duration === dur;
+                    return (
+                      <TouchableOpacity
+                        key={dur}
+                        style={[styles.durBtn, isSelected && styles.durBtnSelected]}
+                        onPress={() => setDuration(dur)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.durBtnText, isSelected && { color: colors.textInverse }]}>
+                          {dur}m
                         </Text>
-                      </View>
-                      {isSelected && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-                    </TouchableOpacity>
-                  );
-                })
-              ))}
+                        <Text style={[styles.durBtnCredit, isSelected && { color: colors.textInverse + 'CC' }]}>
+                          {cost} cr
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+              <TouchableOpacity style={styles.nextBtn} onPress={goToConfirm}>
+                <Text style={styles.nextBtnText}>Continue</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textInverse} />
+              </TouchableOpacity>
             </ScrollView>
           )}
 
-          {/* ── Step: Confirm ── */}
-          {step === 'confirm' && selectedClient && selectedDate && selectedTime && (
-            <ScrollView contentContainerStyle={styles.confirmContent}>
-              <View style={[styles.confirmCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-                {/* Client */}
+          {/* ── Confirm step ── */}
+          {step === 'confirm' && selectedClient && selectedDate && selectedTimeSlot && (
+            <ScrollView contentContainerStyle={styles.confirmContent} showsVerticalScrollIndicator={false}>
+              <View style={[styles.confirmCard, { backgroundColor: t.background, borderColor: t.border }]}>
                 <View style={styles.confirmRow}>
                   <Ionicons name="person-outline" size={18} color={t.textSecondary as string} />
                   <View>
@@ -356,7 +472,6 @@ export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: P
                     <Text style={[styles.confirmValue, { color: t.textPrimary }]}>{selectedClient.full_name}</Text>
                   </View>
                 </View>
-                {/* Date */}
                 <View style={styles.confirmRow}>
                   <Ionicons name="calendar-outline" size={18} color={t.textSecondary as string} />
                   <View>
@@ -366,17 +481,15 @@ export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: P
                     </Text>
                   </View>
                 </View>
-                {/* Time */}
                 <View style={styles.confirmRow}>
                   <Ionicons name="time-outline" size={18} color={t.textSecondary as string} />
                   <View>
                     <Text style={[styles.confirmLabel, { color: t.textSecondary }]}>Time</Text>
                     <Text style={[styles.confirmValue, { color: t.textPrimary }]}>
-                      {fmtTime(selectedTime.h, selectedTime.m)} · {selectedDuration} min
+                      {fmtTime(selectedTimeSlot.h, selectedTimeSlot.m)} · {duration} min
                     </Text>
                   </View>
                 </View>
-                {/* Credits */}
                 <View style={[styles.confirmRow, styles.confirmRowLast]}>
                   <Ionicons name="wallet-outline" size={18} color={t.textSecondary as string} />
                   <View style={{ flex: 1 }}>
@@ -411,29 +524,41 @@ export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: P
             </ScrollView>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.xl },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet: {
+    borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg,
+    borderWidth: 1, borderBottomWidth: 0, maxHeight: '85%',
+  },
+  sheetTall: { height: '80%' },
+  handle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: '#444',
+    alignSelf: 'center', marginTop: spacing.sm,
+  },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerTitle: { ...typography.heading3 },
   contextBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   contextText:    { ...typography.bodySmall, flex: 1 },
-  contextBalance: { ...typography.bodySmall, fontWeight: '700' },
+  contextBalance: { ...typography.bodySmall, fontWeight: '700', marginLeft: spacing.sm },
   errorRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   errorText: { ...typography.bodySmall },
+
+  body: { paddingBottom: spacing.lg },
+  bodyFlex: { flex: 1, paddingBottom: 0 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
 
   // Client list
   clientRow: {
@@ -441,46 +566,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  clientAvatar: {
-    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-  },
+  clientAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   clientInitials: { ...typography.body, fontWeight: '700' },
   clientInfo: { flex: 1 },
   clientName:  { ...typography.body, fontWeight: '600' },
   clientEmail: { ...typography.bodySmall },
-  creditBadge: {
-    paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.full,
-  },
+  creditBadge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.full },
   creditBadgeText: { ...typography.label, fontWeight: '700' },
+  emptyText: { ...typography.body, textAlign: 'center', padding: spacing.xl },
 
-  // Date grid
-  dateGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm,
-    padding: spacing.md,
+  // Picker steps (month / date)
+  pickerStep: { gap: spacing.md, paddingHorizontal: spacing.md, paddingBottom: spacing.xs },
+  nextBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.xs, backgroundColor: colors.primary,
+    borderRadius: radius.md, padding: spacing.md,
   },
-  dateCard: {
-    width: 72, alignItems: 'center', paddingVertical: spacing.sm,
-    borderWidth: 1, borderRadius: radius.md, gap: 2,
-  },
-  dateDow:  { ...typography.label },
-  dateDay:  { ...typography.heading3 },
-  dateMon:  { ...typography.label },
+  nextBtnText: { ...typography.body, fontWeight: '700', color: colors.textInverse },
 
-  // Time list
-  timeList: { padding: spacing.md, gap: spacing.sm },
-  timeRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    padding: spacing.md, borderWidth: 1, borderRadius: radius.md,
+  // Time step
+  timeContent: { gap: spacing.md, paddingBottom: spacing.md, paddingHorizontal: spacing.md },
+  durationSection: { gap: spacing.sm },
+  durationHint: { ...typography.bodySmall, textAlign: 'center' },
+  durationRow: { flexDirection: 'row', gap: spacing.sm },
+  durBtn: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: spacing.md, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.primary,
   },
-  timeText:  { ...typography.body, fontWeight: '600', flex: 1 },
-  durBadge:  { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.full },
-  durText:   { ...typography.bodySmall, fontWeight: '600' },
+  durBtnSelected: { backgroundColor: colors.primary },
+  durBtnText:   { fontSize: 16, fontWeight: '700', color: colors.primary },
+  durBtnCredit: { fontSize: 12, color: colors.primary },
 
   // Confirm
-  confirmContent: { padding: spacing.md, gap: spacing.md },
-  confirmCard: {
-    borderWidth: 1, borderRadius: radius.md, overflow: 'hidden',
-  },
+  confirmContent: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
+  confirmCard: { borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
   confirmRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md,
     padding: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth,
@@ -497,6 +617,4 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md, alignItems: 'center',
   },
   bookBtnText: { ...typography.body, fontWeight: '700', color: colors.textInverse },
-  emptyText: { ...typography.body, textAlign: 'center' },
-  emptyHint: { ...typography.bodySmall, textAlign: 'center' },
 });

@@ -17,11 +17,9 @@ function tabIcon(name: IoniconsName, focusedName: IoniconsName) {
 function MessagesTabIcon({ color, focused }: { color: string; focused: boolean }) {
   const { unreadCount } = useUnread();
   return (
-    <View style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={focused ? 'chatbubble' : 'chatbubble-outline'} size={24} color={color} />
-      {unreadCount > 0 && (
-        <View style={tabStyles.dot} />
-      )}
+      {unreadCount > 0 && <View style={tabStyles.dot} />}
     </View>
   );
 }
@@ -30,7 +28,7 @@ const tabStyles = StyleSheet.create({
   dot: {
     position: 'absolute', top: 0, right: 0,
     width: 9, height: 9, borderRadius: 5,
-    backgroundColor: '#F5C518',
+    backgroundColor: colors.primary,
     borderWidth: 1.5, borderColor: '#000',
   },
 });

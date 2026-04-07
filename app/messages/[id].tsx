@@ -6,7 +6,7 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
-import { useMessages, sendMessage, markConversationRead } from '@/hooks/useMessaging';
+import { useMessages, markConversationRead } from '@/hooks/useMessaging';
 import type { MessageAttachment } from '@/hooks/useMessaging';
 import { useUnread } from '@/lib/unreadContext';
 import { supabase } from '@/lib/supabase';
@@ -173,7 +173,7 @@ export default function ConversationScreen() {
   const router = useRouter();
   const t = useTheme();
   const { user } = useAuth();
-  const { messages, loading } = useMessages(id ?? '');
+  const { messages, loading, send } = useMessages(id ?? '');
 
   const { role, clientId } = useAuth();
   const { refreshUnread } = useUnread();
@@ -287,14 +287,15 @@ export default function ConversationScreen() {
     if (!text.trim() && !attachment) return;
     if (!user?.id || !id) return;
     setSending(true);
+    const body = text.trim();
     const replyId = replyingTo?.id ?? null;
-    setReplyingTo(null);
     const att = attachment;
-    setAttachment(null);
-    await sendMessage(id, text.trim(), user.id, replyId, att);
+    // Clear UI immediately — message appears optimistically
     setText('');
+    setReplyingTo(null);
+    setAttachment(null);
+    await send(user.id, body, replyId, att);
     setSending(false);
-    setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
   }
 
   const participantMap = new Map(participants.map((p) => [p.user_id, p.name]));

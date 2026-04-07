@@ -26,12 +26,36 @@ export function useTrainerAvailability(trainerId: string) {
     setLoading(false);
   }, [trainerId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+
+    if (!trainerId) return;
+    const channel = supabase
+      .channel(`trainer-avail:${trainerId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trainer_availability', filter: `trainer_id=eq.${trainerId}` },
+        () => { load(); },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [trainerId, load]);
 
   async function upsertSlot(slot: InsertTrainerAvailability): Promise<{ error: string | null }> {
     const { error: err } = await supabase
       .from('trainer_availability')
       .upsert({ ...slot, trainer_id: trainerId });
+    if (err) return { error: err.message };
+    await load();
+    return { error: null };
+  }
+
+  async function updateSlot(id: string, slot: InsertTrainerAvailability): Promise<{ error: string | null }> {
+    const { error: err } = await supabase
+      .from('trainer_availability')
+      .update({ ...slot, trainer_id: trainerId })
+      .eq('id', id);
     if (err) return { error: err.message };
     await load();
     return { error: null };
@@ -47,7 +71,7 @@ export function useTrainerAvailability(trainerId: string) {
     return { error: null };
   }
 
-  return { slots, loading, error, upsertSlot, deleteSlot, refetch: load };
+  return { slots, loading, error, upsertSlot, updateSlot, deleteSlot, refetch: load };
 }
 
 // ─── Trainer's client's availability (for booking) ────────────
@@ -57,26 +81,54 @@ export function useAvailabilityForClient(clientId: string) {
   const [trainerId, setTrainerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Resolve trainer ID from the client record
   useEffect(() => {
     if (!clientId) { setLoading(false); return; }
-    (async () => {
-      const { data: client } = await supabase
-        .from('clients')
-        .select('trainer_id')
-        .eq('id', clientId)
-        .single();
-      if (!client) { setLoading(false); return; }
-      setTrainerId(client.trainer_id);
+    supabase
+      .from('clients')
+      .select('trainer_id')
+      .eq('id', clientId)
+      .single()
+      .then(({ data }) => {
+        if (!data?.trainer_id) { setLoading(false); return; }
+        setTrainerId(data.trainer_id);
+      });
+  }, [clientId]);
+
+  // Load availability and subscribe to changes keyed on trainer ID
+  useEffect(() => {
+    if (!trainerId) return;
+    let cancelled = false;
+
+    async function load() {
       const { data } = await supabase
         .from('trainer_availability')
         .select('*')
-        .eq('trainer_id', client.trainer_id)
+        .eq('trainer_id', trainerId!)
         .eq('is_active', true)
         .order('start_time');
-      setSlots(data ?? []);
-      setLoading(false);
-    })();
-  }, [clientId]);
+      if (!cancelled) {
+        setSlots(data ?? []);
+        setLoading(false);
+      }
+    }
+
+    load();
+
+    const channel = supabase
+      .channel(`client-avail:${trainerId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trainer_availability', filter: `trainer_id=eq.${trainerId}` },
+        () => { if (!cancelled) load(); },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [trainerId]);
 
   return { slots, trainerId, loading };
 }

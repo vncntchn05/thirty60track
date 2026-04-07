@@ -132,7 +132,7 @@ export function useMessages(conversationId: string) {
         (payload) => {
           if (!cancelled) {
             setMessages((prev) => {
-              // Deduplicate in case of optimistic updates
+              // Deduplicate — optimistic messages already have the same UUID
               const exists = prev.some((m) => m.id === (payload.new as DirectMessage).id);
               return exists ? prev : [...prev, payload.new as DirectMessage];
             });
@@ -147,7 +147,55 @@ export function useMessages(conversationId: string) {
     };
   }, [conversationId]);
 
-  return { messages, loading };
+  async function send(
+    senderId: string,
+    body: string,
+    replyToId?: string | null,
+    attachment?: MessageAttachment | null,
+  ): Promise<{ error: string | null }> {
+    // Generate UUID client-side so the optimistic message has the same ID
+    // as the row Supabase will create, enabling deduplication in the realtime handler.
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const optimistic: DirectMessage = {
+      id,
+      conversation_id: conversationId,
+      sender_id: senderId,
+      body: body.trim() || (attachment?.title ?? ''),
+      reply_to_id: replyToId ?? null,
+      attachment_type: (attachment?.type ?? null) as DirectMessage['attachment_type'],
+      attachment_id: attachment?.id ?? null,
+      attachment_title: attachment?.title ?? null,
+      attachment_subtitle: attachment?.subtitle ?? null,
+      created_at: now,
+    };
+
+    // Show instantly for the sender
+    setMessages((prev) => [...prev, optimistic]);
+
+    const { error: err } = await supabase.from('messages').insert({
+      id,
+      conversation_id: conversationId,
+      sender_id: senderId,
+      body: body.trim() || (attachment?.title ?? ''),
+      ...(replyToId ? { reply_to_id: replyToId } : {}),
+      ...(attachment ? {
+        attachment_type: attachment.type,
+        attachment_id: attachment.id,
+        attachment_title: attachment.title,
+        attachment_subtitle: attachment.subtitle,
+      } : {}),
+    });
+
+    if (err) {
+      // Roll back optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+      return { error: err.message };
+    }
+    return { error: null };
+  }
+
+  return { messages, loading, send };
 }
 
 // ─── Mutations ────────────────────────────────────────────────
