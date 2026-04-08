@@ -194,9 +194,9 @@ export default function ConversationScreen() {
 
   // Mark conversation as read on mount and when new messages arrive
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user?.id) return;
     markConversationRead(id).then(() => refreshUnread());
-  }, [id, messages.length, refreshUnread]);
+  }, [id, user?.id, messages.length, refreshUnread]);
 
   // Load conversation metadata
   useEffect(() => {

@@ -225,7 +225,7 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 ### Direct Messaging
 
 - [x] **Conversations list** — a dedicated Messages tab (both trainer and client navigators) shows all conversations, ordered by latest message; each card displays the other participant's name, message preview, and timestamp
-- [x] **Unread indicators** — conversations with unread messages are highlighted with a gold tint on the card; the Messages tab icon shows a coloured dot badge when any unread conversation exists (both trainer and client navigators); dot disappears as soon as the conversation is opened
+- [x] **Unread indicators** — conversations with unread messages are highlighted with a gold tint on the card and bold preview text; the Messages tab icon shows a coloured dot badge when any unread conversation exists (both trainer and client navigators); both the card highlight and the tab badge update instantly when a new message arrives without any manual refresh; dot and highlight disappear as soon as the conversation is opened
 - [x] **Start new conversation** — trainers can open a new conversation with any of their clients; clients can open conversations with their trainer; duplicate conversations are prevented (re-opens existing thread)
 - [x] **Message thread** — real-time chat view with sent/received bubble alignment; messages load in reverse-chronological order with infinite scroll; sent messages appear instantly for the sender via optimistic update (client-generated UUID deduplicates when the Realtime echo arrives); all other participants receive messages via Supabase Realtime
 - [x] **Reply/threading** — long-press any message to reply; replied-to message preview shown above the reply bubble; tapping the preview scrolls to the original message
@@ -234,7 +234,7 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] **Client attachment restrictions** — clients can only attach their own workouts and assigned workouts (picker filters by `client_id`); clients routed to read-only session view when tapping an assigned workout attachment (not the trainer edit screen)
 - [x] **Automatic session messages** — a system message is sent automatically when a session is requested, confirmed, or cancelled; messages appear in the conversation thread between trainer and client
 - [x] **Conversation search** — filter the conversations list by participant name in real time
-- [x] **Mark as read** — opening a conversation marks it as read by updating `last_read_at` in `conversation_participants`; unread count refreshes globally via Realtime subscription
+- [x] **Mark as read** — opening a conversation marks it as read via a server-side RPC (`mark_conversation_read`) that uses `NOW()` to avoid client/server clock skew; unread count and card state clear immediately via the filtered Realtime subscription
 
 ### UI & Theme
 - [x] **Forced dark theme** — deep charcoal (`#111111`) background, `#1C1C1C` surfaces, gold (`#B88C32`) accents across iOS, Android, and Web

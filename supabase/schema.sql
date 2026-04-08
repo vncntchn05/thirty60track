@@ -1756,18 +1756,21 @@ CREATE POLICY "trainers can delete own exercise media"
 ALTER TABLE conversation_participants
   ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ;
 
--- Allow participants to update their own last_read_at
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public'
-      AND tablename = 'conversation_participants'
-      AND policyname = 'participants can update own last_read_at'
-  ) THEN
-    CREATE POLICY "participants can update own last_read_at"
-      ON conversation_participants FOR UPDATE
-      USING (user_id = auth.uid())
-      WITH CHECK (user_id = auth.uid());
-  END IF;
-END $$;
+-- Allow participants to update their own last_read_at (drop-and-recreate to fix any stale policy)
+DROP POLICY IF EXISTS "participants can update own last_read_at" ON conversation_participants;
+CREATE POLICY "participants can update own last_read_at"
+  ON conversation_participants FOR UPDATE
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+-- RPC: mark a conversation as read using server-side NOW() to avoid client/server clock skew
+CREATE OR REPLACE FUNCTION mark_conversation_read(p_conversation_id UUID)
+RETURNS void
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+  UPDATE conversation_participants
+  SET last_read_at = NOW()
+  WHERE conversation_id = p_conversation_id AND user_id = auth.uid();
+$$;

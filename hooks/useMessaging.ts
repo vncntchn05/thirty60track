@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { ConversationWithDetails, DirectMessage, ParticipantInfo } from '@/types';
 
@@ -30,14 +30,24 @@ export function useConversations() {
   const [conversations, setConversations] = useState<ConversationWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const subscribedKeyRef = useRef('');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
 
+    // Get current user first so we can filter participation rows to only our own
+    const { data: { user } } = await supabase.auth.getUser();
+    const myUserId = user?.id ?? null;
+    if (!myUserId) { setConversations([]); setLoading(false); return; }
+
+    // Only fetch the current user's own participation rows so last_read_at is never
+    // contaminated by another participant's value (SELECT RLS returns all participants)
     const { data: myParticipations, error: pErr } = await supabase
       .from('conversation_participants')
-      .select('conversation_id, last_read_at');
+      .select('conversation_id, last_read_at')
+      .eq('user_id', myUserId);
 
     if (pErr) { setError(pErr.message); setLoading(false); return; }
     if (!myParticipations?.length) { setConversations([]); setLoading(false); return; }
@@ -63,10 +73,6 @@ export function useConversations() {
     const infos = await resolveParticipantNames(allUserIds);
     const infoMap = new Map(infos.map((p) => [p.user_id, p]));
 
-    // Get current user to exclude own messages from unread check
-    const { data: { user } } = await supabase.auth.getUser();
-    const myUserId = user?.id ?? null;
-
     const result: ConversationWithDetails[] = (convs ?? []).map((conv) => {
       const participants = (allParticipants ?? [])
         .filter((p) => p.conversation_id === conv.id)
@@ -90,18 +96,41 @@ export function useConversations() {
 
     setConversations(result);
     setLoading(false);
+
+    // Rebuild filtered realtime subscriptions when the conversation set changes.
+    // Filtered postgres_changes are used (one filter per conv) because unfiltered
+    // subscriptions are unreliable in Supabase without explicit filters.
+    const newKey = [...convIds].sort().join(',');
+    if (newKey !== subscribedKeyRef.current) {
+      subscribedKeyRef.current = newKey;
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      const ch = supabase.channel('conv-list-watcher');
+      convIds.forEach((id) => {
+        ch.on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'messages',
+          filter: `conversation_id=eq.${id}`,
+        }, () => load());
+      });
+      ch.subscribe();
+      channelRef.current = ch;
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    return () => {
+      if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
+      subscribedKeyRef.current = '';
+    };
+  }, [load]);
 
   return { conversations, loading, error, refetch: load };
 }
 
 export async function markConversationRead(conversationId: string): Promise<void> {
-  await supabase
-    .from('conversation_participants')
-    .update({ last_read_at: new Date().toISOString() })
-    .eq('conversation_id', conversationId);
+  // Use an RPC so last_read_at is set with server-side NOW(), avoiding client/server clock skew
+  // that would make freshly-arrived messages appear already read.
+  await supabase.rpc('mark_conversation_read', { p_conversation_id: conversationId });
 }
 
 export function useMessages(conversationId: string) {
