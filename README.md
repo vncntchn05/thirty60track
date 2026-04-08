@@ -246,7 +246,7 @@ All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** app
 - [x] Safe back navigation — falls back to home if no navigation history (works on web direct links)
 - [x] **Name-based client URLs** — web routes use `/client/john-doe` instead of UUIDs; slug lookup with UUID fallback for backward compatibility
 - [x] **404 handling** — unmatched routes show a "Page not found" screen; with the Render SPA rewrite rule in place, refreshing any valid URL stays on that page instead of redirecting home
-- [x] Five-tab layout on client detail screen (Progress / Workouts / Nutrition / Media / Credits); Workouts tab defaults to the monthly calendar view with a calendar/list toggle; tapping a date navigates to the workout, assigned workout, or Schedule tab at the correct week
+- [x] Five-tab layout on client detail screen (Progress / Workouts / Nutrition / Media / Credits); Workouts tab label is plain "Workouts" (no count badge); defaults to the monthly calendar view with a calendar/list toggle; tapping a date navigates to the workout, assigned workout, or Schedule tab at the correct week
 - [x] Skia web initialization with CanvasKit CDN (charts work on web)
 - [x] Lazy-loaded chart section (CanvasKit loads before charts render)
 
@@ -408,7 +408,7 @@ components/
     AddFoodModal.tsx         # Bottom sheet — Search / Scan / Manual / Recipes tabs; serving size scaling; recipe list with weight-based log flow
     MealSection.tsx          # Per-meal log entries with calorie subtotal + delete
     RecipeBuilderModal.tsx   # Create/edit recipes: name + description, ingredient search (USDA+OFF), per-ingredient weight, live macro totals + per-100g display
-    NutritionEncyclopedia.tsx # 7-topic nutrition science reference with inline Wikipedia/PubMed links
+    NutritionEncyclopedia.tsx # 37-topic nutrition science reference — category filter tabs (All / Macros / Vitamins / Minerals / Supplements); macros retain full long-form detail; individual entries for all 13 vitamins (A, B1–B12, C, D, E, K) and 14 minerals (Calcium → Fluoride) with NIH ODS Consumer outlinks; 3 supplement entries (Omega-3, Probiotics, CoQ10); overview "Vitamins" and "Minerals" topics preserved alongside individual entries
 
 types/
   database.ts          # Manual TS types mirroring the DB schema (Client, ClientIntake, ActivityLevel…)

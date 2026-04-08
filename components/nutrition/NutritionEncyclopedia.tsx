@@ -7,9 +7,11 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 
 type Seg          = string | { t: string; url: string };
 type TopicSection = { heading: string; body: Seg[] };
+type Category     = 'macros' | 'vitamins' | 'minerals' | 'supplements';
 type Topic        = {
   id: string; icon: string; title: string;
   subtitle: string; accent: string;
+  category: Category;
   sections: TopicSection[];
 };
 
@@ -34,12 +36,16 @@ function RichText({ segs, style }: { segs: Seg[]; style?: object }) {
 // ─── Encyclopedia content ─────────────────────────────────────
 
 const TOPICS: Topic[] = [
+
+  // ── Macros ──────────────────────────────────────────────────
+
   {
     id: 'protein',
     icon: 'barbell-outline',
     title: 'Protein',
     subtitle: 'Amino acids, MPS & protein quality',
     accent: '#E07B54',
+    category: 'macros',
     sections: [
       {
         heading: 'What Is Protein?',
@@ -104,12 +110,14 @@ const TOPICS: Topic[] = [
       },
     ],
   },
+
   {
     id: 'carbohydrates',
     icon: 'flash-outline',
     title: 'Carbohydrates',
     subtitle: 'Energy, glycogen & the glycaemic index',
     accent: '#E0A854',
+    category: 'macros',
     sections: [
       {
         heading: 'What Are Carbohydrates?',
@@ -154,12 +162,14 @@ const TOPICS: Topic[] = [
       },
     ],
   },
+
   {
     id: 'fats',
     icon: 'water-outline',
     title: 'Dietary Fats',
     subtitle: 'Hormones, omega-3 & essential lipids',
     accent: '#54B0E0',
+    category: 'macros',
     sections: [
       {
         heading: 'Why Fats Are Essential',
@@ -211,99 +221,14 @@ const TOPICS: Topic[] = [
       },
     ],
   },
-  {
-    id: 'vitamins',
-    icon: 'leaf-outline',
-    title: 'Vitamins',
-    subtitle: 'Fat-soluble & water-soluble essentials',
-    accent: '#54C47E',
-    sections: [
-      {
-        heading: 'Fat-Soluble Vitamins (A, D, E, K)',
-        body: [
-          'Fat-soluble vitamins are stored in adipose tissue and the liver. Because they accumulate, overdose is possible with excess supplementation — a consideration distinct from water-soluble vitamins.\n\n• ',
-          { t: 'Vitamin A', url: 'https://en.wikipedia.org/wiki/Vitamin_A' },
-          ' (retinol / beta-carotene): essential for vision (rhodopsin synthesis), epithelial cell differentiation, immune function, and embryonic development. Found preformed as retinol in liver, dairy, and eggs; as pro-vitamin A carotenoids in orange/yellow vegetables. Retinol is teratogenic in excess (>3,000 µg RAE/day); beta-carotene from plant foods is not.\n\n• ',
-          { t: 'Vitamin D', url: 'https://en.wikipedia.org/wiki/Vitamin_D' },
-          '3 (cholecalciferol): synthesised in the skin from UVB exposure; converted in the liver to 25(OH)D (storage form) and then in the kidney to the active hormone 1,25(OH)2D (calcitriol). Regulates calcium and phosphorus absorption for bone mineralisation, modulates over 200 genes including immune and muscle function genes. Globally over 1 billion people are deficient. Athletes with deficiency face elevated stress fracture risk and impaired muscle function; benefits plateau at serum levels of ~50 ng/mL. Typical supplementation dose: 1,000–4,000 IU/day; upper safe limit is 4,000 IU/day per US guidelines.\n\n• ',
-          { t: 'Vitamin E', url: 'https://en.wikipedia.org/wiki/Vitamin_E' },
-          ' (alpha-tocopherol): lipid-soluble ',
-          { t: 'antioxidant', url: 'https://en.wikipedia.org/wiki/Antioxidant' },
-          ' that protects PUFA-rich cell membranes from lipid peroxidation. Found in sunflower seeds, almonds, wheat germ oil, and avocado. Note: high-dose supplementation (>400 IU/day) may actually blunt beneficial cellular adaptations to exercise by reducing reactive oxygen species signalling.\n\n• ',
-          { t: 'Vitamin K', url: 'https://en.wikipedia.org/wiki/Vitamin_K' },
-          ': K1 (phylloquinone) from leafy greens activates clotting factors. K2 (menaquinone, MK-4 to MK-7) from fermented foods and animal liver activates osteocalcin (directs calcium into bone) and Matrix Gla Protein (prevents vascular calcification). K2 works synergistically with vitamin D3 — D3 increases calcium absorption while K2 ensures it is deposited in the right tissues.',
-        ],
-      },
-      {
-        heading: 'Water-Soluble Vitamins (B-complex & C)',
-        body: [
-          'Water-soluble vitamins are not stored in significant amounts (except B12 in the liver, 2–5 year reserve). Excess is excreted in urine, making daily intake important but overdose from food largely impossible.\n\n• ',
-          { t: 'Vitamin B1', url: 'https://en.wikipedia.org/wiki/Thiamine' },
-          ' (thiamine): cofactor in carbohydrate metabolism (pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase); critical for nerve function; deficiency causes beriberi and Wernicke encephalopathy.\n• B2 (riboflavin): component of FAD and FMN, essential for the electron transport chain and fatty acid oxidation; deficiency causes stomatitis and photophobia.\n• ',
-          { t: 'B3 (niacin)', url: 'https://en.wikipedia.org/wiki/Niacin' },
-          ': forms NAD+ and NADP+ — the most important cellular redox cofactors; participates in >400 enzymatic reactions including ATP synthesis, DNA repair, and sirtuins. Pharmacological doses (1–3 g/day) significantly raise HDL cholesterol.\n• B5 (pantothenic acid): component of coenzyme A; essential for the Krebs cycle and fatty acid synthesis.\n• B6 (pyridoxine): cofactor for >100 enzyme reactions in amino acid metabolism; essential for neurotransmitter synthesis (serotonin, dopamine, GABA) and haemoglobin production.\n• ',
-          { t: 'Vitamin B9', url: 'https://en.wikipedia.org/wiki/Folate' },
-          ' (folate): essential for one-carbon metabolism, DNA synthesis, methylation reactions, and cell division; deficiency during pregnancy causes neural tube defects; found in dark leafy greens, legumes, liver.\n• ',
-          { t: 'Vitamin B12', url: 'https://en.wikipedia.org/wiki/Vitamin_B12' },
-          ' (cobalamin): required for myelin sheath synthesis, red blood cell formation, and DNA methylation; found exclusively in animal products; vegans must supplement. Deficiency is insidious — it may take years to manifest as megaloblastic anaemia or neurological damage after the liver\'s B12 reserves are exhausted.\n• ',
-          { t: 'Vitamin C', url: 'https://en.wikipedia.org/wiki/Vitamin_C' },
-          ' (ascorbic acid): potent water-soluble ',
-          { t: 'antioxidant', url: 'https://en.wikipedia.org/wiki/Antioxidant' },
-          '; essential for ',
-          { t: 'collagen', url: 'https://en.wikipedia.org/wiki/Collagen' },
-          ' synthesis (hydroxylation of proline and lysine in collagen triple helix); enhances non-haem iron absorption (reduces Fe³⁺ → Fe²⁺); supports immune function; found in citrus, kiwi, bell peppers, broccoli. The RDA (75–90 mg/day) is sufficient to prevent scurvy; athletes and smokers may benefit from 200–500 mg/day.',
-        ],
-      },
-      {
-        heading: 'Vitamins for Athletic Performance',
-        body: [
-          'Certain vitamins deserve particular attention for individuals engaged in regular intense training:\n\n• Vitamin D: likely the highest-impact supplement for most athletes. Deficiency is widespread (especially in indoor athletes, dark-skinned individuals, and northern latitudes), impairs muscle function, immune defence, and bone resilience. Testing serum 25(OH)D and targeting 40–60 ng/mL is a practical approach.\n• B12 and folate: plant-based athletes are at substantial risk of deficiency. Both are critical for red blood cell production and optimal oxygen-carrying capacity — directly relevant to endurance performance.\n• Vitamin C: alongside collagen peptides before training, vitamin C may support connective tissue synthesis and reduce tendon/ligament injury risk — an emerging but promising area of sports nutrition research.\n• Antioxidant vitamins (C and E) in high supplemental doses: paradoxically may blunt some training adaptations by quenching the reactive oxygen species that trigger mitochondrial biogenesis and antioxidant enzyme upregulation. Obtaining antioxidants from whole foods is generally preferred over mega-dose supplements.',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'minerals',
-    icon: 'diamond-outline',
-    title: 'Minerals',
-    subtitle: 'Calcium, iron, magnesium & electrolytes',
-    accent: '#A07FD0',
-    sections: [
-      {
-        heading: 'Macrominerals',
-        body: [
-          'Macrominerals are required in amounts greater than 100 mg/day:\n\n• Calcium: the most abundant mineral in the body (~1 kg in a 70 kg adult; 99% in bones and teeth). Essential for bone mineralisation, muscle contraction, neurotransmitter release, and blood clotting. Dietary sources: dairy, fortified plant milks, tofu set with calcium sulfate, tinned salmon/sardines with bones, leafy greens (kale, bok choy). Absorption is enhanced by vitamin D and inhibited by oxalates (spinach, rhubarb) and phytates (unprocessed bran).\n\n• Phosphorus: second most abundant mineral; forms ATP, DNA, RNA, and phospholipid membranes; works with calcium in bone; found in virtually all protein-containing foods — deficiency is rare in adults.\n\n• ',
-          { t: 'Magnesium', url: 'https://en.wikipedia.org/wiki/Magnesium_in_biology' },
-          ': cofactor for over 300 enzymatic reactions including every reaction that uses or synthesises ATP (notably, ATP must bind a magnesium ion to be biologically active). Essential for DNA/RNA synthesis, muscle relaxation (calcium triggers contraction; magnesium triggers relaxation), insulin signalling, and protein synthesis. Research links adequate magnesium to significant gains in testosterone production (10 mg/kg bodyweight/day). Depleted by heavy sweating, diuretics, alcohol, and high caffeine intake. Rich sources: pumpkin seeds (~303 mg per ¼ cup), chia seeds, dark chocolate, almonds, spinach, buckwheat. Adult RDA: 400–420 mg/day (men), 310–320 mg/day (women).\n\n• Sodium and chloride: primary extracellular electrolytes; regulate fluid balance, blood pressure, and nerve signalling. Discussed further under electrolytes below.',
-        ],
-      },
-      {
-        heading: 'Trace Minerals for Athletes',
-        body: [
-          '• Iron: core component of ',
-          { t: 'haemoglobin', url: 'https://en.wikipedia.org/wiki/Hemoglobin' },
-          ' (transports O2 in red blood cells) and myoglobin (O2 storage in muscle). Iron deficiency is the world\'s most prevalent nutritional deficiency; female athletes, endurance athletes, and vegetarians are at highest risk. Haem iron (red meat, poultry, fish) has ~25–30% bioavailability; non-haem iron (plant foods, eggs) has 2–10% bioavailability but is significantly enhanced by simultaneous vitamin C intake and impaired by calcium, tannins (tea/coffee), and phytates. Ferritin (iron stores) should be tested routinely in high-training-volume athletes.\n\n• ',
-          { t: 'Zinc', url: 'https://en.wikipedia.org/wiki/Zinc#Biological_role' },
-          ': essential for testosterone biosynthesis, immune function, protein synthesis, wound healing, and >300 enzymatic reactions. Heavily athletes may lose zinc in sweat. Rich sources: oysters (highest per gram), beef, pumpkin seeds, cashews. Zinc and copper compete for absorption — chronic high-dose zinc supplementation can deplete copper.\n\n• Iodine: required for thyroid hormone synthesis (T3 and T4), which regulate metabolic rate, growth, and development. Deficiency impairs metabolism and, in pregnancy, causes cretinism. Main sources: iodised salt, seaweed, dairy, seafood.\n\n• Selenium: antioxidant via glutathione peroxidase; supports thyroid function; found in Brazil nuts (1–2 nuts = full daily requirement of ~55 µg), seafood, and organ meats.',
-        ],
-      },
-      {
-        heading: 'Electrolytes',
-        body: [
-          { t: 'Electrolytes', url: 'https://en.wikipedia.org/wiki/Electrolyte' },
-          ' are minerals that carry an electrical charge when dissolved in body fluids. They govern:\n• Fluid distribution between intracellular and extracellular compartments (osmolarity)\n• Nerve impulse conduction (action potentials)\n• Muscle contraction and relaxation\n• Acid-base (pH) balance\n\nKey electrolytes and their primary roles:\n• Sodium (Na⁺): chief extracellular cation; controls blood volume and pressure; 400–2,400 mg/litre lost in sweat depending on sweat rate and acclimatisation status.\n• Potassium (K⁺): chief intracellular cation; maintains resting membrane potential; critical for cardiac rhythm; banana, avocado, potato, coconut water.\n• Magnesium (Mg²⁺): muscle relaxation, ATP activity, nerve signalling; often depleted in high-volume athletes.\n• Calcium (Ca²⁺): triggers muscle contraction and neurotransmitter release.\n• Chloride (Cl⁻): pairs with sodium; maintains osmotic balance.\n\nReplacing electrolytes — not just water — is critical for sessions > 60 min or exercise in heat, to prevent ',
-          { t: 'hyponatraemia', url: 'https://en.wikipedia.org/wiki/Hyponatremia' },
-          ' (dangerously low blood sodium). Exercise-associated hyponatraemia occurs when excessive plain water is consumed without sodium replacement, diluting plasma sodium below 135 mmol/L. Symptoms progress from headache and nausea to confusion, seizures, and coma. It affects approximately 10% of endurance event participants who over-hydrate. Drinking to thirst and using electrolyte drinks during prolonged exercise is the evidence-based prevention strategy.',
-        ],
-      },
-    ],
-  },
+
   {
     id: 'dieting',
     icon: 'trending-up-outline',
     title: 'Dieting Effectively',
     subtitle: 'TDEE, caloric balance & practical strategies',
     accent: '#E05454',
+    category: 'macros',
     sections: [
       {
         heading: 'Energy Balance & TDEE',
@@ -349,12 +274,14 @@ const TOPICS: Topic[] = [
       },
     ],
   },
+
   {
     id: 'hydration',
-    icon: 'water-outline',
+    icon: 'partly-sunny-outline',
     title: 'Hydration',
     subtitle: 'Water, electrolytes & performance',
     accent: '#54A8E0',
+    category: 'macros',
     sections: [
       {
         heading: 'Why Hydration Matters',
@@ -390,6 +317,835 @@ const TOPICS: Topic[] = [
       },
     ],
   },
+
+  // ── Vitamins ─────────────────────────────────────────────────
+
+  {
+    id: 'vitamins',
+    icon: 'leaf-outline',
+    title: 'Vitamins — Overview',
+    subtitle: 'Fat-soluble & water-soluble essentials',
+    accent: '#54C47E',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'Fat-Soluble Vitamins (A, D, E, K)',
+        body: [
+          'Fat-soluble vitamins are stored in adipose tissue and the liver. Because they accumulate, overdose is possible with excess supplementation — a consideration distinct from water-soluble vitamins.\n\n• ',
+          { t: 'Vitamin A', url: 'https://en.wikipedia.org/wiki/Vitamin_A' },
+          ' (retinol / beta-carotene): essential for vision (rhodopsin synthesis), epithelial cell differentiation, immune function, and embryonic development. Found preformed as retinol in liver, dairy, and eggs; as pro-vitamin A carotenoids in orange/yellow vegetables. Retinol is teratogenic in excess (>3,000 µg RAE/day); beta-carotene from plant foods is not.\n\n• ',
+          { t: 'Vitamin D', url: 'https://en.wikipedia.org/wiki/Vitamin_D' },
+          '3 (cholecalciferol): synthesised in the skin from UVB exposure; converted in the liver to 25(OH)D (storage form) and then in the kidney to the active hormone 1,25(OH)2D (calcitriol). Regulates calcium and phosphorus absorption for bone mineralisation, modulates over 200 genes including immune and muscle function genes. Globally over 1 billion people are deficient. Athletes with deficiency face elevated stress fracture risk and impaired muscle function; benefits plateau at serum levels of ~50 ng/mL. Typical supplementation dose: 1,000–4,000 IU/day; upper safe limit is 4,000 IU/day per US guidelines.\n\n• ',
+          { t: 'Vitamin E', url: 'https://en.wikipedia.org/wiki/Vitamin_E' },
+          ' (alpha-tocopherol): lipid-soluble ',
+          { t: 'antioxidant', url: 'https://en.wikipedia.org/wiki/Antioxidant' },
+          ' that protects PUFA-rich cell membranes from lipid peroxidation. Found in sunflower seeds, almonds, wheat germ oil, and avocado. Note: high-dose supplementation (>400 IU/day) may actually blunt beneficial cellular adaptations to exercise by reducing reactive oxygen species signalling.\n\n• ',
+          { t: 'Vitamin K', url: 'https://en.wikipedia.org/wiki/Vitamin_K' },
+          ': K1 (phylloquinone) from leafy greens activates clotting factors. K2 (menaquinone, MK-4 to MK-7) from fermented foods and animal liver activates osteocalcin (directs calcium into bone) and Matrix Gla Protein (prevents vascular calcification). K2 works synergistically with vitamin D3 — D3 increases calcium absorption while K2 ensures it is deposited in the right tissues.',
+        ],
+      },
+      {
+        heading: 'Water-Soluble Vitamins (B-complex & C)',
+        body: [
+          'Water-soluble vitamins are not stored in significant amounts (except B12 in the liver, 2–5 year reserve). Excess is excreted in urine, making daily intake important but overdose from food largely impossible.\n\n• ',
+          { t: 'Vitamin B1', url: 'https://en.wikipedia.org/wiki/Thiamine' },
+          ' (thiamine): cofactor in carbohydrate metabolism (pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase); critical for nerve function; deficiency causes beriberi and Wernicke encephalopathy.\n• B2 (riboflavin): component of FAD and FMN, essential for the electron transport chain and fatty acid oxidation; deficiency causes stomatitis and photophobia.\n• ',
+          { t: 'B3 (niacin)', url: 'https://en.wikipedia.org/wiki/Niacin' },
+          ': forms NAD+ and NADP+ — the most important cellular redox cofactors; participates in >400 enzymatic reactions including ATP synthesis, DNA repair, and sirtuins. Pharmacological doses (1–3 g/day) significantly raise HDL cholesterol.\n• B5 (pantothenic acid): component of coenzyme A; essential for the Krebs cycle and fatty acid synthesis.\n• B6 (pyridoxine): cofactor for >100 enzyme reactions in amino acid metabolism; essential for neurotransmitter synthesis (serotonin, dopamine, GABA) and haemoglobin production.\n• ',
+          { t: 'Vitamin B9', url: 'https://en.wikipedia.org/wiki/Folate' },
+          ' (folate): essential for one-carbon metabolism, DNA synthesis, methylation reactions, and cell division; deficiency during pregnancy causes neural tube defects; found in dark leafy greens, legumes, liver.\n• ',
+          { t: 'Vitamin B12', url: 'https://en.wikipedia.org/wiki/Vitamin_B12' },
+          ' (cobalamin): required for myelin sheath synthesis, red blood cell formation, and DNA methylation; found exclusively in animal products; vegans must supplement. Deficiency is insidious — it may take years to manifest as megaloblastic anaemia or neurological damage after the liver\'s B12 reserves are exhausted.\n• ',
+          { t: 'Vitamin C', url: 'https://en.wikipedia.org/wiki/Vitamin_C' },
+          ' (ascorbic acid): potent water-soluble ',
+          { t: 'antioxidant', url: 'https://en.wikipedia.org/wiki/Antioxidant' },
+          '; essential for ',
+          { t: 'collagen', url: 'https://en.wikipedia.org/wiki/Collagen' },
+          ' synthesis (hydroxylation of proline and lysine in collagen triple helix); enhances non-haem iron absorption (reduces Fe³⁺ → Fe²⁺); supports immune function; found in citrus, kiwi, bell peppers, broccoli. The RDA (75–90 mg/day) is sufficient to prevent scurvy; athletes and smokers may benefit from 200–500 mg/day.',
+        ],
+      },
+      {
+        heading: 'Vitamins for Athletic Performance',
+        body: [
+          'Certain vitamins deserve particular attention for individuals engaged in regular intense training:\n\n• Vitamin D: likely the highest-impact supplement for most athletes. Deficiency is widespread (especially in indoor athletes, dark-skinned individuals, and northern latitudes), impairs muscle function, immune defence, and bone resilience. Testing serum 25(OH)D and targeting 40–60 ng/mL is a practical approach.\n• B12 and folate: plant-based athletes are at substantial risk of deficiency. Both are critical for red blood cell production and optimal oxygen-carrying capacity — directly relevant to endurance performance.\n• Vitamin C: alongside collagen peptides before training, vitamin C may support connective tissue synthesis and reduce tendon/ligament injury risk — an emerging but promising area of sports nutrition research.\n• Antioxidant vitamins (C and E) in high supplemental doses: paradoxically may blunt some training adaptations by quenching the reactive oxygen species that trigger mitochondrial biogenesis and antioxidant enzyme upregulation. Obtaining antioxidants from whole foods is generally preferred over mega-dose supplements.',
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'vitamin-a',
+    icon: 'eye-outline',
+    title: 'Vitamin A',
+    subtitle: 'Vision, immune function & skin',
+    accent: '#E9C46A',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Vitamin A is essential for vision (especially night vision), immune defense, cell growth, and skin health. It exists as preformed vitamin A (retinol) in animal foods and as provitamin A carotenoids (beta-carotene) in plant foods. Unlike beta-carotene from plants, excess preformed retinol is toxic and can cause birth defects.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 700–900 mcg RAE/day for adults\n• Preformed (retinol): beef liver, fish oils, dairy, eggs\n• Provitamin A (beta-carotene): sweet potato, carrots, spinach, kale, cantaloupe\n• Deficiency causes night blindness and impaired immunity; severe deficiency is the leading cause of preventable blindness in children worldwide\n• Tolerable upper limit: 3,000 mcg RAE/day from supplements\n\n',
+          { t: 'NIH Vitamin A Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/VitaminA-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'thiamin',
+    icon: 'flash-outline',
+    title: 'Vitamin B1 (Thiamin)',
+    subtitle: 'Energy metabolism & nerve function',
+    accent: '#F4A261',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Thiamin is a coenzyme in carbohydrate and branched-chain amino acid metabolism (pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase). It is critical for ATP production and nerve conduction. The brain and heart are particularly dependent on thiamin because they run almost entirely on glucose metabolism.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 1.1–1.2 mg/day for adults\n• Top sources: whole grains, legumes, nuts, pork, fortified cereals\n• Deficiency (beriberi): wet beriberi affects the heart, dry beriberi causes peripheral neuropathy; severe acute deficiency causes Wernicke-Korsakoff syndrome (associated with heavy alcohol use)\n• Unlike fat-soluble vitamins, thiamin is not stored — daily intake is important\n\n',
+          { t: 'NIH Thiamin Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Thiamin-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'riboflavin',
+    icon: 'sunny-outline',
+    title: 'Vitamin B2 (Riboflavin)',
+    subtitle: 'Energy production & antioxidant support',
+    accent: '#F4A261',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Riboflavin is a component of the coenzymes FAD and FMN, which are central to the electron transport chain, fatty acid oxidation, and the metabolism of other B vitamins (it converts B6 and folate into their active forms). It also participates in antioxidant recycling via glutathione reductase.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 1.1–1.3 mg/day for adults\n• Top sources: beef liver, dairy products, eggs, lean meat, fortified cereals, almonds\n• Deficiency (ariboflavinosis): cracked lips and corners of the mouth (cheilosis), inflamed tongue (glossitis), skin rashes, sensitivity to light\n• Riboflavin is destroyed by exposure to light — store fortified foods away from sunlight\n\n',
+          { t: 'NIH Riboflavin Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Riboflavin-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'niacin',
+    icon: 'pulse-outline',
+    title: 'Vitamin B3 (Niacin)',
+    subtitle: 'NAD+, DNA repair & cholesterol',
+    accent: '#E07B54',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Niacin forms the coenzymes NAD+ and NADP+, which participate in over 400 enzymatic reactions including ATP synthesis, DNA repair, and gene expression via sirtuins. At pharmacological doses (1–3 g/day), nicotinic acid significantly raises HDL cholesterol and lowers triglycerides, though side effects (skin flushing, liver stress) limit clinical use.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 14–16 mg NE/day for adults\n• Top sources: chicken, tuna, beef, pork, peanuts, fortified grains, mushrooms\n• Tryptophan (an amino acid) can be converted to niacin — roughly 60 mg tryptophan = 1 mg NE\n• Deficiency causes pellagra: dermatitis, diarrhea, dementia\n• High-dose supplements (>35 mg/day) can cause flushing and, at chronic high doses, liver injury\n\n',
+          { t: 'NIH Niacin Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Niacin-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'pantothenic-acid',
+    icon: 'leaf-outline',
+    title: 'Vitamin B5 (Pantothenic Acid)',
+    subtitle: 'Coenzyme A, metabolism & hormones',
+    accent: '#2A9D8F',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Pantothenic acid is an essential component of coenzyme A (CoA), the central metabolic carrier for acetyl groups in the Krebs cycle, fatty acid synthesis and oxidation, and the metabolism of carbohydrates, fats, and proteins. It is also required for the synthesis of steroid hormones, vitamin D, and neurotransmitters.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• AI (Adequate Intake): 5 mg/day for adults\n• Top sources: beef liver, shiitake mushrooms, sunflower seeds, chicken, avocado, dairy\n• Pantothenic acid is found in nearly all foods — true deficiency is extremely rare\n• "Panto" means "everywhere" in Greek — reflecting its ubiquitous presence in food\n\n',
+          { t: 'NIH Pantothenic Acid Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/PantothenicAcid-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'vitamin-b6',
+    icon: 'fitness-outline',
+    title: 'Vitamin B6',
+    subtitle: 'Protein metabolism, mood & immunity',
+    accent: '#E07B54',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Vitamin B6 (pyridoxine, pyridoxal 5\'-phosphate) is a cofactor in over 100 enzyme reactions, the majority involved in amino acid and protein metabolism. It is also essential for synthesising neurotransmitters (serotonin, dopamine, GABA, norepinephrine), producing hemoglobin, and supporting immune cell function.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 1.3 mg/day for adults 19–50; 1.5–1.7 mg/day for older adults\n• Top sources: chickpeas, beef liver, tuna, salmon, chicken breast, fortified cereals, potatoes, bananas\n• Deficiency: peripheral neuropathy, microcytic anemia, depression, confusion — most common in older adults and those with inflammatory bowel disease\n• Upper limit: 100 mg/day; chronic high-dose supplementation (>200 mg/day) can cause irreversible sensory nerve damage\n\n',
+          { t: 'NIH Vitamin B6 Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/VitaminB6-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'biotin',
+    icon: 'color-palette-outline',
+    title: 'Vitamin B7 (Biotin)',
+    subtitle: 'Fat metabolism, hair & nails',
+    accent: '#F4A261',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Biotin is a coenzyme for five carboxylase enzymes involved in fatty acid synthesis, amino acid metabolism, and gluconeogenesis. It is often marketed for hair and nail growth — evidence supports benefit only in cases of true biotin deficiency, which causes brittle nails and thinning hair. High-dose biotin can interfere with some lab test results.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• AI: 30 mcg/day for adults\n• Top sources: beef liver, cooked eggs, salmon, pork, sunflower seeds, sweet potato\n• Raw egg whites contain avidin, a protein that blocks biotin absorption — always cook eggs\n• Biotin is synthesised by gut bacteria; true deficiency rare unless on long-term antibiotic therapy or consuming large amounts of raw egg whites\n• Megadose biotin supplements (≥5,000 mcg) can falsely elevate or suppress troponin, thyroid, and hormone test results\n\n',
+          { t: 'NIH Biotin Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Biotin-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'folate',
+    icon: 'heart-outline',
+    title: 'Vitamin B9 (Folate)',
+    subtitle: 'DNA synthesis, cell division & pregnancy',
+    accent: '#2A9D8F',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Folate (natural food form) and folic acid (synthetic supplement form) are essential for one-carbon metabolism: DNA synthesis, DNA methylation, and cell division. Adequate folate is critical in the first 28 days of pregnancy — before most women know they are pregnant — to prevent neural tube defects (spina bifida, anencephaly) in the developing embryo.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 400 mcg DFE/day for adults; 600 mcg DFE/day during pregnancy; 500 mcg DFE/day during breastfeeding\n• Top food sources: beef liver, spinach, asparagus, Brussels sprouts, legumes, avocado, fortified grains\n• Women of childbearing age: 400–800 mcg folic acid/day from supplements (in addition to food folate)\n• MTHFR gene variant (~10% of population): reduced ability to convert folic acid to active form; methylfolate supplements bypass this\n• Deficiency causes megaloblastic anemia and elevated homocysteine\n\n',
+          { t: 'NIH Folate Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Folate-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'vitamin-b12',
+    icon: 'battery-charging-outline',
+    title: 'Vitamin B12',
+    subtitle: 'Nerve function, red blood cells & energy',
+    accent: '#E07B54',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Vitamin B12 (cobalamin) is essential for myelin sheath synthesis (nerve insulation), red blood cell maturation, and DNA methylation. Absorption requires intrinsic factor, a protein secreted by stomach parietal cells — this declines with age and after gastric surgery, creating an absorption bottleneck independent of dietary intake.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 2.4 mcg/day for adults\n• Top sources: clams (highest known source), beef liver, fish, meat, poultry, dairy, eggs\n• Vegans must supplement or eat fortified foods — B12 is not reliably present in plant foods\n• Older adults (50+) should get B12 from fortified foods or supplements due to reduced intrinsic factor\n• Deficiency develops slowly (liver stores last 2–5 years), but causes irreversible nerve damage if uncorrected\n• Metformin (diabetes drug) reduces B12 absorption — users should monitor levels\n\n',
+          { t: 'NIH Vitamin B12 Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/VitaminB12-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'vitamin-c',
+    icon: 'medical-outline',
+    title: 'Vitamin C',
+    subtitle: 'Antioxidant, collagen & immune defense',
+    accent: '#F4A261',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Vitamin C (ascorbic acid) is a water-soluble antioxidant that protects cells from oxidative damage, is required for collagen synthesis (hydroxylation of proline and lysine residues), enhances non-heme iron absorption by reducing Fe³⁺ to Fe²⁺, supports immune cell function and cytokine production, and participates in norepinephrine and carnitine biosynthesis.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 75 mg/day (women); 90 mg/day (men); smokers need +35 mg/day\n• Top sources: red bell pepper (190 mg/100g), kiwi, citrus fruit, broccoli, strawberries, papaya\n• Deficiency causes scurvy: fatigue, bleeding gums, poor wound healing, joint pain\n• Tolerable upper limit: 2,000 mg/day; higher doses cause GI upset and may increase kidney stone risk in susceptible individuals\n• Taking 200–500 mg alongside iron-rich plant meals significantly improves iron absorption\n\n',
+          { t: 'NIH Vitamin C Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/VitaminC-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'vitamin-d',
+    icon: 'sunny-outline',
+    title: 'Vitamin D',
+    subtitle: 'Bone health, immunity & muscle function',
+    accent: '#E9C46A',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Vitamin D (technically a hormone precursor) regulates calcium and phosphorus absorption for bone mineralisation, supports muscle contractility and strength, modulates immune responses, and influences over 200 genes. It is synthesised in skin from UVB sunlight, then activated in the liver (25-OH-D) and kidneys (1,25-OH-D / calcitriol). Over 1 billion people globally are deficient.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 600–800 IU/day; many experts recommend 1,500–2,000 IU for most adults\n• Top food sources: salmon, trout, swordfish, fortified milk and orange juice, egg yolks, UV-exposed mushrooms\n• Synthesis: 10–30 min of midday sun on arms and legs (fair skin) can produce 10,000+ IU; limited by latitude, season, sunscreen, skin pigmentation, and age\n• Blood test (25-OH-D): <20 ng/mL = deficient; 20–29 = insufficient; ≥30 ng/mL = sufficient\n• Supplementing D3 (cholecalciferol) is more effective than D2 at raising blood levels\n\n',
+          { t: 'NIH Vitamin D Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/VitaminD-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'vitamin-e',
+    icon: 'shield-checkmark-outline',
+    title: 'Vitamin E',
+    subtitle: 'Antioxidant, immune & membrane protection',
+    accent: '#2A9D8F',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Vitamin E (alpha-tocopherol is the most active form) is a fat-soluble chain-breaking antioxidant that protects polyunsaturated fatty acids in cell membranes from lipid peroxidation. It also supports immune function, prevents platelet aggregation, and acts as an anti-inflammatory. Paradoxically, high-dose supplements may blunt some exercise adaptations by quenching beneficial ROS signalling.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 15 mg (22.4 IU) alpha-tocopherol/day for adults\n• Top sources: wheat germ oil, sunflower seeds and oil, almonds, hazelnuts, peanut butter, spinach, avocado\n• Deficiency is rare in healthy adults; seen in fat malabsorption disorders (Crohn\'s, cystic fibrosis)\n• Tolerable upper limit: 1,000 mg/day; higher doses increase bleeding risk, especially with anticoagulants\n• Obtain from whole food sources rather than supplements when possible\n\n',
+          { t: 'NIH Vitamin E Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/VitaminE-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'vitamin-k',
+    icon: 'bandage-outline',
+    title: 'Vitamin K',
+    subtitle: 'Blood clotting, bone & vascular health',
+    accent: '#457B9D',
+    category: 'vitamins',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Vitamin K activates proteins that regulate two critical systems: K1 (phylloquinone) activates clotting factors II, VII, IX, X; K2 (menaquinone) activates osteocalcin (deposits calcium into bone matrix) and Matrix Gla Protein (prevents calcium from accumulating in arteries). K2 supplementation alongside vitamin D3 may improve the ratio of calcium in bone vs. vasculature.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• AI: 90 mcg/day (women); 120 mcg/day (men)\n• K1 food sources: kale, spinach, collard greens, broccoli, Brussels sprouts, parsley\n• K2 food sources: natto (highest known food source), hard cheeses, gouda, chicken liver, egg yolks, butter\n• Warfarin (anticoagulant) works by blocking vitamin K — users must keep K intake consistent, not eliminate it\n• No established upper tolerable limit; toxicity from food is not reported\n\n',
+          { t: 'NIH Vitamin K Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/VitaminK-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  // ── Minerals ─────────────────────────────────────────────────
+
+  {
+    id: 'minerals',
+    icon: 'diamond-outline',
+    title: 'Minerals — Overview',
+    subtitle: 'Calcium, iron, magnesium & electrolytes',
+    accent: '#A07FD0',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'Macrominerals',
+        body: [
+          'Macrominerals are required in amounts greater than 100 mg/day:\n\n• Calcium: the most abundant mineral in the body (~1 kg in a 70 kg adult; 99% in bones and teeth). Essential for bone mineralisation, muscle contraction, neurotransmitter release, and blood clotting. Dietary sources: dairy, fortified plant milks, tofu set with calcium sulfate, tinned salmon/sardines with bones, leafy greens (kale, bok choy). Absorption is enhanced by vitamin D and inhibited by oxalates (spinach, rhubarb) and phytates (unprocessed bran).\n\n• Phosphorus: second most abundant mineral; forms ATP, DNA, RNA, and phospholipid membranes; works with calcium in bone; found in virtually all protein-containing foods — deficiency is rare in adults.\n\n• ',
+          { t: 'Magnesium', url: 'https://en.wikipedia.org/wiki/Magnesium_in_biology' },
+          ': cofactor for over 300 enzymatic reactions including every reaction that uses or synthesises ATP (notably, ATP must bind a magnesium ion to be biologically active). Essential for DNA/RNA synthesis, muscle relaxation (calcium triggers contraction; magnesium triggers relaxation), insulin signalling, and protein synthesis. Research links adequate magnesium to significant gains in testosterone production (10 mg/kg bodyweight/day). Depleted by heavy sweating, diuretics, alcohol, and high caffeine intake. Rich sources: pumpkin seeds (~303 mg per ¼ cup), chia seeds, dark chocolate, almonds, spinach, buckwheat. Adult RDA: 400–420 mg/day (men), 310–320 mg/day (women).\n\n• Sodium and chloride: primary extracellular electrolytes; regulate fluid balance, blood pressure, and nerve signalling. Discussed further under electrolytes below.',
+        ],
+      },
+      {
+        heading: 'Trace Minerals for Athletes',
+        body: [
+          '• Iron: core component of ',
+          { t: 'haemoglobin', url: 'https://en.wikipedia.org/wiki/Hemoglobin' },
+          ' (transports O2 in red blood cells) and myoglobin (O2 storage in muscle). Iron deficiency is the world\'s most prevalent nutritional deficiency; female athletes, endurance athletes, and vegetarians are at highest risk. Haem iron (red meat, poultry, fish) has ~25–30% bioavailability; non-haem iron (plant foods, eggs) has 2–10% bioavailability but is significantly enhanced by simultaneous vitamin C intake and impaired by calcium, tannins (tea/coffee), and phytates. Ferritin (iron stores) should be tested routinely in high-training-volume athletes.\n\n• ',
+          { t: 'Zinc', url: 'https://en.wikipedia.org/wiki/Zinc#Biological_role' },
+          ': essential for testosterone biosynthesis, immune function, protein synthesis, wound healing, and >300 enzymatic reactions. Heavy athletes may lose zinc in sweat. Rich sources: oysters (highest per gram), beef, pumpkin seeds, cashews. Zinc and copper compete for absorption — chronic high-dose zinc supplementation can deplete copper.\n\n• Iodine: required for thyroid hormone synthesis (T3 and T4), which regulate metabolic rate, growth, and development. Deficiency impairs metabolism and, in pregnancy, causes cretinism. Main sources: iodised salt, seaweed, dairy, seafood.\n\n• Selenium: antioxidant via glutathione peroxidase; supports thyroid function; found in Brazil nuts (1–2 nuts = full daily requirement of ~55 µg), seafood, and organ meats.',
+        ],
+      },
+      {
+        heading: 'Electrolytes',
+        body: [
+          { t: 'Electrolytes', url: 'https://en.wikipedia.org/wiki/Electrolyte' },
+          ' are minerals that carry an electrical charge when dissolved in body fluids. They govern:\n• Fluid distribution between intracellular and extracellular compartments (osmolarity)\n• Nerve impulse conduction (action potentials)\n• Muscle contraction and relaxation\n• Acid-base (pH) balance\n\nKey electrolytes and their primary roles:\n• Sodium (Na⁺): chief extracellular cation; controls blood volume and pressure; 400–2,400 mg/litre lost in sweat depending on sweat rate and acclimatisation status.\n• Potassium (K⁺): chief intracellular cation; maintains resting membrane potential; critical for cardiac rhythm; banana, avocado, potato, coconut water.\n• Magnesium (Mg²⁺): muscle relaxation, ATP activity, nerve signalling; often depleted in high-volume athletes.\n• Calcium (Ca²⁺): triggers muscle contraction and neurotransmitter release.\n• Chloride (Cl⁻): pairs with sodium; maintains osmotic balance.\n\nReplacing electrolytes — not just water — is critical for sessions > 60 min or exercise in heat, to prevent ',
+          { t: 'hyponatraemia', url: 'https://en.wikipedia.org/wiki/Hyponatremia' },
+          ' (dangerously low blood sodium). Exercise-associated hyponatraemia occurs when excessive plain water is consumed without sodium replacement, diluting plasma sodium below 135 mmol/L. Symptoms progress from headache and nausea to confusion, seizures, and coma. It affects approximately 10% of endurance event participants who over-hydrate. Drinking to thirst and using electrolyte drinks during prolonged exercise is the evidence-based prevention strategy.',
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'calcium',
+    icon: 'git-branch-outline',
+    title: 'Calcium',
+    subtitle: 'Bones, teeth & muscle contraction',
+    accent: '#457B9D',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Calcium is the most abundant mineral in the body — 99% is stored in bones and teeth as hydroxyapatite. The remaining 1% in blood and soft tissue is tightly regulated and is critical for muscle contraction, nerve signal transmission, hormone secretion, and blood clotting. When dietary intake is insufficient, the body draws calcium from bone, gradually weakening skeletal structure.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 1,000 mg/day for adults 19–50; 1,200 mg/day for women 51+ and men 71+\n• Top sources: dairy products, fortified plant milks, canned sardines/salmon with bones, tofu (calcium-set), kale, broccoli, almonds\n• Vitamin D is required for intestinal calcium absorption — the two work synergistically\n• Calcium carbonate: take with food. Calcium citrate: can take any time, better for those with low stomach acid\n• Tolerable upper limit: 2,500 mg/day; excess supplemental calcium may increase kidney stone and cardiovascular risk\n\n',
+          { t: 'NIH Calcium Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Calcium-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'iron',
+    icon: 'fitness-outline',
+    title: 'Iron',
+    subtitle: 'Oxygen transport, energy & blood health',
+    accent: '#E07B54',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Iron is the core component of hemoglobin (carries oxygen in red blood cells) and myoglobin (stores oxygen in muscle fibers). It is also required for mitochondrial ATP production (cytochrome enzymes) and immune cell proliferation. Iron deficiency anemia — the most common nutritional deficiency worldwide — impairs endurance, cognitive function, and immunity.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 8 mg/day (men); 18 mg/day (premenopausal women); 27 mg/day (pregnancy); 8 mg/day (post-menopause)\n• Heme iron (meat, seafood): 25–30% absorption rate\n• Non-heme iron (beans, lentils, tofu, fortified cereals, spinach): 2–10% absorption; pair with vitamin C to boost uptake; avoid with tea, coffee, and calcium supplements\n• Female athletes and distance runners are at highest risk — foot-strike hemolysis destroys RBCs\n• Check serum ferritin, not just hemoglobin — ferritin <30 ng/mL indicates depleted stores\n\n',
+          { t: 'NIH Iron Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Iron-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'magnesium',
+    icon: 'thunderstorm-outline',
+    title: 'Magnesium',
+    subtitle: 'Muscle, sleep, energy & 300+ enzymes',
+    accent: '#2A9D8F',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Magnesium is a cofactor for over 300 enzymatic reactions: every reaction that uses or produces ATP requires a magnesium ion. It is essential for protein synthesis, DNA/RNA synthesis, muscle relaxation (calcium causes contraction; magnesium causes relaxation), nerve transmission, blood glucose regulation, and blood pressure control. Athletes are frequently mildly deficient due to sweat losses and poor dietary intake.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 400–420 mg/day (men); 310–320 mg/day (women)\n• Top sources: pumpkin seeds, almonds, spinach, black beans, edamame, dark chocolate (≥70%), whole grains, avocado\n• Magnesium glycinate and magnesium malate are well-absorbed supplement forms with minimal laxative effect\n• Magnesium oxide (most common/cheap form): poorly absorbed (~4%)\n• Depletion accelerated by: heavy sweating, alcohol, diuretics, proton pump inhibitors, high caffeine intake\n\n',
+          { t: 'NIH Magnesium Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Magnesium-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'zinc',
+    icon: 'shield-outline',
+    title: 'Zinc',
+    subtitle: 'Immunity, wound healing & testosterone',
+    accent: '#457B9D',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Zinc is a structural component of over 300 enzymes and 1,000 transcription factors. It is essential for immune function (T-cell development and function), wound healing, protein and DNA synthesis, cell division, taste and smell, and testosterone production via steroidogenic enzymes. Zinc is the second most abundant trace mineral in the body after iron.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 8 mg/day (women); 11 mg/day (men)\n• Top sources: oysters (highest known food source), beef, crab, lobster, pumpkin seeds, chickpeas, cashews, chicken\n• Vegetarians and vegans may need ~50% more — phytates in plant foods significantly inhibit zinc absorption\n• Tolerable upper limit: 40 mg/day; chronic excess suppresses copper absorption and immune function\n• Zinc lozenges (≥13 mg elemental zinc) started within 24 hrs of cold onset reduce duration by ~1 day\n\n',
+          { t: 'NIH Zinc Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Zinc-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'potassium',
+    icon: 'heart-half-outline',
+    title: 'Potassium',
+    subtitle: 'Blood pressure, heart & muscle function',
+    accent: '#E9C46A',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Potassium is the primary intracellular cation and is essential for maintaining the membrane resting potential in muscle and nerve cells, regulating fluid balance, supporting heart rhythm, and enabling muscle contraction. Higher dietary potassium is strongly associated with lower blood pressure and reduced stroke risk, largely by counteracting sodium\'s effects on blood pressure.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• AI: 2,600 mg/day (women); 3,400 mg/day (men)\n• Top sources: dried apricots, lentils, acorn squash, prunes, kidney beans, potatoes (with skin), avocado, bananas, coconut water\n• Most people fall well short — ultra-processed diets are simultaneously high in sodium and low in potassium\n• Over-the-counter potassium supplements are capped at 99 mg per tablet (to prevent toxicity)\n• Those with kidney disease or taking ACE inhibitors/ARBs/potassium-sparing diuretics must monitor intake carefully\n\n',
+          { t: 'NIH Potassium Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Potassium-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'selenium',
+    icon: 'leaf-outline',
+    title: 'Selenium',
+    subtitle: 'Thyroid, antioxidant & DNA protection',
+    accent: '#2A9D8F',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Selenium is incorporated into at least 25 selenoproteins, including glutathione peroxidases (antioxidant defense), thioredoxin reductases (redox balance), and iodothyronine deiodinases (thyroid hormone conversion from T4 to active T3). It also plays a role in DNA synthesis, reproduction, and immune function.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 55 mcg/day for adults\n• Top sources: Brazil nuts (1–2 nuts/day = full RDA, highly variable by soil), tuna, halibut, shrimp, beef, turkey, eggs, whole grains\n• Soil selenium content varies dramatically by geography — selenium-poor soils in parts of China, Europe, and New Zealand\n• Tolerable upper limit: 400 mcg/day; selenosis (toxicity): hair loss, nail brittleness, garlic breath, nerve damage\n• Brazil nuts are an unusually potent source — eating many per day long-term can cause toxicity\n\n',
+          { t: 'NIH Selenium Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Selenium-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'iodine',
+    icon: 'water-outline',
+    title: 'Iodine',
+    subtitle: 'Thyroid hormones & metabolism',
+    accent: '#457B9D',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Iodine is an essential component of thyroid hormones T3 (triiodothyronine) and T4 (thyroxine), which regulate metabolism, growth, protein synthesis, and thermogenesis throughout the body. During pregnancy, adequate iodine is critical for fetal brain development — iodine deficiency is the leading preventable cause of intellectual disability worldwide.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 150 mcg/day for adults; 220 mcg/day during pregnancy; 290 mcg/day during breastfeeding\n• Top sources: seaweed (nori, wakame), cod, shrimp, iodized salt (¼ tsp = ~95 mcg), dairy products, eggs\n• Vegans and those avoiding iodized salt (e.g., using sea salt or kosher salt) are at high risk of deficiency\n• Large amounts of raw cruciferous vegetables (kale, broccoli), soy, and millet contain goitrogens that interfere with iodine uptake — mainly relevant at very high intakes\n• Tolerable upper limit: 1,100 mcg/day; excess can also impair thyroid function\n\n',
+          { t: 'NIH Iodine Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Iodine-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'copper',
+    icon: 'construct-outline',
+    title: 'Copper',
+    subtitle: 'Iron metabolism, connective tissue & nerves',
+    accent: '#E07B54',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Copper is a cofactor for enzymes involved in iron metabolism (ceruloplasmin — required to mobilise iron from stores), energy production (cytochrome c oxidase — the final step of oxidative phosphorylation), connective tissue cross-linking (lysyl oxidase — critical for collagen and elastin), neurotransmitter synthesis (dopamine beta-hydroxylase), and antioxidant defense (superoxide dismutase).',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 900 mcg/day for adults\n• Top sources: beef liver (highest known source), oysters, dark chocolate (≥70%), nuts, seeds, whole grains, potatoes\n• Chronic high zinc supplementation (>40 mg/day) competes with copper for absorption and can cause copper deficiency\n• Deficiency causes anemia (iron cannot be mobilised without ceruloplasmin), neurological symptoms, and bone abnormalities\n• Rare genetic disorder Wilson\'s disease: toxic copper accumulation in liver, brain, and other organs\n\n',
+          { t: 'NIH Copper Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Copper-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'chromium',
+    icon: 'analytics-outline',
+    title: 'Chromium',
+    subtitle: 'Insulin sensitivity & blood sugar',
+    accent: '#E9C46A',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Chromium (specifically trivalent Cr³⁺) is thought to enhance insulin receptor signaling by binding to chromodulin, a low-molecular-weight chromium-binding protein. This may improve glucose uptake into cells. Evidence for chromium supplements meaningfully improving glucose control, body composition, or athletic performance in healthy individuals is inconsistent and generally modest.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• AI: 25 mcg/day (women); 35 mcg/day (men)\n• Top sources: broccoli, grape juice, whole grains, ham, beef, green beans, mushrooms\n• Chromium content of foods varies and is difficult to measure accurately\n• True deficiency is extremely rare; widespread in the food supply\n• Hexavalent chromium (Cr⁶⁺) found in some industrial settings is toxic and a known carcinogen — completely different from dietary trivalent chromium\n\n',
+          { t: 'NIH Chromium Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Chromium-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'manganese',
+    icon: 'cog-outline',
+    title: 'Manganese',
+    subtitle: 'Bone formation & antioxidant enzymes',
+    accent: '#2A9D8F',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Manganese is a cofactor for enzymes involved in bone formation (synthesis of proteoglycans), carbohydrate metabolism (pyruvate carboxylase, arginase), and the antioxidant enzyme manganese superoxide dismutase (MnSOD) — the primary antioxidant defense within mitochondria. It is an essential but trace mineral needed in small daily amounts.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• AI: 1.8 mg/day (women); 2.3 mg/day (men)\n• Top sources: mussels, wheat germ, tofu, sweet potato, brown rice, tea (significant source for tea drinkers), leafy greens, pineapple, nuts\n• Deficiency in humans is very rare\n• Tolerable upper limit: 11 mg/day; excess (mainly from supplements or occupational inhalation) causes neurological damage resembling Parkinson\'s disease\n\n',
+          { t: 'NIH Manganese Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Manganese-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'molybdenum',
+    icon: 'infinite-outline',
+    title: 'Molybdenum',
+    subtitle: 'Enzyme cofactor & detoxification',
+    accent: '#457B9D',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Molybdenum is an essential cofactor for four human enzymes: sulfite oxidase (converts toxic sulfite to sulfate — key for detoxifying sulfite-containing foods and drugs), xanthine oxidase (purine catabolism, generates uric acid), aldehyde oxidase (drug metabolism), and mitochondrial amidoxime reducing component (mARC). It works closely with the molybdenum cofactor (Moco) that all four enzymes require.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 45 mcg/day for adults\n• Top sources: legumes (black beans, lentils, lima beans are richest), whole grains, nuts, leafy vegetables, dairy\n• Molybdenum is widespread in food — deficiency is essentially nonexistent outside of patients on long-term total parenteral nutrition (IV feeding)\n• Tolerable upper limit: 2,000 mcg/day; gout-like symptoms reported at very high intakes\n\n',
+          { t: 'NIH Molybdenum Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Molybdenum-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'phosphorus',
+    icon: 'battery-full-outline',
+    title: 'Phosphorus',
+    subtitle: 'Bones, ATP & cell membranes',
+    accent: '#E07B54',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Phosphorus is the second most abundant mineral in the body after calcium. About 85% is in bones and teeth as calcium phosphate crystals. The remainder is vital for: forming the phosphate backbone of DNA and RNA, ATP (the universal cellular energy currency), phospholipids in every cell membrane, and the bicarbonate buffer system that regulates blood pH.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• RDA: 700 mg/day for adults\n• Top sources: dairy, meat, fish, poultry, eggs, nuts, legumes, whole grains\n• Phosphorus is found in nearly all protein-containing foods — deficiency in healthy adults is essentially impossible\n• Inorganic phosphate additives in processed foods (soft drinks, fast food) provide highly bioavailable phosphorus and contribute significantly to excessive intake\n• Very high intake may impair calcium balance and bone health in those with low calcium intake\n\n',
+          { t: 'NIH Phosphorus Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Phosphorus-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'sodium',
+    icon: 'water-outline',
+    title: 'Sodium',
+    subtitle: 'Fluid balance, blood pressure & nerves',
+    accent: '#457B9D',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Sodium is the dominant extracellular electrolyte and is essential for maintaining blood volume, regulating blood pressure, generating nerve action potentials, and enabling muscle contraction (via the sodium-potassium ATPase pump). Most adults consume far more than needed — the average American intake is ~3,400 mg/day vs. the recommended limit of 2,300 mg/day.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• AI: 1,500 mg/day; limit: <2,300 mg/day (American Heart Association recommends <1,500 mg/day for those with hypertension)\n• ~70% of sodium in Western diets comes from packaged, processed, and restaurant foods — not added table salt\n• Athletes: sodium needs increase proportionally with sweat losses — endurance athletes in heat may need 500–1,000 mg/hr\n• Reducing sodium intake by 1,000 mg/day lowers systolic blood pressure by ~5 mmHg on average\n• Hyponatremia (low blood sodium): can occur when athletes over-hydrate with plain water — replace with electrolytes during events >60 min\n\n',
+          { t: 'NIH Sodium Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Sodium-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'fluoride',
+    icon: 'sparkles-outline',
+    title: 'Fluoride',
+    subtitle: 'Tooth enamel & cavity prevention',
+    accent: '#2A9D8F',
+    category: 'minerals',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'Fluoride incorporates into tooth enamel as fluorapatite, making it harder and more resistant to acid dissolution from oral bacteria. It also inhibits the enzyme systems of cavity-causing bacteria, reducing acid production. When consumed during childhood, fluoride strengthens developing permanent teeth before they erupt. It is also incorporated into bone mineral.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• AI: 3 mg/day (women); 4 mg/day (men)\n• Sources: fluoridated tap water (0.7 mg/L in the US), tea (natural fluoride from soil), seafood, fluoride toothpaste (topical application is key)\n• Dental fluorosis (mild white spots on teeth): occurs with excessive fluoride during tooth development; mostly cosmetic\n• Skeletal fluorosis: only at very high chronic exposures well above normal dietary levels\n• Children should use age-appropriate amounts of fluoride toothpaste; supervise brushing to minimize swallowing\n\n',
+          { t: 'NIH Fluoride Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Fluoride-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  // ── Supplements ───────────────────────────────────────────────
+
+  {
+    id: 'omega3',
+    icon: 'fish-outline',
+    title: 'Omega-3 Fatty Acids',
+    subtitle: 'Heart, brain, inflammation & joints',
+    accent: '#457B9D',
+    category: 'supplements',
+    sections: [
+      {
+        heading: 'What They Do',
+        body: [
+          'Omega-3 fatty acids — EPA (eicosapentaenoic acid), DHA (docosahexaenoic acid), and ALA (alpha-linolenic acid) — are polyunsaturated fats with well-established anti-inflammatory effects. EPA and DHA (marine-derived) reduce triglycerides, support cardiovascular and brain health, may reduce joint pain, and are required for fetal brain and retinal development. ALA (plant-derived) converts poorly to EPA/DHA (<10% efficiency in humans).\n\nFor detailed mechanisms and research, see the Omega-3 & Omega-6 section under Dietary Fats.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• General health: ≥250 mg EPA+DHA/day; cardiovascular benefit: 1 g EPA+DHA/day; triglyceride reduction: 2–4 g/day (prescription-grade)\n• Marine sources: salmon, mackerel, sardines, herring, anchovies — the richest EPA+DHA food sources\n• Plant ALA sources: flaxseed, chia seeds, walnuts, hemp seeds — cannot replace marine EPA+DHA\n• Algae-based omega-3 supplements: vegan-appropriate direct source of EPA+DHA (algae is what fish eat to accumulate omega-3s)\n• Fish oil quality: look for third-party tested products (IFOS certification); oxidized fish oil may be harmful\n\n',
+          { t: 'NIH Omega-3 Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Omega3FattyAcids-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'probiotics',
+    icon: 'happy-outline',
+    title: 'Probiotics',
+    subtitle: 'Gut microbiome, digestion & immunity',
+    accent: '#2A9D8F',
+    category: 'supplements',
+    sections: [
+      {
+        heading: 'What They Do',
+        body: [
+          'Probiotics are live microorganisms that, when consumed in adequate amounts, confer a health benefit on the host. They support gut microbiome diversity, compete with pathogenic bacteria, produce short-chain fatty acids and vitamins (K2, some B vitamins), and modulate immune responses via the gut-associated lymphoid tissue (GALT). Effects are strain-specific — Lactobacillus rhamnosus GG does not have the same effects as Bifidobacterium longum.',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• Fermented foods: yogurt with live active cultures, kefir, sauerkraut, kimchi, miso, tempeh, kombucha\n• Supplements: look for strains with clinical research behind them; CFU count (1–100 billion) matters less than strain identity and viability\n• Strongest evidence: prevention of antibiotic-associated diarrhea, reducing IBS and IBD symptoms, preventing C. diff recurrence, reducing infant colic\n• Emerging evidence: mental health (gut-brain axis), allergy, immune function, metabolic health\n• Generally safe for healthy individuals; caution in immunocompromised patients (rare risk of bacteremia)\n\n',
+          { t: 'NIH Probiotics Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Probiotics-Consumer/' },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'coq10',
+    icon: 'pulse-outline',
+    title: 'Coenzyme Q10 (CoQ10)',
+    subtitle: 'Mitochondrial energy & antioxidant',
+    accent: '#E07B54',
+    category: 'supplements',
+    sections: [
+      {
+        heading: 'What It Does',
+        body: [
+          'CoQ10 is a fat-soluble antioxidant found in virtually every cell, concentrated in high-energy organs (heart, liver, kidneys, brain, skeletal muscle). It is an essential component of the mitochondrial electron transport chain at complexes I, II, and III — directly required for ATP production. CoQ10 also regenerates vitamin E and protects cell membranes from lipid peroxidation. Levels decline ~65% between ages 20 and 80, and are further depleted by statin drugs (which block CoQ10 synthesis along with cholesterol).',
+        ],
+      },
+      {
+        heading: 'Sources & Intake',
+        body: [
+          '• Typical supplement dose: 100–300 mg/day; ubiquinol (reduced form) has superior absorption compared to ubiquinone (oxidised form)\n• Food sources: beef heart and liver, sardines, mackerel, pork, chicken, broccoli, cauliflower, soybeans\n• Best evidence: statin-induced myopathy relief, heart failure (NYHA class improvement), male fertility (sperm motility), migraine prevention\n• May mildly lower blood pressure; generally very safe with no established upper tolerable limit\n• Statin users: 100–200 mg CoQ10/day is commonly recommended to offset statin-mediated depletion\n\n',
+          { t: 'NIH CoQ10 Fact Sheet →', url: 'https://ods.od.nih.gov/factsheets/Coenzyme_Q10-Consumer/' },
+        ],
+      },
+    ],
+  },
+];
+
+// ─── Category filter config ───────────────────────────────────
+
+type FilterKey = 'all' | Category;
+
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: 'all',          label: 'All' },
+  { key: 'macros',       label: 'Macros' },
+  { key: 'vitamins',     label: 'Vitamins' },
+  { key: 'minerals',     label: 'Minerals' },
+  { key: 'supplements',  label: 'Supplements' },
 ];
 
 // ─── Component ────────────────────────────────────────────────
@@ -397,23 +1153,77 @@ const TOPICS: Topic[] = [
 export function NutritionEncyclopedia() {
   const t = useTheme();
   const [topicId, setTopicId] = useState<string | null>(null);
+  const [filter, setFilter]   = useState<FilterKey>('all');
 
+  const visibleTopics = filter === 'all' ? TOPICS : TOPICS.filter(tp => tp.category === filter);
   const topic = topicId ? TOPICS.find(tp => tp.id === topicId) ?? null : null;
+
+  // ── Topic detail ───────────────────────────────────────────
+
+  if (topic) {
+    return (
+      <View style={[styles.root, { backgroundColor: t.background }]}>
+        <View style={[styles.detailHeader, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+          <TouchableOpacity onPress={() => setTopicId(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="arrow-back" size={20} color={t.textPrimary as string} />
+          </TouchableOpacity>
+          <View style={[styles.detailIconWrap, { backgroundColor: topic.accent + '20' }]}>
+            <Ionicons name={topic.icon as never} size={18} color={topic.accent} />
+          </View>
+          <Text style={[styles.detailTitle, { color: t.textPrimary }]}>{topic.title}</Text>
+        </View>
+        <ScrollView
+          style={styles.detailScroll}
+          contentContainerStyle={styles.detailContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {topic.sections.map(section => (
+            <View key={section.heading} style={[styles.section, { backgroundColor: t.surface, borderColor: t.border }]}>
+              <Text style={[styles.sectionHeading, { color: topic.accent }]}>{section.heading}</Text>
+              <RichText segs={section.body} style={[styles.sectionBody, { color: t.textPrimary }]} />
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
 
   // ── Topic list ─────────────────────────────────────────────
 
-  if (!topic) {
-    return (
+  return (
+    <View style={[styles.root, { backgroundColor: t.background }]}>
+      {/* Category filter */}
       <ScrollView
-        style={[styles.root, { backgroundColor: t.background }]}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={[styles.filterBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}
+        contentContainerStyle={styles.filterContent}
+      >
+        {FILTERS.map(f => (
+          <TouchableOpacity
+            key={f.key}
+            style={[
+              styles.filterChip,
+              filter === f.key
+                ? { backgroundColor: colors.primary }
+                : { backgroundColor: t.background, borderColor: t.border, borderWidth: 1 },
+            ]}
+            onPress={() => setFilter(f.key)}
+          >
+            <Text style={[styles.filterLabel, { color: filter === f.key ? '#fff' : t.textSecondary }]}>
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Topic list */}
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.intro, { color: t.textSecondary }]}>
-          Select a topic to learn about nutrition science, practical dieting strategies, and the role of each nutrient in performance and health.
-        </Text>
-
-        {TOPICS.map(tp => (
+        {visibleTopics.map(tp => (
           <TouchableOpacity
             key={tp.id}
             style={[styles.topicCard, { backgroundColor: t.surface, borderColor: t.border }]}
@@ -433,37 +1243,6 @@ export function NutritionEncyclopedia() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-    );
-  }
-
-  // ── Topic detail ───────────────────────────────────────────
-
-  return (
-    <View style={[styles.root, { backgroundColor: t.background }]}>
-      {/* Header */}
-      <View style={[styles.detailHeader, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-        <TouchableOpacity onPress={() => setTopicId(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="arrow-back" size={20} color={t.textPrimary as string} />
-        </TouchableOpacity>
-        <View style={[styles.detailIconWrap, { backgroundColor: topic.accent + '20' }]}>
-          <Ionicons name={topic.icon as never} size={18} color={topic.accent} />
-        </View>
-        <Text style={[styles.detailTitle, { color: t.textPrimary }]}>{topic.title}</Text>
-      </View>
-
-      {/* Sections */}
-      <ScrollView
-        style={styles.detailScroll}
-        contentContainerStyle={styles.detailContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {topic.sections.map(section => (
-          <View key={section.heading} style={[styles.section, { backgroundColor: t.surface, borderColor: t.border }]}>
-            <Text style={[styles.sectionHeading, { color: topic.accent }]}>{section.heading}</Text>
-            <RichText segs={section.body} style={[styles.sectionBody, { color: t.textPrimary }]} />
-          </View>
-        ))}
-      </ScrollView>
     </View>
   );
 }
@@ -473,9 +1252,23 @@ export function NutritionEncyclopedia() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
+  // Filter bar
+  filterBar: { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth },
+  filterContent: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  filterChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.full ?? 99,
+  },
+  filterLabel: { ...typography.bodySmall, fontWeight: '600' },
+
   // Topic list
   listContent: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.sm },
-  intro: { ...typography.bodySmall, textAlign: 'center', marginBottom: spacing.xs },
   topicCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     borderRadius: radius.md, borderWidth: 1, padding: spacing.md,
@@ -498,8 +1291,8 @@ const styles = StyleSheet.create({
     width: 30, height: 30, borderRadius: radius.sm,
     alignItems: 'center', justifyContent: 'center',
   },
-  detailTitle: { ...typography.body, fontWeight: '700', flex: 1 },
-  detailScroll: { flex: 1 },
+  detailTitle:   { ...typography.body, fontWeight: '700', flex: 1 },
+  detailScroll:  { flex: 1 },
   detailContent: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
 
   section: {

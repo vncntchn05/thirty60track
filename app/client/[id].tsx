@@ -163,7 +163,7 @@ export default function ClientDetailScreen() {
           const active = activeTab === tab;
           const label =
             tab === 'progress'  ? 'Progress'
-            : tab === 'workouts'  ? `Workouts${workouts.length ? ` (${workouts.length})` : ''}`
+            : tab === 'workouts'  ? 'Workouts'
             : tab === 'nutrition' ? 'Nutrition'
             : tab === 'credits'   ? 'Credits'
             : 'Media';
