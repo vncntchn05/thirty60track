@@ -58,16 +58,16 @@ maybeDescribe('Encyclopedia integration — trainer write', () => {
     await sb.auth.signOut();
   });
 
-  it('trainer can insert a muscle group encyclopedia entry', async () => {
+  it('trainer can upsert a muscle group encyclopedia entry', async () => {
     const { data, error } = await sb
       .from('muscle_group_encyclopedia')
-      .insert({
+      .upsert({
         muscle_group:         TEST_MUSCLE,
         function_description: 'Integration test muscle',
         warmup_and_stretches: 'Test warm-up',
         common_injuries:      'Test injuries',
         rehab_exercises:      'Test rehab',
-      })
+      }, { onConflict: 'muscle_group' })
       .select('muscle_group, function_description')
       .single();
 

@@ -1066,7 +1066,7 @@ ALTER TABLE muscle_group_encyclopedia ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "encyclopedia_select" ON muscle_group_encyclopedia
   FOR SELECT TO authenticated USING (true);
 
--- Only trainers can insert/update
+-- Only trainers can insert/update/delete
 CREATE POLICY "encyclopedia_insert" ON muscle_group_encyclopedia
   FOR INSERT TO authenticated
   WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
@@ -1075,6 +1075,10 @@ CREATE POLICY "encyclopedia_update" ON muscle_group_encyclopedia
   FOR UPDATE TO authenticated
   USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()))
   WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+CREATE POLICY "encyclopedia_delete" ON muscle_group_encyclopedia
+  FOR DELETE TO authenticated
+  USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
 
 -- ============================================================
 -- Migration 016 — Scheduling & Credits
