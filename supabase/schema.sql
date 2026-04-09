@@ -1774,3 +1774,25 @@ AS $$
   SET last_read_at = NOW()
   WHERE conversation_id = p_conversation_id AND user_id = auth.uid();
 $$;
+
+-- ============================================================
+-- Migration: tighten trainer/client data isolation
+-- Migration 003 used auth.role()='authenticated' (any logged-in
+-- user) which predated client auth.  Replace with EXISTS-in-trainers
+-- checks so client users cannot read other clients' data.
+-- ============================================================
+
+DROP POLICY IF EXISTS "workouts: authenticated"    ON workouts;
+DROP POLICY IF EXISTS "workout_sets: authenticated" ON workout_sets;
+DROP POLICY IF EXISTS "clients: authenticated read" ON clients;
+
+CREATE POLICY "workouts: trainer all" ON workouts
+  FOR ALL USING     (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()))
+  WITH CHECK        (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+CREATE POLICY "workout_sets: trainer all" ON workout_sets
+  FOR ALL USING     (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()))
+  WITH CHECK        (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+CREATE POLICY "clients: trainer read" ON clients
+  FOR SELECT USING  (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));

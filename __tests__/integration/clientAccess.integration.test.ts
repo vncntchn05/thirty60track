@@ -202,14 +202,15 @@ maybeDescribe('Client-side RLS — cross-feature access control', () => {
       expect(data?.status).toBe('completed');
     });
 
-    it('client cannot delete an assigned workout (no delete policy)', async () => {
-      const { error } = await clientSb
+    it('client cannot delete an assigned workout (no delete policy — 0 rows affected)', async () => {
+      const { error, count } = await clientSb
         .from('assigned_workouts')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('id', assignedId);
 
-      // No client delete policy exists — should be blocked
-      expect(error).not.toBeNull();
+      // Supabase RLS blocks the delete silently — no error, but 0 rows removed
+      expect(error).toBeNull();
+      expect(count).toBe(0);
     });
 
     it('RLS — client only sees assigned workouts for their own client_id', async () => {

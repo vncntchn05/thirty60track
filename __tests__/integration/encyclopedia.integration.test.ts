@@ -156,13 +156,15 @@ maybeDescribeAll('Encyclopedia integration — client read-only', () => {
     expect(error).not.toBeNull();
   });
 
-  it('client cannot update encyclopedia entries (RLS blocks)', async () => {
-    const { error } = await clientSb
+  it('client cannot update encyclopedia entries (RLS blocks — 0 rows affected)', async () => {
+    const { error, count } = await clientSb
       .from('muscle_group_encyclopedia')
-      .update({ function_description: 'Client tampering' })
+      .update({ function_description: 'Client tampering' }, { count: 'exact' })
       .eq('muscle_group', TEST_MUSCLE);
 
-    expect(error).not.toBeNull();
+    // Supabase RLS USING-blocked updates return no error, just 0 affected rows
+    expect(error).toBeNull();
+    expect(count).toBe(0);
   });
 });
 
@@ -299,13 +301,15 @@ maybeDescribeAll('Workout Guides integration — client read-only', () => {
     expect(error).not.toBeNull();
   });
 
-  it('client cannot update workout guide entries (RLS blocks)', async () => {
-    const { error } = await clientSb
+  it('client cannot update workout guide entries (RLS blocks — 0 rows affected)', async () => {
+    const { error, count } = await clientSb
       .from('workout_guides')
-      .update({ content: 'Client tampered' })
+      .update({ content: 'Client tampered' }, { count: 'exact' })
       .eq('topic', TEST_TOPIC)
       .eq('section_key', TEST_SECTION);
 
-    expect(error).not.toBeNull();
+    // Supabase RLS USING-blocked updates return no error, just 0 affected rows
+    expect(error).toBeNull();
+    expect(count).toBe(0);
   });
 });
