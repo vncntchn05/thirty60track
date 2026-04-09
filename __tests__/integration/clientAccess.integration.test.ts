@@ -125,30 +125,25 @@ maybeDescribe('Client-side RLS — cross-feature access control', () => {
       await trainerSb.from('clients').delete().eq('id', otherClient!.id);
     });
 
-    it('client cannot insert a workout for a different client', async () => {
-      const { error } = await clientSb
+    it('client can insert a workout for themselves (with correct role fields)', async () => {
+      const { data, error } = await clientSb
         .from('workouts')
         .insert({
-          client_id:    CLIENT_ID,
-          trainer_id:   trainerId,
-          performed_at: '2025-06-01',
-        });
+          client_id:         CLIENT_ID,
+          trainer_id:        trainerId,
+          performed_at:      '2025-06-01',
+          logged_by_role:    'client',
+          logged_by_user_id: clientAuthId,
+        })
+        .select('id')
+        .single();
 
-      // Client-RLS only allows insert where client_id matches auth_user_id lookup
-      // This should succeed for their own client_id but is scoped correctly.
-      // If the seed links the client properly it should succeed:
+      // Client insert policy: client_id must match auth_user_id lookup
+      // AND logged_by_role = 'client' AND logged_by_user_id = auth.uid()
       expect(error).toBeNull();
 
       // Clean up
-      const { data: inserted } = await clientSb
-        .from('workouts')
-        .select('id')
-        .eq('client_id', CLIENT_ID!)
-        .eq('performed_at', '2025-06-01')
-        .single();
-      if (inserted) {
-        await trainerSb.from('workouts').delete().eq('id', inserted.id);
-      }
+      if (data) await trainerSb.from('workouts').delete().eq('id', data.id);
     });
   });
 

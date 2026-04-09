@@ -49,6 +49,8 @@ maybeDescribe('Encyclopedia integration — trainer write', () => {
       password: TRAINER_PASSWORD!,
     });
     if (error || !data.user) throw new Error(`Sign-in failed: ${error?.message}`);
+    // Clean up any leftover row from a previous interrupted run
+    await sb.from('muscle_group_encyclopedia').delete().eq('muscle_group', TEST_MUSCLE);
   });
 
   afterAll(async () => {
