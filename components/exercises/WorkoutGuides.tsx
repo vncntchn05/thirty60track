@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   TextInput, StyleSheet, ActivityIndicator, Alert, Linking,
@@ -9,7 +9,7 @@ import { useWorkoutGuides } from '@/hooks/useWorkoutGuides';
 
 // ─── Types ────────────────────────────────────────────────────
 
-type Seg = string | { t: string; url: string };
+type Seg = string | { t: string; url: string } | { t: string; ex: string };
 
 type GuideSection = { key: string; label: string; icon: string };
 type GuideTopic = {
@@ -26,18 +26,95 @@ type Props = {
   onSelectMuscle: (m: string | null) => void;
   isTrainer: boolean;
   initialTopicKey?: string | null;
+  onExercisePress?: (name: string) => void;
+  scrollHeader?: ReactNode;
 };
+
+// ─── Known exercise names (longest first to avoid substring clobbering) ──────
+
+const KNOWN_EXERCISES = [
+  'Overhead Tricep Extension',
+  'Close-Grip Bench Press',
+  'Incline Dumbbell Press',
+  'Barbell Bench Press',
+  'Chest-Supported Row',
+  'Bulgarian Split Squat',
+  'Cable Lateral Raise',
+  'Hanging Leg Raise',
+  'Romanian Deadlift',
+  'Ab Wheel Rollout',
+  'Hanging Knee Raise',
+  'Goblet Squat',
+  'Barbell Squat',
+  'Barbell Curl',
+  'Barbell Row',
+  'Cable Crunch',
+  'Hammer Curl',
+  'Overhead Press',
+  'Tricep Pushdown',
+  'Lateral Raise',
+  'Pallof Press',
+  'Hip Thrust',
+  'Glute Bridge',
+  'Lat Pulldown',
+  'Bench Press',
+  'Cable Row',
+  'Leg Press',
+  'Leg Curl',
+  'Calf Raise',
+  'Deadlift',
+  'Dead Bug',
+  'Face Pull',
+  'Bird Dog',
+  'Side Plank',
+  'Push-Up',
+  'Pull-Up',
+  'Chin-Up',
+  'Step-Up',
+  'Plank',
+  'Squat',
+  'Dip',
+].sort((a, b) => b.length - a.length);
+
+// Replace exercise name occurrences in plain-text segments with { t, ex } entries
+function applyExerciseLinks(segs: Seg[]): Seg[] {
+  const result: Seg[] = [];
+  for (const seg of segs) {
+    if (typeof seg !== 'string') { result.push(seg); continue; }
+    let remaining = seg;
+    while (remaining.length > 0) {
+      let best: { idx: number; name: string } | null = null;
+      for (const name of KNOWN_EXERCISES) {
+        const idx = remaining.indexOf(name);
+        if (idx === -1) continue;
+        if (!best || idx < best.idx || (idx === best.idx && name.length > best.name.length)) {
+          best = { idx, name };
+        }
+      }
+      if (!best) { result.push(remaining); break; }
+      if (best.idx > 0) result.push(remaining.slice(0, best.idx));
+      result.push({ t: best.name, ex: best.name });
+      remaining = remaining.slice(best.idx + best.name.length);
+    }
+  }
+  return result;
+}
 
 // ─── Inline-link renderer ─────────────────────────────────────
 
-function RichText({ segs, style }: { segs: Seg[]; style?: object }) {
+function RichText({ segs, style, onExercisePress }: { segs: Seg[]; style?: object; onExercisePress?: (name: string) => void }) {
+  const processed = onExercisePress ? applyExerciseLinks(segs) : segs;
   return (
     <Text style={style as never}>
-      {segs.map((seg, i) =>
+      {processed.map((seg, i) =>
         typeof seg === 'string' ? (
           <Text key={i}>{seg}</Text>
-        ) : (
+        ) : 'url' in seg ? (
           <Text key={i} style={styles.link} onPress={() => Linking.openURL(seg.url)}>
+            {seg.t}
+          </Text>
+        ) : (
+          <Text key={i} style={styles.exerciseLink} onPress={() => onExercisePress?.(seg.ex)}>
             {seg.t}
           </Text>
         ),
@@ -598,7 +675,7 @@ const RICH_CONTENT: Record<string, Record<string, Seg[]>> = {
 
 // ─── Component ────────────────────────────────────────────────
 
-export function WorkoutGuides({ selectedMuscle, onSelectMuscle, isTrainer, initialTopicKey }: Props) {
+export function WorkoutGuides({ selectedMuscle, onSelectMuscle, isTrainer, initialTopicKey, onExercisePress, scrollHeader }: Props) {
   const t = useTheme();
   const { getEntry, upsertEntry } = useWorkoutGuides();
 
@@ -660,6 +737,7 @@ export function WorkoutGuides({ selectedMuscle, onSelectMuscle, isTrainer, initi
         contentContainerStyle={styles.gridContent}
         showsVerticalScrollIndicator={false}
       >
+        {scrollHeader}
         {spotlight && (
           <View style={[styles.spotlightCard, { backgroundColor: colors.primary + '18', borderColor: colors.primary + '50' }]}>
             <View style={styles.spotlightHeader}>
@@ -683,7 +761,17 @@ export function WorkoutGuides({ selectedMuscle, onSelectMuscle, isTrainer, initi
             </View>
             <Text style={[styles.spotlightNote, { color: t.textSecondary }]}>{spotlight.fullBodyNote}</Text>
             <Text style={[styles.spotlightLabel, { color: t.textSecondary, marginTop: spacing.xs }]}>Key exercises</Text>
-            <Text style={[styles.spotlightValue, { color: t.textPrimary }]}>{spotlight.primaryExercises.join(' · ')}</Text>
+            <Text style={[styles.spotlightValue, { color: t.textPrimary }]}>
+              {spotlight.primaryExercises.map((name, i) => (
+                <Text key={name}>
+                  {i > 0 && <Text style={{ color: t.textPrimary }}> · </Text>}
+                  <Text
+                    style={onExercisePress ? styles.exerciseLink : undefined}
+                    onPress={onExercisePress ? () => onExercisePress(name) : undefined}
+                  >{name}</Text>
+                </Text>
+              ))}
+            </Text>
           </View>
         )}
 
@@ -781,15 +869,19 @@ export function WorkoutGuides({ selectedMuscle, onSelectMuscle, isTrainer, initi
                   placeholder={`Enter ${label.toLowerCase()}…`}
                 />
               ) : dbEntry ? (
-                <Text style={[styles.sectionBody, { color: t.textPrimary }]}>
-                  {dbEntry.content}
-                </Text>
+                <RichText
+                  segs={[dbEntry.content]}
+                  style={[styles.sectionBody, { color: t.textPrimary }]}
+                  onExercisePress={onExercisePress}
+                />
               ) : richSegs ? (
-                <RichText segs={richSegs} style={[styles.sectionBody, { color: t.textPrimary }]} />
+                <RichText segs={richSegs} style={[styles.sectionBody, { color: t.textPrimary }]} onExercisePress={onExercisePress} />
               ) : (
-                <Text style={[styles.sectionBody, { color: t.textPrimary }]}>
-                  {getContent(activeTopic!.key, key)}
-                </Text>
+                <RichText
+                  segs={[getContent(activeTopic!.key, key)]}
+                  style={[styles.sectionBody, { color: t.textPrimary }]}
+                  onExercisePress={onExercisePress}
+                />
               )}
             </View>
           );
@@ -884,4 +976,5 @@ const styles = StyleSheet.create({
   editedNote: { ...typography.label, textAlign: 'center' },
 
   link: { color: colors.primary, textDecorationLine: 'underline' },
+  exerciseLink: { color: colors.primary, fontWeight: '600' },
 });

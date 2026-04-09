@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   StyleSheet, Text, View, SectionList, TouchableOpacity,
-  TextInput, ActivityIndicator, Alert, ScrollView,
+  TextInput, ActivityIndicator, Alert, ScrollView, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -62,6 +62,8 @@ function buildSections(exercises: Exercise[], groupBy: GroupBy): Section[] {
 
 export default function ExercisesScreen() {
   const t = useTheme();
+  const router = useRouter();
+  const { width } = useWindowDimensions();
   const { role } = useAuth();
   const isTrainer = role === 'trainer';
   const { exercises, loading, error, createExercise } = useExercises();
@@ -308,7 +310,7 @@ export default function ExercisesScreen() {
   }
 
   const totalFiltered = fullSections.reduce((n, s) => n + s.count, 0);
-  const isVertical = rightTab !== 'exercises';
+  const isVertical = rightTab !== 'exercises' || width < 768;
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
@@ -331,197 +333,200 @@ export default function ExercisesScreen() {
         })}
       </View>
 
-      {/* Main area: vertical for encyclopedia/guides, horizontal for exercises */}
+      {/* Main area */}
       <View style={[styles.mainRow, isVertical && styles.mainCol]}>
-        {/* Body map */}
-        <View style={[
-          isVertical ? styles.bodyMapRow : styles.bodyMapCol,
-          { borderRightColor: t.border, borderBottomColor: t.border },
-        ]}>
-          {isVertical ? (
-            <View style={styles.bodyMapRowInner}>
-              <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
-            </View>
-          ) : (
+        {/* Body map — desktop side column only; on mobile it lives inside the scroll */}
+        {!isVertical && (
+          <View style={[styles.bodyMapCol, { borderRightColor: t.border }]}>
             <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
-          )}
-        </View>
+          </View>
+        )}
 
         {/* Content column */}
         <View style={styles.listCol}>
-          {/* (tab bar moved above) */}
 
           {rightTab === 'exercises' ? (
-            <>
-              {/* Search bar */}
-              <View style={[styles.searchBar, { backgroundColor: t.surface, borderColor: t.border }]}>
-                <Ionicons name="search" size={16} color={t.textSecondary as string} />
-                <TextInput
-                  style={[styles.searchInput, { color: t.textPrimary }]}
-                  placeholder="Search exercises…"
-                  placeholderTextColor={t.textSecondary as string}
-                  value={query}
-                  onChangeText={setQuery}
-                  clearButtonMode="while-editing"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                {query.length > 0 && (
-                  <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="close-circle" size={16} color={t.textSecondary as string} />
-                  </TouchableOpacity>
-                )}
-              </View>
+            <SectionList<Exercise, Section>
+              keyboardShouldPersistTaps="handled"
+              ListHeaderComponent={
+                <View>
+                  {/* Body map — mobile only */}
+                  {isVertical && (
+                    <View style={[styles.bodyMapRow, { borderBottomColor: t.border }]}>
+                      <View style={styles.bodyMapRowInner}>
+                        <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+                      </View>
+                    </View>
+                  )}
 
-              {/* Equipment filter chips */}
-              <View style={[styles.filterRowWrapper, { borderBottomColor: t.border }]}>
-                <Text style={[styles.filterLabel, { color: t.textSecondary }]}>Equipment</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.filterRow}
-                  contentContainerStyle={styles.filterRowContent}
-                >
-                  {EQUIPMENT_FILTERS.map((eq) => {
-                    const active = equipmentFilter === eq;
-                    return (
-                      <TouchableOpacity
-                        key={eq}
-                        style={[
-                          styles.filterChip,
-                          { borderColor: active ? colors.primary : t.border },
-                          active && { backgroundColor: colors.primary },
-                        ]}
-                        onPress={() => setEquipmentFilter(eq)}
-                      >
-                        <Text style={[styles.filterChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                          {eq}
-                        </Text>
+                  {/* Search bar */}
+                  <View style={[styles.searchBar, { backgroundColor: t.surface, borderColor: t.border }]}>
+                    <Ionicons name="search" size={16} color={t.textSecondary as string} />
+                    <TextInput
+                      style={[styles.searchInput, { color: t.textPrimary }]}
+                      placeholder="Search exercises…"
+                      placeholderTextColor={t.textSecondary as string}
+                      value={query}
+                      onChangeText={setQuery}
+                      clearButtonMode="while-editing"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    {query.length > 0 && (
+                      <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="close-circle" size={16} color={t.textSecondary as string} />
                       </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+                    )}
+                  </View>
 
-              {/* Group-by control */}
-              <View style={[styles.groupBar, { borderBottomColor: t.border }]}>
-                <Text style={[styles.groupByLabel, { color: t.textSecondary }]}>Group by</Text>
-                {(['none', 'category'] as GroupBy[]).map((opt) => {
-                  const active = groupBy === opt;
-                  const label = opt === 'none' ? 'None' : 'Category';
-                  return (
-                    <TouchableOpacity
-                      key={opt}
-                      style={[
-                        styles.groupChip,
-                        { borderColor: active ? colors.primary : t.border },
-                        active && { backgroundColor: colors.primary },
-                      ]}
-                      onPress={() => setGroupBy(opt)}
+                  {/* Equipment filter chips */}
+                  <View style={[styles.filterRowWrapper, { borderBottomColor: t.border }]}>
+                    <Text style={[styles.filterLabel, { color: t.textSecondary }]}>Equipment</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.filterRow}
+                      contentContainerStyle={styles.filterRowContent}
                     >
-                      <Text style={[styles.groupChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Add exercise form — trainers only */}
-              {isTrainer && showForm && (
-                <View style={[styles.formCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-                  <Text style={[styles.formTitle, { color: t.textPrimary }]}>New Exercise</Text>
-                  <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
-                    <TextInput
-                      style={[styles.formInput, { borderColor: t.border, color: t.textPrimary }]}
-                      placeholder="Exercise name *"
-                      placeholderTextColor={t.textSecondary as string}
-                      autoCapitalize="words"
-                      value={formName}
-                      onChangeText={setFormName}
-                      autoFocus
-                    />
-                    <TextInput
-                      style={[styles.formInput, { borderColor: t.border, color: t.textPrimary }]}
-                      placeholder="Muscle group (optional)"
-                      placeholderTextColor={t.textSecondary as string}
-                      autoCapitalize="words"
-                      value={formMuscle}
-                      onChangeText={setFormMuscle}
-                    />
-                    <Text style={[styles.formLabel, { color: t.textSecondary }]}>Category</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-                      {CATEGORIES.map((cat) => {
-                        const active = formCategory === cat;
-                        return (
-                          <TouchableOpacity
-                            key={cat}
-                            style={[styles.categoryChip, { borderColor: active ? colors.primary : t.border }, active && { backgroundColor: colors.primary }]}
-                            onPress={() => setFormCategory(cat)}
-                          >
-                            <Text style={[styles.categoryChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                              {CATEGORY_LABEL[cat]}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                    <Text style={[styles.formLabel, { color: t.textSecondary }]}>Equipment</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-                      {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
-                        const active = formEquipment === eq;
+                      {EQUIPMENT_FILTERS.map((eq) => {
+                        const active = equipmentFilter === eq;
                         return (
                           <TouchableOpacity
                             key={eq}
-                            style={[styles.categoryChip, { borderColor: active ? colors.primary : t.border }, active && { backgroundColor: colors.primary }]}
-                            onPress={() => setFormEquipment(active ? null : eq)}
+                            style={[
+                              styles.filterChip,
+                              { borderColor: active ? colors.primary : t.border },
+                              active && { backgroundColor: colors.primary },
+                            ]}
+                            onPress={() => setEquipmentFilter(eq)}
                           >
-                            <Text style={[styles.categoryChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                            <Text style={[styles.filterChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
                               {eq}
                             </Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
-                    <Text style={[styles.formLabel, { color: t.textSecondary }]}>Tutorial URL</Text>
-                    <TextInput
-                      style={[styles.formInput, { borderColor: t.border, color: t.textPrimary }]}
-                      placeholder="https://youtu.be/…"
-                      placeholderTextColor={t.textSecondary as string}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      keyboardType="url"
-                      value={formHelpUrl}
-                      onChangeText={setFormHelpUrl}
-                    />
-                    <Text style={[styles.formLabel, { color: t.textSecondary }]}>Form Notes</Text>
-                    <TextInput
-                      style={[styles.formInput, styles.formNotesInput, { borderColor: t.border, color: t.textPrimary }]}
-                      placeholder={'Coaching cues, setup tips…'}
-                      placeholderTextColor={t.textSecondary as string}
-                      autoCapitalize="sentences"
-                      multiline
-                      textAlignVertical="top"
-                      value={formNotes}
-                      onChangeText={setFormNotes}
-                    />
-                    <View style={styles.formActions}>
-                      <TouchableOpacity onPress={() => setShowForm(false)} style={[styles.cancelBtn, { borderColor: t.border }]}>
-                        <Text style={[styles.cancelBtnText, { color: t.textSecondary }]}>Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.saveBtn, saving && styles.saveBtnDisabled]}>
-                        {saving
-                          ? <ActivityIndicator size="small" color={colors.textInverse} />
-                          : <Text style={styles.saveBtnText}>Add Exercise</Text>}
-                      </TouchableOpacity>
-                    </View>
-                  </ScrollView>
-                </View>
-              )}
+                  </View>
 
-              {/* List */}
-              <SectionList<Exercise, Section>
-                sections={displaySections}
+                  {/* Group-by control */}
+                  <View style={[styles.groupBar, { borderBottomColor: t.border }]}>
+                    <Text style={[styles.groupByLabel, { color: t.textSecondary }]}>Group by</Text>
+                    {(['none', 'category'] as GroupBy[]).map((opt) => {
+                      const active = groupBy === opt;
+                      const label = opt === 'none' ? 'None' : 'Category';
+                      return (
+                        <TouchableOpacity
+                          key={opt}
+                          style={[
+                            styles.groupChip,
+                            { borderColor: active ? colors.primary : t.border },
+                            active && { backgroundColor: colors.primary },
+                          ]}
+                          onPress={() => setGroupBy(opt)}
+                        >
+                          <Text style={[styles.groupChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Add exercise form — trainers only */}
+                  {isTrainer && showForm && (
+                    <View style={[styles.formCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+                      <Text style={[styles.formTitle, { color: t.textPrimary }]}>New Exercise</Text>
+                      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
+                        <TextInput
+                          style={[styles.formInput, { borderColor: t.border, color: t.textPrimary }]}
+                          placeholder="Exercise name *"
+                          placeholderTextColor={t.textSecondary as string}
+                          autoCapitalize="words"
+                          value={formName}
+                          onChangeText={setFormName}
+                          autoFocus
+                        />
+                        <TextInput
+                          style={[styles.formInput, { borderColor: t.border, color: t.textPrimary }]}
+                          placeholder="Muscle group (optional)"
+                          placeholderTextColor={t.textSecondary as string}
+                          autoCapitalize="words"
+                          value={formMuscle}
+                          onChangeText={setFormMuscle}
+                        />
+                        <Text style={[styles.formLabel, { color: t.textSecondary }]}>Category</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                          {CATEGORIES.map((cat) => {
+                            const active = formCategory === cat;
+                            return (
+                              <TouchableOpacity
+                                key={cat}
+                                style={[styles.categoryChip, { borderColor: active ? colors.primary : t.border }, active && { backgroundColor: colors.primary }]}
+                                onPress={() => setFormCategory(cat)}
+                              >
+                                <Text style={[styles.categoryChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                                  {CATEGORY_LABEL[cat]}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                        <Text style={[styles.formLabel, { color: t.textSecondary }]}>Equipment</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+                          {(Object.values(EQUIPMENT_TYPES) as EquipmentType[]).map((eq) => {
+                            const active = formEquipment === eq;
+                            return (
+                              <TouchableOpacity
+                                key={eq}
+                                style={[styles.categoryChip, { borderColor: active ? colors.primary : t.border }, active && { backgroundColor: colors.primary }]}
+                                onPress={() => setFormEquipment(active ? null : eq)}
+                              >
+                                <Text style={[styles.categoryChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                                  {eq}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                        <Text style={[styles.formLabel, { color: t.textSecondary }]}>Tutorial URL</Text>
+                        <TextInput
+                          style={[styles.formInput, { borderColor: t.border, color: t.textPrimary }]}
+                          placeholder="https://youtu.be/…"
+                          placeholderTextColor={t.textSecondary as string}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          keyboardType="url"
+                          value={formHelpUrl}
+                          onChangeText={setFormHelpUrl}
+                        />
+                        <Text style={[styles.formLabel, { color: t.textSecondary }]}>Form Notes</Text>
+                        <TextInput
+                          style={[styles.formInput, styles.formNotesInput, { borderColor: t.border, color: t.textPrimary }]}
+                          placeholder={'Coaching cues, setup tips…'}
+                          placeholderTextColor={t.textSecondary as string}
+                          autoCapitalize="sentences"
+                          multiline
+                          textAlignVertical="top"
+                          value={formNotes}
+                          onChangeText={setFormNotes}
+                        />
+                        <View style={styles.formActions}>
+                          <TouchableOpacity onPress={() => setShowForm(false)} style={[styles.cancelBtn, { borderColor: t.border }]}>
+                            <Text style={[styles.cancelBtnText, { color: t.textSecondary }]}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.saveBtn, saving && styles.saveBtnDisabled]}>
+                            {saving
+                              ? <ActivityIndicator size="small" color={colors.textInverse} />
+                              : <Text style={styles.saveBtnText}>Add Exercise</Text>}
+                          </TouchableOpacity>
+                        </View>
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              }
+              sections={displaySections}
                 keyExtractor={(item) => item.id}
                 style={styles.sectionList}
                 contentContainerStyle={styles.list}
@@ -568,12 +573,18 @@ export default function ExercisesScreen() {
                   </>
                 }
               />
-            </>
           ) : rightTab === 'encyclopedia' ? (
             <EncyclopediaPanel
               selectedMuscle={muscleFilter}
               onSelectMuscle={setMuscleFilter}
               isTrainer={isTrainer}
+              scrollHeader={isVertical ? (
+                <View style={[styles.bodyMapRow, { borderBottomColor: t.border }]}>
+                  <View style={styles.bodyMapRowInner}>
+                    <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+                  </View>
+                </View>
+              ) : undefined}
             />
           ) : (
             <WorkoutGuides
@@ -581,6 +592,17 @@ export default function ExercisesScreen() {
               onSelectMuscle={setMuscleFilter}
               isTrainer={isTrainer}
               initialTopicKey={topicParam ?? null}
+              onExercisePress={(name) => {
+                const match = exercises.find((e) => e.name.toLowerCase() === name.toLowerCase());
+                if (match) router.push(`/exercise/${match.id}` as never);
+              }}
+              scrollHeader={isVertical ? (
+                <View style={[styles.bodyMapRow, { borderBottomColor: t.border }]}>
+                  <View style={styles.bodyMapRowInner}>
+                    <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+                  </View>
+                </View>
+              ) : undefined}
             />
           )}
         </View>

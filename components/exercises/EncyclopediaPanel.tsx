@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   ActivityIndicator, Alert, StyleSheet, Linking,
@@ -475,9 +475,10 @@ type Props = {
   selectedMuscle: string | null;
   onSelectMuscle: (muscle: string | null) => void;
   isTrainer: boolean;
+  scrollHeader?: ReactNode;
 };
 
-export function EncyclopediaPanel({ selectedMuscle, onSelectMuscle, isTrainer }: Props) {
+export function EncyclopediaPanel({ selectedMuscle, onSelectMuscle, isTrainer, scrollHeader }: Props) {
   const t = useTheme();
   const { getEntry, upsertEntry } = useEncyclopedia();
 
@@ -533,6 +534,7 @@ export function EncyclopediaPanel({ selectedMuscle, onSelectMuscle, isTrainer }:
         contentContainerStyle={styles.gridContent}
         showsVerticalScrollIndicator={false}
       >
+        {scrollHeader}
         <Text style={[styles.gridHeading, { color: t.textSecondary }]}>
           Select a muscle group on the body map or tap a card below.
         </Text>
@@ -594,6 +596,7 @@ export function EncyclopediaPanel({ selectedMuscle, onSelectMuscle, isTrainer }:
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {scrollHeader}
         {SECTIONS.map(({ key, label, icon }) => (
           <View key={key} style={[styles.section, { borderColor: t.border }]}>
             <View style={styles.sectionHeader}>

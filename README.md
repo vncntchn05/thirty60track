@@ -17,238 +17,108 @@ An app for personal trainers to track client workouts, monitor progress, and loa
 
 ## Features
 
-### Authentication
-- [x] Email/password login via Supabase Auth
-- [x] Auth gate in root layout (redirects unauthenticated users)
-- [x] Auto-create trainer profile on signup (DB trigger)
-- [x] Sign out from profile screen
-- [x] **Role-based routing** — role inferred from DB on login; client and trainer accounts use separate navigators automatically
-- [x] **Signup role toggle** — client/trainer toggle on signup only; login is role-agnostic
-- [x] **Client signup flow** — trainers add clients by email; clients sign up and are auto-linked to their profile via a `SECURITY DEFINER` RPC (`link_client_to_auth_user`) that bypasses the RLS catch-22 where `auth.uid() = auth_user_id` is always false when `auth_user_id IS NULL`
-- [x] **Existing-account recovery on signup** — if a client already has a Supabase auth user (e.g. from a previous failed attempt), signup silently signs them in with the provided password and completes linking; if the password is wrong a generic "account exists" error is shown
-- [x] **Rate limit handling** — exponential backoff on 429 token refresh errors; friendly error message when signup email is rate-limited
-- [x] **Auth recovery** — if a client account exists but `auth_user_id` was never written (signup race condition), the next sign-in auto-links the account via the `link_client_to_auth_user` RPC
-- [x] **Change Password (in-app)** — trainers and clients can change their password directly from the Profile screen; a modal collects the current password (verified via re-authentication), new password, and confirmation; no email involved
+### Accounts
+- Separate logins for trainers and clients — each sees only their own view
+- Trainers add clients by email; clients sign up and are automatically linked to their profile
+- Change password from the Profile screen at any time
 
 ### Client Management
-- [x] Client list dashboard with workout count and last session date
-- [x] **Client search bar** — filter by name or email in real time
-- [x] Auto-refresh client list on screen focus
-- [x] Add new client (name, email, phone, date of birth, gender, height, notes)
-- [x] **Duplicate name guard** — blocks adding a client whose name matches an existing one (slug-normalized)
-- [x] Client body metrics (weight, height, body fat %, BMI, lean body mass)
-- [x] Inline edit client info (including gender) and metrics on client detail screen
-- [x] Delete client (confirmation alert before deletion)
-- [x] **Full intake form in trainer view** — all intake fields (emergency contact, occupation, health history, fitness goals) are viewable and editable directly in the Client Info card above body metrics; no separate tab
-- [x] **Health alert banner** — red warning at the top of the client detail page if current injuries or chronic conditions are on file; hidden when neither is set
-- [x] **Linked client indicator** — a green checkmark appears next to the client's name in the client list when the client has signed up and linked their account (`auth_user_id` is populated); unlinked clients show no indicator
+- View all your clients in one list, with their total sessions and last workout date
+- Search clients by name or email
+- Add clients with full intake details: personal info, body metrics, health history, injuries, medications, goals, and emergency contact
+- Red alert banner on a client's page if they have active injuries or chronic conditions on file
+- Edit any client's info or body metrics directly from their profile
+- Green checkmark next to clients who have signed up and linked their account
 
-### Media Gallery
-- [x] Per-client photo and video gallery (Media tab on client detail screen)
-- [x] Upload images and videos from device library with date and optional notes
-- [x] 3-column thumbnail grid — images show preview, videos show play-icon placeholder
-- [x] Hover/press thumbnails to preview date and caption overlaid on the media
-- [x] Fullscreen detail view — tap any thumbnail to open image viewer or inline video player
-- [x] Left/right arrow navigation between media items in the detail view
-- [x] Edit date and notes on any existing media item
-- [x] Delete media (confirmation prompt; removes file from storage and DB row)
-- [x] Files stored in Supabase Storage (`client-media` bucket); metadata in `client_media` table
+### Photo & Video Gallery
+- Per-client media gallery for progress photos and videos
+- Upload from your camera roll with a date and optional caption
+- Tap any photo or video to view it fullscreen; swipe between items
+- Edit or delete any entry at any time
 
 ### Workout Logging
-- [x] Log a new workout session with date picker
-- [x] Multi-exercise workout builder — add multiple exercises per session
-- [x] **Workout templates** — load a template to pre-populate all exercises instantly
-- [x] Shared exercise picker with search
-- [x] Log sets per exercise (reps, weight, duration)
-- [x] **Per-exercise unit toggle** — cycle between lbs, kg, and secs per exercise block in all workout log/edit screens; weight converted to kg at save time
-- [x] Optional body weight and body fat % per workout session
-- [x] Notes per workout
-- [x] View workout detail (sets grouped by exercise)
-- [x] Edit existing workout — add exercises, edit sets, update notes, edit body metrics
-- [x] **Unsaved changes guard** — editing a set, the workout header, or an add-set form and tapping back shows an in-screen bar with Save and Discard options; back gesture is disabled while changes are pending
-- [x] Delete workout (confirmation bar)
-- [x] Delete individual sets
-- [x] Body metrics on past workouts sync back to the client profile
-- [x] **Superset support** — chain exercises together with a link icon; each superset group gets a distinct color (violet, blue, amber, pink, teal); works in both the new workout logger and the edit screen
-- [x] Workout notes per set
-- [x] **Worked out with** — select clients who trained in the same session; their workouts are created and kept in sync (add/edit/delete sets propagate to all group members automatically); exercise display order is preserved on all members' workout views; manage the group from the workout edit screen
-- [x] **Logged-by attribution** — workout list and detail screens show the correct name (trainer or client) for who logged each session
-
-### Scheduling & Availability
-
-- [x] **Trainer availability** — trainers set recurring weekly slots or one-off specific-date slots with arbitrary start/end times; managed from the Schedule tab via the Availability FAB; start/end times selected via vertical drum-roll scroll pickers; expired specific-date slots (past dates) are automatically hidden from the list
-- [x] **Edit availability** — pencil icon on each slot row opens the add form pre-populated with the existing slot's data; saving routes to an update rather than an insert; changes are reflected immediately for all users (trainer schedule screen, client booking sheet) via Supabase Realtime
-- [x] **Weekly timetable** — full-screen 7-day grid (8 AM–8 PM) that fills the available height without scrolling; faint gold bands show trainer availability windows; session blocks are colour-coded by status (red = pending, green = confirmed, gold = completed); "now" red line on today's column; today's column has a subtle gold tint
-- [x] **Week navigation** — prev/next chevrons plus a tap-to-open week picker modal; week picker shows session dots on dates that have sessions
-- [x] **Trainer selector** — when multiple trainers exist, a horizontal chip strip above the timetable lets any trainer view a colleague's schedule; the Availability FAB is hidden when viewing another trainer's schedule
-- [x] **Client booking** — sequential drum-roll picker flow: pick month → pick date (only months/dates with availability shown) → pick time → confirm; each time step includes a 30 min / 60 min duration toggle; gold = affordable, amber outline = can't afford; opens as a transparent bottom-sheet popup (not a new page); availability updates appear in real time without reopening the sheet
-- [x] **Trainer booking** — same drum-roll picker flow as client booking; date and time are unrestricted (all 60 upcoming days, all 15-min slots from 6 AM–10 PM) regardless of availability settings; opens as a bottom-sheet popup
-- [x] **Session management** — trainers can confirm, cancel, or mark sessions complete directly from the timetable; clients can view or cancel their own sessions; credits are deducted on confirm and refunded on trainer-initiated cancel of a confirmed session
-- [x] **Client schedule segment** — the client Workouts tab has a "Schedule" segment showing the same full-screen timetable with availability bands and session blocks; includes a "Book Session" FAB and the credit balance pill (`★ Credits: N`) in the week nav bar
-- [x] **Schedule tab deep-link** — tapping a confirmed session dot in the Workout Calendar navigates to the Schedule tab (trainer) or switches to the Schedule segment (client) pre-scrolled to the correct week
-
-### Credits
-
-- [x] **Credit balance** — each client has a `client_credits` row tracking their balance; 30-min session = 1 credit, 60-min session = 2 credits
-- [x] **Grant credits** — trainers grant credits from the Credits tab on the client detail screen; amount and optional note required
-- [x] **Automatic deduct/refund** — credits are deducted when a trainer confirms a session; refunded automatically if the trainer cancels a session that was already confirmed
-- [x] **Transaction history** — every grant, deduction, and refund is logged to `credit_transactions` with reason, note, date, and linked session ID; shown in the Credits tab
-- [x] **Credit pill in client schedule** — the week nav bar on the client's Schedule segment shows a gold `★ Credits: N` pill so clients always know their balance while booking
-
-### Assigned Workouts
-- [x] Trainers can assign a workout to a client with a title, scheduled date, optional notes, and a full exercise + set prescription
-- [x] **Assign mode in workout builder** — toggle between "Log" and "Assign" at the top of the new workout screen; assign mode sends the workout to the client without creating a session log entry; exits immediately on success (no confirmation dialog)
-- [x] **Unsaved changes guard on new workout** — if exercises or inputs have been filled in and the user navigates away, an in-screen Save/Discard bar appears; back gesture disabled while dirty
-- [x] **Assign to multiple clients** — in assign mode, a checkbox list of all clients is shown; any combination can be selected; the same workout is submitted for all selected clients simultaneously
-- [x] **Client pending workouts** — assigned workouts with status `assigned` appear at the top of the client's Workouts tab as "UPCOMING" cards with a play button
-- [x] Client taps an upcoming workout to open the **Complete Workout** screen — exercises and prescribed sets are pre-filled; client edits actual reps/weight/duration and taps Complete
-- [x] Completing an assigned workout creates a real workout + sets entry in the client's log and marks the assigned workout as `completed`
-- [x] **Assigned tab on client detail** — trainers see all assigned workouts (pending and completed) for a client; edit or delete any entry
-- [x] **Edit assigned workout** — full exercise builder pre-populated with prescribed exercises and sets; supports template loading, superset linking, and unit toggle
-- [x] **Unsaved changes guard on edit assigned workout** — navigating away with unsaved edits shows an in-screen Save/Discard bar; back gesture disabled while dirty
-- [x] **Any trainer can complete an assigned workout** — a "Complete" button appears on the edit screen for pending workouts; any trainer (not just the assigning trainer) can fill in actual values and log the session on behalf of the client; logged-by attribution is set to `trainer` automatically
-- [x] Delete assigned workout with confirmation bar (child sets and exercises deleted first to satisfy RLS)
-- [x] Unit toggle (lbs / kg / secs) in both the assign builder and the complete screen
-- [x] **Cross-trainer access** — all trainers can view, edit, and complete any client's assigned workouts (migration 016 broadened RLS from per-trainer to any-authenticated-trainer)
+- Log a full session for any client with exercises, sets, reps, weight, and duration
+- Switch between lbs, kg, and seconds per exercise
+- Log body weight and body fat % alongside any session
+- Add notes to the whole workout or to individual sets
+- Load a template to instantly pre-fill all exercises for the session
+- Link exercises together as supersets with a tap
+- Log a group session — select multiple clients who trained together and their workouts are kept in sync
+- Edit or delete any past workout
 
 ### Workout Templates
-Templates are stored in the database and fully editable from within the app (via the Exercise Library tab → Edit Templates). The app ships with 32 pre-built templates sourced from the Thirty60 program library, organised into a two-level hierarchy:
+32 pre-built templates from the Thirty60 program library, ready to load in one tap:
 
-| Split | Subgroups | Templates |
-|---|---|---|
-| Full Body | Standard, Phase 1, Phase 2, Phase 3 | Total Body, Stability, Lateral/Total, Agility/Total, and Phase 1–3 progressions |
-| Upper / Lower | Upper, Lower | Push Emphasis, Pull Emphasis, Strength Focus, Hypertrophy Focus, Power Focus upper sessions; Squat Focus, Hinge Focus, Unilateral Focus lower sessions |
-| Push / Pull / Legs | Push, Pull, Legs | Chest Emphasis, Push Strength, Chest & Shoulders, Shoulder Emphasis, Tricep Focus; Back Emphasis, Pull Strength, Back & Biceps, Rear Delt & Traps, Bicep Focus; Quad Emphasis, Hamstring & Glute Focus, Unilateral Leg, Power & Plyometrics |
-| Abs & Core | Core Fundamentals, Ab Circuits | Tiered core work (beginner → intermediate → advanced) and Abs Variations A–D |
+| Split | Templates |
+|---|---|
+| Full Body | Total Body, Stability, Lateral/Total, Agility/Total, Phase 1–3 progressions |
+| Upper / Lower | Push/Pull/Strength/Hypertrophy/Power (upper); Squat/Hinge/Unilateral (lower) |
+| Push / Pull / Legs | 5 Push, 5 Pull, 4 Legs variations |
+| Abs & Core | Core Fundamentals, Ab Circuits (beginner → advanced) |
 
-Templates are displayed grouped by split and subgroup in both the picker and the editor. They are matched to live exercises in the database when loading a workout. Any unmatched exercises are listed so they can be added manually. Trainers can create, rename, reorder exercises in, and delete templates at any time; each template carries a `split` and `subgroup` field that controls where it appears in the grouped list.
+Create, rename, reorder, and delete templates from the Exercise Library tab at any time.
+
+### Assigned Workouts
+- Write a workout prescription for a client — exercises, sets, reps, weight, and a scheduled date
+- Assign the same workout to multiple clients at once
+- Clients see upcoming assigned workouts at the top of their Workouts tab and complete them by filling in their actual numbers
+- Completing an assigned workout automatically saves it to their workout log
+- View all pending and completed assigned workouts per client; edit or delete any entry
+- Any trainer on the platform can complete an assigned workout on a client's behalf
+
+### Scheduling
+- Set your weekly availability (recurring or one-off dates) from the Schedule tab
+- Full-screen weekly timetable shows your availability windows and all booked sessions colour-coded by status (pending / confirmed / completed)
+- Book sessions on behalf of clients, or let clients book themselves through the app
+- Confirm, cancel, or mark sessions complete directly from the timetable
+- Multiple trainers can view each other's schedules
+
+### Session Credits
+- Each client has a credit balance (30-min session = 1 credit, 60-min session = 2 credits)
+- Grant credits to a client from their profile with an optional note
+- Credits are deducted automatically when you confirm a session and refunded if you cancel
+- Full transaction history (grants, deductions, refunds) visible on the client's Credits tab
 
 ### Exercise Library
-- [x] Shared exercise library (220+ exercises seeded across all muscle groups, including stretches and hand/wrist/foot/ankle exercises)
-- [x] Dedicated **Exercises tab** — browse, search, and manage the full library
-- [x] Group exercises by muscle group or category (collapsible sections)
-- [x] **Interactive body map** — SVG body diagram (powered by `react-native-body-highlighter`) occupies the left half of the exercise library screen and the in-workout exercise picker; tap any muscle region to filter by that muscle group; hover highlights the region in light gold before selecting; selected region turns full gold and dims all others; Front/Back toggle switches diagram view; tap the selected label's × to clear; the body map column auto-sizes to fill available space via `onLayout`; **Hands** and **Feet** are clickable regions that filter to hand/wrist and foot/ankle exercises respectively
-- [x] **Equipment filter chips** — horizontal chip row (All / Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other) filters the list in real time; works alongside the group-by selector and search
-- [x] **Add custom exercises** — name, muscle group, category (strength / cardio / flexibility / stretch / other), equipment type, tutorial URL, and form notes; all fields available inline in the Exercises tab and in the in-workout picker
-- [x] **Muscle synonym search** — searching "biceps", "quads", "lats", etc. resolves to the matching broad muscle group (Arms, Legs, Back…) so exercises surface even when the group label doesn't match the query exactly
-- [x] **External exercise database** — search the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (~800 exercises, public domain) directly from the exercise library and the in-workout picker; results show only exercises not already in the library; tapping Add imports the exercise (name, muscle group, category) into the local library; in the workout picker, Add also immediately selects the exercise; database is fetched on mount and cached in memory for the session; the "FROM DATABASE" section is always visible (not just when searching) and shows up to 20 results when no query is active; cards are the same size as local library exercise cards
-- [x] **Injury contraindication warning** — when a trainer adds an exercise to a workout, the app checks the client's current and past injuries (from their intake form) and shows a modal warning if the exercise conflicts with a known injury; badge is red for current injuries, yellow for past; trainer can Cancel or proceed with Add Anyway
-- [x] Exercise search when logging a workout
-- [x] **In-workout picker equipment filter** — same equipment chip row in the exercise picker modal when logging or assigning a workout
-- [x] Exercises auto-inserted by workout templates when missing from the library
-- [x] **Exercise detail page** — tap any exercise to open its detail screen
-- [x] **Equipment badge** — equipment type shown as a badge on each exercise row and in the detail screen info card; editable via chip selector on the detail page
-- [x] **Form notes** — free-text step-by-step coaching cues per exercise (editable by any trainer; all 150 seeded exercises pre-populated via `migration_016_form_notes.sql` using instructions from free-exercise-db)
-- [x] **Tutorial link** — YouTube URL per exercise with one-tap Watch button; 4 core lifts pre-seeded (Bench Press, Squat, Deadlift, Lat Pulldown)
-- [x] **Form images** — exercise detail screen fetches movement photos from the [free-exercise-db](https://github.com/yuhonas/free-exercise-db) image CDN; all 150 seeded exercises have verified slug mappings (`lib/exerciseDb.ts` → `SLUG_OVERRIDES`); images imported from the DB also receive images automatically via `mapDbExercise`; tap any thumbnail to open a full-screen lightbox; images silently hidden when no match is found
-- [x] **DB variant tabs** — 74 exercises with multiple free-exercise-db equivalents (e.g. Bench Press has 16: Powerlifting, With Bands, With Chains, Close-Grip, Decline, Smith Machine…) show a horizontal scrollable chip row above the images; tapping a variant chip swaps the images to that variant; all 239 variant slugs verified on disk
-- [x] **Approximation disclaimer** — 61 exercises that have no direct DB equivalent (custom combos, trainer-named variants, etc.) show an italic disclaimer beneath the images when no specific variant is selected
-- [x] **Client read-only exercise library** — clients can browse the Exercises tab (positioned between Workouts and Progress in the client tab bar) and open exercise detail pages, but cannot add exercises, import from DB, edit form notes, equipment, or tutorial URL, or use the Edit Templates FAB; all edit controls are hidden and fields render as plain text
-- [x] **Workout Guides** — third tab ("Guides") in the exercise library right-column tab bar; 10 beginner-friendly guide topics (Getting Started, Full Body, Upper/Lower, Push/Pull/Legs, Exercise Selection, Progressive Overload, Sets/Reps/Intensity, Warm-Up & Cool-Down, Deload Weeks, Abs & Core); each topic has 4 richly written sections with inline Wikipedia and PubMed hyperlinks; trainers can edit any section in-app (saved to Supabase; overrides shown to clients with "customised by your trainer" note); body map integration — selecting a muscle on the body map shows a spotlight callout indicating which split day trains that muscle and its primary exercises; accepts `?tab=guides&topic=<key>` URL params to deep-link directly into a specific topic
-- [x] **Custom exercise media** — trainers can upload photos and videos to any exercise detail page (stored in the `exercise-media` Supabase Storage bucket); thumbnails appear in a horizontally scrollable row on the detail screen; tap to open a full-screen lightbox (image) or inline video player; trainers can delete their own uploads with a confirmation prompt
+- 220+ exercises across all muscle groups, including stretches and mobility work
+- Interactive body map — tap any muscle to filter exercises for that area; works on both the library and the in-workout exercise picker
+- Filter by equipment (Barbell, Dumbbell, Cable, Machine, Bodyweight, and more)
+- Search by name or muscle (common names like "biceps", "quads", "lats" all work)
+- Each exercise has coaching cues, movement photos, exercise variants, and an optional tutorial video link
+- Add your own custom exercises at any time; upload photos and videos to any exercise page
+- **Injury warning** — if you add an exercise to a client's workout and it conflicts with an injury on their intake form, the app flags it before you proceed
 
-### Client Portal
+### Workout Guides
+- 10 built-in training guides covering: Getting Started, Full Body, Upper/Lower, Push/Pull/Legs, Exercise Selection, Progressive Overload, Sets/Reps & Intensity, Warm-Up, Deload Weeks, and Abs & Core
+- Each guide links directly to the exercises it mentions — tap any exercise name to open it
+- Select a muscle on the body map to see a spotlight showing which split day trains it and its key exercises
+- Trainers can edit any guide section in-app; clients see your customised version
 
-Clients have their own separate tab navigator with distinct screens:
-
-- [x] **Home dashboard** — greeting, total sessions, weekly streak, last workout card, quick actions
-- [x] **One-time intake form** — shown on first login; collects full name, date of birth, phone, address, emergency contact, occupation, current/past injuries, chronic conditions, medications, activity level, goals, and timeframe; disappears once submitted
-- [x] **Workout history — calendar + list view** — the Workouts segment defaults to a full-screen monthly calendar; gold dots = logged workouts, green = assigned, dark green = confirmed sessions; tap the month/year title to jump to any month/year via a picker modal; a toggle icon in the segment bar switches to the classic card list; tapping a date with a single item navigates directly; tapping a date with multiple items (e.g. a logged workout + a confirmed session) shows a custom in-app modal listing each item — works on web where native `Alert.alert` is limited; confirmed session dots switch to the Schedule segment at the correct week
-- [x] **Self-log workouts** — clients can log their own workouts (exercises + sets + body metrics) with per-exercise unit toggle
-- [x] **Complete assigned workouts** — pre-filled prescribed sets; client fills in actual values and confirms via a bottom confirmation bar; saved to workout log automatically
-- [x] **Schedule segment** — second segment in the Workouts tab; shows the full-screen weekly timetable with gold availability bands and colour-coded session blocks; week nav + week picker modal; "Book Session" FAB opens the 3-step booking flow; credit balance pill shown in the week nav bar
-- [x] **Exercise library** — read-only Exercises tab between Workouts and Progress; clients can browse, search, filter by muscle/equipment, and open exercise detail pages (form images, variant tabs, form notes, tutorial Watch button all functional); no add/edit controls shown
-- [x] **Progress tab** — same frequency/volume/body composition/exercise charts as the trainer view; includes Performance Report Card button
-- [x] **Nutrition tab** — log daily meals, search USDA + Open Food Facts food databases, scan product barcodes, view macro summary vs. daily goal (goal set by trainer)
-- [x] **Media tab** — view photo/video gallery
-- [x] **Profile tab** — view personal info and body metrics (trainer-managed); edit health & fitness intake info; change password in-app
-- [x] Correct logged-by name shown on all workouts (trainer name for trainer-logged; client name for client-logged) in both list and detail views
-- [x] Back button on workout detail returns to Workouts tab (not home)
+### Exercise Encyclopedia
+- In-depth muscle anatomy and function for every major muscle group
+- Warm-up and stretching protocols, common injuries, and rehab exercises per muscle
+- Editable by trainers in-app; client-facing view shows any customisations you've made
 
 ### Progress & Charts
-
-All charts support a **time range filter: 1M / 3M / 6M / 1Y / All / Custom** applied simultaneously. Selecting a range with no data shows a "No workouts in this period" placeholder instead of hiding the selector.
-
-#### Workout Frequency
-- [x] Workouts-per-week bar chart with labelled axes (Sessions / week, Week)
-- [x] Stat chips: This week · Avg/week · Current streak · Best streak · Active weeks
-
-#### Volume Over Time
-- [x] Total volume per session bar chart with labelled axes
-- [x] **lbs / kg toggle** — converts displayed values; unit shared with exercise progress toggle
-
-#### Body Composition
-- [x] Body weight trend line chart (logged per workout)
-- [x] Body fat % trend line chart (logged per workout)
-- [x] Charts shown side-by-side with exercise progress
-
-#### Exercise Progress
-- [x] Searchable dropdown — any exercise the client has logged
-- [x] **lbs / kg toggle** — shown for exercises with weight data; duration-only exercises display seconds with no toggle
-- [x] Weight progress line chart (best set per session) with press-to-inspect tooltip and labelled axes
-- [x] Duration progress line chart (max duration per session) — shown only for timed exercises
-- [x] Reps progress line chart (max reps per session) with tooltip
-- [x] Footer showing first date, total gain/loss, and latest value
-
-#### Date Range
-- [x] Preset chips: 1M / 3M / 6M / 1Y / All
-- [x] **Custom range** — tap "Custom" to open a calendar picker; select a start and end date; workout dates are highlighted with dots; selected range shown as a coloured strip; chip displays the chosen date span (e.g. "Jan 1 – Feb 28")
-
-#### Performance Report Card
-- [x] **Report Card button** — available on both the trainer's Progress tab (client detail) and the client's own Progress tab
-- [x] **Period selection** — This Week / Last 4 Weeks / Last 12 Weeks / Custom (calendar picker with workout dots, same pattern as chart range picker)
-- [x] **Generated PDF includes:** summary stats (sessions, total sets, volume, new PRs), body progress (start/end/Δ per metric + side-by-side line charts for weight, body fat, and lean mass), and exercise bests with PR flag
-- [x] **Include nutrition checkbox** — optional section in the report showing avg daily calories, protein, carbs, fat, days logged, and a colour-coded macro split bar chart for the selected period
-- [x] **Native share** — PDF file generated via `expo-print`, shared via system share sheet (`expo-sharing`)
-- [x] **Web** — HTML report opens in a new tab and auto-triggers the browser print dialog (Save as PDF); default filename set from `<title>`
+- Charts for every client: sessions per week, total volume, body weight, body fat %, and any exercise over time
+- Filter all charts by time range: 1 month, 3 months, 6 months, 1 year, all time, or a custom date range
+- **Performance Report Card** — generate a shareable PDF summary of any period: sessions, volume, PRs, body composition charts, and optional nutrition data; shared via the system share sheet on mobile or printed from the browser on web
 
 ### Nutrition Tracking
-
-- [x] **Daily nutrition log** — trainers and clients can log meals per day (Breakfast / Lunch / Dinner / Snack)
-- [x] **Unified food search** — queries USDA FoodData Central and Open Food Facts simultaneously; results interleaved with a source badge per item; in-memory cache per query to avoid redundant API calls
-- [x] **Barcode scanning** — Scan tab in the Add Food modal; camera scans EAN-8, EAN-13, UPC-A, UPC-E barcodes; Open Food Facts lookup pre-fills the form; "product not found" message with retry option; requires camera permission (prompted on first use)
-- [x] **Manual entry** — add food manually without any lookup (name + serving size + macros)
-- [x] **Serving size scaling** — changing the serving size in the add-food form instantly recalculates all macros
-- [x] **Daily macro summary** — calorie ring + protein / carbs / fat progress bars vs. goal; shown at the top of the Nutrition tab
-- [x] **Calorie & macro goals** — trainers set a daily calorie target and protein/carbs/fat percentage split per client; live gram previews while editing; macros must total 100%
-- [x] **Goal card auto-expands** — Daily Goal card starts expanded when no goal has been set yet
-- [x] **Date picker calendar** — tap the date label to open a calendar modal; dates with existing logs are highlighted with gold dots; future dates are disabled
-- [x] Date navigation — prev/next day arrows; capped at today
-- [x] Delete log entries — trainers can delete any entry; clients can only delete entries they logged themselves
-- [x] **Client Nutrition tab** — clients have a dedicated Nutrition screen in their tab navigator (same log view, goal read-only)
-- [x] Trainer Nutrition tab — accessible from the client detail screen (Progress / Workouts / Assigned / **Nutrition** / Media); full goal editing enabled
-- [x] **Open Food Facts integration** — food search queries both USDA FoodData Central and Open Food Facts in parallel; results are interleaved with a source badge ("USDA" or "Open Food Facts") so users know where each item came from
-- [x] **Barcode scanning** — dedicated Scan tab in the Add Food modal; uses the device camera to scan EAN-8, EAN-13, UPC-A, and UPC-E barcodes; product looked up via Open Food Facts API and macros pre-filled automatically; graceful "product not found" state with retry; camera permission prompt on first use
-- [x] **Calorie & macro overage warning** — when adding a food entry, the app calculates whether the addition would push any macro (calories, protein, carbs, or fat) over the client's daily goal; if so, a modal lists all exceeded macros with current vs. target values; trainer can Cancel or proceed with Add Anyway
-- [x] **Recipes** — trainers and clients can create, edit, and delete named recipes (e.g. "Post-workout shake"); each recipe holds any number of ingredients sourced from USDA + Open Food Facts search; per-ingredient weight drives live macro totals and a per-100g breakdown; logging a recipe simply requires entering a serving weight — macros are scaled automatically; recipes are stored per-client in Supabase with full RLS for both trainer and client access
+- Log meals (Breakfast / Lunch / Dinner / Snack) for any client on any day
+- Search a combined food database (USDA + Open Food Facts) covering millions of items
+- Scan product barcodes with the camera to instantly pull up nutrition info
+- Add food manually if it's not in the database
+- Set a daily calorie and macro goal per client (protein / carbs / fat split); the app warns you before adding a food that would push them over their goal
+- Save named recipes (e.g. "Post-workout shake") with any number of ingredients; log a recipe by entering a serving weight and macros scale automatically
+- Clients can log their own nutrition and see their goal in the app
 
 ### Direct Messaging
-
-- [x] **Conversations list** — a dedicated Messages tab (both trainer and client navigators) shows all conversations, ordered by latest message; each card displays the other participant's name, message preview, and timestamp
-- [x] **Unread indicators** — conversations with unread messages are highlighted with a gold tint on the card and bold preview text; the Messages tab icon shows a coloured dot badge when any unread conversation exists (both trainer and client navigators); both the card highlight and the tab badge update instantly when a new message arrives without any manual refresh; dot and highlight disappear as soon as the conversation is opened
-- [x] **Start new conversation** — trainers can open a new conversation with any of their clients; clients can open conversations with their trainer; duplicate conversations are prevented (re-opens existing thread)
-- [x] **Message thread** — real-time chat view with sent/received bubble alignment; messages load in reverse-chronological order with infinite scroll; sent messages appear instantly for the sender via optimistic update (client-generated UUID deduplicates when the Realtime echo arrives); all other participants receive messages via Supabase Realtime
-- [x] **Reply/threading** — long-press any message to reply; replied-to message preview shown above the reply bubble; tapping the preview scrolls to the original message
-- [x] **Attachment system** — tap the paperclip icon to open the attachment picker modal; four tabs: Exercise, Workout, Assigned Workout, Guide; attached items render as tappable cards in the message bubble
-- [x] **Attachment deep-linking** — tapping an attached exercise opens its detail page (`/exercise/[id]`); tapping a guide opens the Exercises tab pre-scrolled to the matching guide topic (`?tab=guides&topic=<key>`); tapping an assigned workout routes trainers to the edit screen and clients to the read-only session view
-- [x] **Client attachment restrictions** — clients can only attach their own workouts and assigned workouts (picker filters by `client_id`); clients routed to read-only session view when tapping an assigned workout attachment (not the trainer edit screen)
-- [x] **Automatic session messages** — a system message is sent automatically when a session is requested, confirmed, or cancelled; messages appear in the conversation thread between trainer and client
-- [x] **Conversation search** — filter the conversations list by participant name in real time
-- [x] **Mark as read** — opening a conversation marks it as read via a server-side RPC (`mark_conversation_read`) that uses `NOW()` to avoid client/server clock skew; unread count and card state clear immediately via the filtered Realtime subscription
-
-### UI & Theme
-- [x] **Forced dark theme** — deep charcoal (`#111111`) background, `#1C1C1C` surfaces, gold (`#B88C32`) accents across iOS, Android, and Web
-- [x] Design token system (`constants/theme.ts`) — colors, spacing, typography, radius
-- [x] Thirty60 logo in app header and browser favicon
-- [x] Tab navigation (Clients, Exercises, Profile)
-- [x] Profile screen shows list of all other trainers on the platform; Change Password button
-- [x] FAB (floating action button) with label
-- [x] Safe back navigation — falls back to home if no navigation history (works on web direct links)
-- [x] **Name-based client URLs** — web routes use `/client/john-doe` instead of UUIDs; slug lookup with UUID fallback for backward compatibility
-- [x] **404 handling** — unmatched routes show a "Page not found" screen; with the Render SPA rewrite rule in place, refreshing any valid URL stays on that page instead of redirecting home
-- [x] Five-tab layout on client detail screen (Progress / Workouts / Nutrition / Media / Credits); Workouts tab label is plain "Workouts" (no count badge); defaults to the monthly calendar view with a calendar/list toggle; tapping a date navigates to the workout, assigned workout, or Schedule tab at the correct week
-- [x] Skia web initialization with CanvasKit CDN (charts work on web)
-- [x] Lazy-loaded chart section (CanvasKit loads before charts render)
+- Real-time chat between trainers and clients
+- Attach exercises, workouts, assigned workouts, or guide articles directly to a message
+- Reply to individual messages; tapping a reply scrolls back to the original
+- Unread conversations are highlighted and the Messages tab shows a badge until you open them
+- Booking confirmations, cancellations, and session requests automatically send a message in the relevant conversation
 
 ---
 
