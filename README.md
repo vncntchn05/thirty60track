@@ -20,7 +20,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Assign workout programs with scheduled dates
 - Weekly availability management + session scheduling
 - Grant session credits to clients
-- Community feed: post, react, comment, delete any post
+- Community feed: post, react, comment; delete any post
 - AI fitness trends tab with daily summaries and article links
 
 ### Client
