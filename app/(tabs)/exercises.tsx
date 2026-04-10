@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useExercises } from '@/hooks/useExercises';
+import { useFavourites } from '@/hooks/useFavourites';
 import { resolveGroupsFromQuery } from '@/lib/muscleSearch';
 import { TemplateEditor } from '@/components/workout/TemplateEditor';
 import { DbExerciseSection } from '@/components/workout/DbExerciseSection';
@@ -67,6 +68,7 @@ export default function ExercisesScreen() {
   const { role } = useAuth();
   const isTrainer = role === 'trainer';
   const { exercises, loading, error, createExercise } = useExercises();
+  const { favouriteExerciseIds, toggleFavourite } = useFavourites();
   const { tab: tabParam, topic: topicParam } = useLocalSearchParams<{ tab?: string; topic?: string }>();
   const [query, setQuery] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('none');
@@ -166,8 +168,14 @@ export default function ExercisesScreen() {
         return mg === mf || (mf === 'core' && mg === 'abs');
       });
     }
+    // Starred exercises float to the top within each section
+    base = [...base].sort((a, b) => {
+      const aFav = favouriteExerciseIds.has(a.id) ? 0 : 1;
+      const bFav = favouriteExerciseIds.has(b.id) ? 0 : 1;
+      return aFav - bFav;
+    });
     return buildSections(base, groupBy);
-  }, [exercises, query, groupBy, equipmentFilter, muscleFilter]);
+  }, [exercises, query, groupBy, equipmentFilter, muscleFilter, favouriteExerciseIds]);
 
   // Collapse all sections by default whenever groupBy changes to a grouped mode
   useEffect(() => {
@@ -550,7 +558,15 @@ export default function ExercisesScreen() {
                     </TouchableOpacity>
                   );
                 }}
-                renderItem={({ item }) => <ExerciseRow exercise={item} groupBy={groupBy} t={t} />}
+                renderItem={({ item }) => (
+                  <ExerciseRow
+                    exercise={item}
+                    groupBy={groupBy}
+                    t={t}
+                    isFavourite={favouriteExerciseIds.has(item.id)}
+                    onToggleFavourite={() => toggleFavourite('exercise', item.id)}
+                  />
+                )}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
                 ListEmptyComponent={
                   <Text style={[styles.emptyText, { color: t.textSecondary }]}>
@@ -629,7 +645,12 @@ export default function ExercisesScreen() {
 
 type Theme = ReturnType<typeof useTheme>;
 
-function ExerciseRow({ exercise, groupBy, t }: { exercise: Exercise; groupBy: GroupBy; t: Theme }) {
+function ExerciseRow({
+  exercise, groupBy, t, isFavourite, onToggleFavourite,
+}: {
+  exercise: Exercise; groupBy: GroupBy; t: Theme;
+  isFavourite: boolean; onToggleFavourite: () => void;
+}) {
   const router = useRouter();
   return (
     <TouchableOpacity
@@ -654,6 +675,13 @@ function ExerciseRow({ exercise, groupBy, t }: { exercise: Exercise; groupBy: Gr
           <Text style={[styles.categoryBadgeText, { color: t.textSecondary }]}>{exercise.equipment}</Text>
         </View>
       ) : null}
+      <TouchableOpacity onPress={onToggleFavourite} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Ionicons
+          name={isFavourite ? 'star' : 'star-outline'}
+          size={18}
+          color={isFavourite ? colors.primary : (t.textSecondary as string)}
+        />
+      </TouchableOpacity>
       <Ionicons name="chevron-forward" size={16} color={t.textSecondary as string} />
     </TouchableOpacity>
   );

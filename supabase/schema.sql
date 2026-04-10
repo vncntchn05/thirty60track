@@ -2076,3 +2076,21 @@ INSERT INTO workout_templates (name, split, subgroup, exercise_names) VALUES
        'Relaxation & Body Scan 5 min'])
 
 ON CONFLICT (name, split, subgroup) DO NOTHING;
+
+-- ─── Migration 023: User Favourites ───────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS user_favourites (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL DEFAULT auth.uid(),
+  item_type  TEXT NOT NULL CHECK (item_type IN ('exercise', 'template')),
+  item_id    UUID NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, item_type, item_id)
+);
+
+ALTER TABLE user_favourites ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own favourites" ON user_favourites
+  FOR ALL
+  USING  (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());

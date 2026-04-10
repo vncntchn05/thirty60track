@@ -472,3 +472,15 @@ export type ConversationWithDetails = Conversation & {
   last_message: DirectMessage | null;
   unread: boolean;
 };
+
+// ─── User Favourites (Migration 023) ─────────────────────────
+
+export type FavouriteItemType = 'exercise' | 'template';
+
+export type UserFavourite = {
+  id: string;
+  user_id: string;
+  item_type: FavouriteItemType;
+  item_id: string;
+  created_at: string;
+};

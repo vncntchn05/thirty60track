@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useExercises } from '@/hooks/useExercises';
+import { useFavourites } from '@/hooks/useFavourites';
 import { resolveGroupsFromQuery } from '@/lib/muscleSearch';
 import { DbExerciseSection } from '@/components/workout/DbExerciseSection';
 import { fetchExerciseDb, searchDbExercises, mapDbExercise } from '@/lib/exerciseDb';
@@ -42,6 +43,7 @@ type Props = {
 export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
   const t = useTheme();
   const { exercises, loading, error: loadError, createExercise } = useExercises();
+  const { favouriteExerciseIds, toggleFavourite } = useFavourites();
 
   const [query, setQuery] = useState('');
   const [muscleFilter, setMuscleFilter] = useState<string | null>(null);
@@ -143,6 +145,11 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
         mg.includes(q) ||
         resolvedGroups.some((g) => mg.includes(g))
       );
+    })
+    .sort((a, b) => {
+      const aFav = favouriteExerciseIds.has(a.id) ? 0 : 1;
+      const bFav = favouriteExerciseIds.has(b.id) ? 0 : 1;
+      return aFav - bFav;
     });
 
   // ── Create exercise form ─────────────────────────────────────────
@@ -358,25 +365,38 @@ export function ExercisePicker({ onSelect, onClose, existingIds }: Props) {
                 </View>
               </TouchableOpacity>
             }
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.exerciseRow, { backgroundColor: t.surface, borderColor: t.border }]}
-                onPress={() => onSelect(item)}
-              >
-                <View style={styles.exerciseInfo}>
-                  <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{item.name}</Text>
-                  {item.muscle_group
-                    ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.muscle_group}</Text>
-                    : null}
-                  {item.equipment
-                    ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.equipment}</Text>
-                    : null}
-                </View>
-                {existingIds?.has(item.id)
-                  ? <Text style={[styles.alreadyIn, { color: t.textSecondary }]}>in workout</Text>
-                  : <Ionicons name="add-circle-outline" size={22} color={colors.primary} />}
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              const isFav = favouriteExerciseIds.has(item.id);
+              return (
+                <TouchableOpacity
+                  style={[styles.exerciseRow, { backgroundColor: t.surface, borderColor: t.border }]}
+                  onPress={() => onSelect(item)}
+                >
+                  <View style={styles.exerciseInfo}>
+                    <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{item.name}</Text>
+                    {item.muscle_group
+                      ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.muscle_group}</Text>
+                      : null}
+                    {item.equipment
+                      ? <Text style={[styles.muscleGroup, { color: t.textSecondary }]}>{item.equipment}</Text>
+                      : null}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => toggleFavourite('exercise', item.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name={isFav ? 'star' : 'star-outline'}
+                      size={18}
+                      color={isFav ? colors.primary : (t.textSecondary as string)}
+                    />
+                  </TouchableOpacity>
+                  {existingIds?.has(item.id)
+                    ? <Text style={[styles.alreadyIn, { color: t.textSecondary }]}>in workout</Text>
+                    : <Ionicons name="add-circle-outline" size={22} color={colors.primary} />}
+                </TouchableOpacity>
+              );
+            }}
             ListEmptyComponent={
               loading ? (
                 <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useWorkoutTemplates } from '@/hooks/useWorkoutTemplates';
+import { useFavourites } from '@/hooks/useFavourites';
 import { type WorkoutTemplate } from '@/constants/workoutTemplates';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { getSuggestedSplits } from '@/constants/conditionKeywords';
@@ -109,10 +110,14 @@ function TemplateCard({
   tmpl,
   onSelect,
   highlightSubgroup,
+  isFavourite,
+  onToggleFavourite,
 }: {
   tmpl: WorkoutTemplate;
   onSelect: (t: WorkoutTemplate) => void;
   highlightSubgroup?: boolean;
+  isFavourite?: boolean;
+  onToggleFavourite?: () => void;
 }) {
   const t = useTheme();
   return (
@@ -130,6 +135,15 @@ function TemplateCard({
             </Text>
           )}
         </View>
+        {onToggleFavourite && (
+          <TouchableOpacity onPress={onToggleFavourite} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.starBtn}>
+            <Ionicons
+              name={isFavourite ? 'star' : 'star-outline'}
+              size={18}
+              color={isFavourite ? colors.primary : (t.textSecondary as string)}
+            />
+          </TouchableOpacity>
+        )}
         <View style={[styles.countBadge, { backgroundColor: colors.primary + '22' }]}>
           <Text style={[styles.countBadgeText, { color: colors.primary }]}>
             {tmpl.exerciseNames.length} exercises
@@ -163,6 +177,7 @@ function TemplateCard({
 export function TemplatePicker({ onSelect, onClose, clientIntake }: Props) {
   const t = useTheme();
   const { templates, loading, error } = useWorkoutTemplates();
+  const { favouriteTemplateIds, toggleFavourite } = useFavourites();
 
   const intakeText = buildIntakeText(clientIntake);
   const matchedKeys = intakeText ? getSuggestedSplits(intakeText) : new Set<string>();
@@ -175,6 +190,7 @@ export function TemplatePicker({ onSelect, onClose, clientIntake }: Props) {
     return matchedKeys.has(key);
   });
 
+  const starredTemplates = templates.filter((tmpl) => tmpl.id && favouriteTemplateIds.has(tmpl.id));
   const groups = groupTemplates(templates);
 
   return (
@@ -231,12 +247,32 @@ export function TemplatePicker({ onSelect, onClose, clientIntake }: Props) {
             </Text>
           </View>
           {suggestedTemplates.map((tmpl) => (
-            <TemplateCard key={tmpl.id} tmpl={tmpl} onSelect={onSelect} highlightSubgroup />
+            <TemplateCard
+              key={tmpl.id} tmpl={tmpl} onSelect={onSelect} highlightSubgroup
+              isFavourite={favouriteTemplateIds.has(tmpl.id)}
+              onToggleFavourite={() => toggleFavourite('template', tmpl.id)}
+            />
           ))}
         </ScrollView>
       ) : (
         /* ── All templates view ── */
         <ScrollView contentContainerStyle={styles.scroll}>
+          {starredTemplates.length > 0 && (
+            <View style={styles.splitSection}>
+              <Text style={[styles.splitHeader, { color: t.textPrimary, borderBottomColor: t.border }]}>
+                Starred
+              </Text>
+              <View style={styles.subgroupSection}>
+                {starredTemplates.map((tmpl) => (
+                  <TemplateCard
+                    key={tmpl.id} tmpl={tmpl} onSelect={onSelect} highlightSubgroup
+                    isFavourite={true}
+                    onToggleFavourite={() => toggleFavourite('template', tmpl.id)}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
           {groups.map(({ split, subgroups }) => (
             <View key={split} style={styles.splitSection}>
               <Text style={[styles.splitHeader, { color: t.textPrimary, borderBottomColor: t.border }]}>
@@ -251,7 +287,11 @@ export function TemplatePicker({ onSelect, onClose, clientIntake }: Props) {
                     </Text>
                   )}
                   {items.map((tmpl) => (
-                    <TemplateCard key={tmpl.id} tmpl={tmpl} onSelect={onSelect} />
+                    <TemplateCard
+                      key={tmpl.id} tmpl={tmpl} onSelect={onSelect}
+                      isFavourite={favouriteTemplateIds.has(tmpl.id)}
+                      onToggleFavourite={() => toggleFavourite('template', tmpl.id)}
+                    />
                   ))}
                 </View>
               ))}
@@ -341,6 +381,7 @@ const styles = StyleSheet.create({
   cardTopLeft: { flex: 1 },
   cardName: { ...typography.body, fontWeight: '600' },
   cardMeta: { ...typography.bodySmall, marginTop: 2 },
+  starBtn: { padding: 2 },
   countBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
