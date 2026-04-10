@@ -425,6 +425,7 @@ export default function NewWorkoutScreen() {
       <TemplatePicker
         onSelect={handleSelectTemplate}
         onClose={() => setShowTemplatePicker(false)}
+        clientIntake={intake}
       />
     );
   }

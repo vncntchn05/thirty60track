@@ -1,12 +1,16 @@
+import { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useWorkoutTemplates } from '@/hooks/useWorkoutTemplates';
 import { type WorkoutTemplate } from '@/constants/workoutTemplates';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { getSuggestedSplits } from '@/constants/conditionKeywords';
+import type { ClientIntake } from '@/types';
 
 type Props = {
   onSelect: (template: WorkoutTemplate) => void;
   onClose: () => void;
+  clientIntake?: ClientIntake | null;
 };
 
 // ─── Display ordering ────────────────────────────────────────
@@ -16,6 +20,11 @@ const SPLIT_ORDER = [
   'Upper / Lower',
   'Push / Pull / Legs',
   'Abs & Core',
+  'Metabolic & Chronic Disease',
+  'Musculoskeletal & Orthopedic',
+  'Postural Deviations',
+  'Special Populations',
+  'Neurological & Mental Health',
 ];
 
 const SUBGROUP_ORDER: Record<string, string[]> = {
@@ -23,6 +32,21 @@ const SUBGROUP_ORDER: Record<string, string[]> = {
   'Upper / Lower':      ['Upper', 'Lower'],
   'Push / Pull / Legs': ['Push', 'Pull', 'Legs'],
   'Abs & Core':         ['Core Fundamentals', 'Ab Circuits'],
+  'Metabolic & Chronic Disease': [
+    'Diabetes & Obesity', 'Hypertension & High Cholesterol',
+    'Cardiac Rehabilitation', 'COPD & Respiratory',
+  ],
+  'Musculoskeletal & Orthopedic': [
+    'Sciatica & Lower Back Pain', 'Arthritis & Joint Replacements',
+    'Osteoporosis', 'Shoulder Impingement & Rotator Cuff', 'Knee Rehabilitation',
+  ],
+  'Postural Deviations': ['Upper Crossed Syndrome', 'Lower Crossed Syndrome & Scoliosis'],
+  'Special Populations': [
+    'Elderly (Seniors)', 'Prenatal & Postpartum', 'Cancer Survivors', 'Hypermobility & EDS',
+  ],
+  'Neurological & Mental Health': [
+    'MS / Parkinson\'s / Fibromyalgia', 'Anxiety & Depression', 'Chronic Fatigue & Post-COVID',
+  ],
 };
 
 // ─── Two-level grouping ───────────────────────────────────────
@@ -31,7 +55,6 @@ type SubgroupEntry = { subgroup: string; items: WorkoutTemplate[] };
 type SplitEntry    = { split: string; subgroups: SubgroupEntry[] };
 
 function groupTemplates(templates: WorkoutTemplate[]): SplitEntry[] {
-  // Build nested map: split → subgroup → items
   const map = new Map<string, Map<string, WorkoutTemplate[]>>();
   for (const tmpl of templates) {
     const s = tmpl.split    ?? 'Other';
@@ -48,7 +71,6 @@ function groupTemplates(templates: WorkoutTemplate[]): SplitEntry[] {
     for (const g of order) {
       if (inner.has(g)) result.push({ subgroup: g, items: inner.get(g)! });
     }
-    // Append any subgroups not in SUBGROUP_ORDER
     for (const [g, items] of inner) {
       if (!order.includes(g)) result.push({ subgroup: g, items });
     }
@@ -62,23 +84,102 @@ function groupTemplates(templates: WorkoutTemplate[]): SplitEntry[] {
       map.delete(split);
     }
   }
-  // Append splits not in SPLIT_ORDER
   for (const [split, inner] of map) {
     result.push({ split, subgroups: orderedSubgroups(split, inner) });
   }
   return result;
 }
 
+// ─── Intake text helper ───────────────────────────────────────
+
+function buildIntakeText(intake: ClientIntake | null | undefined): string {
+  if (!intake) return '';
+  return [
+    intake.chronic_conditions ?? '',
+    intake.current_injuries ?? '',
+    intake.past_injuries ?? '',
+    intake.medications ?? '',
+    intake.goals ?? '',
+  ].join(' ');
+}
+
+// ─── Template Card ────────────────────────────────────────────
+
+function TemplateCard({
+  tmpl,
+  onSelect,
+  highlightSubgroup,
+}: {
+  tmpl: WorkoutTemplate;
+  onSelect: (t: WorkoutTemplate) => void;
+  highlightSubgroup?: boolean;
+}) {
+  const t = useTheme();
+  return (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}
+      onPress={() => onSelect(tmpl)}
+      activeOpacity={0.75}
+    >
+      <View style={styles.cardTop}>
+        <View style={styles.cardTopLeft}>
+          <Text style={[styles.cardName, { color: t.textPrimary }]}>{tmpl.name}</Text>
+          {highlightSubgroup && tmpl.subgroup && (
+            <Text style={[styles.cardMeta, { color: colors.primary }]}>
+              {tmpl.split} · {tmpl.subgroup}
+            </Text>
+          )}
+        </View>
+        <View style={[styles.countBadge, { backgroundColor: colors.primary + '22' }]}>
+          <Text style={[styles.countBadgeText, { color: colors.primary }]}>
+            {tmpl.exerciseNames.length} exercises
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.exerciseList}>
+        {tmpl.exerciseNames.slice(0, 5).map((name, i) => (
+          <Text key={i} style={[styles.exerciseName, { color: t.textSecondary }]} numberOfLines={1}>
+            {i + 1}. {name}
+          </Text>
+        ))}
+        {tmpl.exerciseNames.length > 5 && (
+          <Text style={[styles.exerciseName, { color: t.textSecondary }]}>
+            +{tmpl.exerciseNames.length - 5} more…
+          </Text>
+        )}
+      </View>
+
+      <View style={[styles.cardFooter, { borderTopColor: t.border }]}>
+        <Text style={[styles.selectLabel, { color: colors.primary }]}>Load this template</Text>
+        <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────
 
-export function TemplatePicker({ onSelect, onClose }: Props) {
+export function TemplatePicker({ onSelect, onClose, clientIntake }: Props) {
   const t = useTheme();
   const { templates, loading, error } = useWorkoutTemplates();
+
+  const intakeText = buildIntakeText(clientIntake);
+  const matchedKeys = intakeText ? getSuggestedSplits(intakeText) : new Set<string>();
+  const hasSuggestions = matchedKeys.size > 0;
+
+  const [tab, setTab] = useState<'all' | 'suggested'>(hasSuggestions ? 'suggested' : 'all');
+
+  const suggestedTemplates = templates.filter((tmpl) => {
+    const key = `${tmpl.split ?? ''}|||${tmpl.subgroup ?? ''}`;
+    return matchedKeys.has(key);
+  });
 
   const groups = groupTemplates(templates);
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
+      {/* Header */}
       <View style={[styles.header, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
         <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="close" size={24} color={t.textPrimary as string} />
@@ -87,11 +188,54 @@ export function TemplatePicker({ onSelect, onClose }: Props) {
         <View style={styles.closeBtn} />
       </View>
 
+      {/* Tab bar — only show when there are suggestions */}
+      {hasSuggestions && (
+        <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+          <TouchableOpacity
+            style={[styles.tab, tab === 'suggested' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+            onPress={() => setTab('suggested')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="star"
+              size={13}
+              color={tab === 'suggested' ? colors.primary : (t.textSecondary as string)}
+            />
+            <Text style={[styles.tabLabel, { color: tab === 'suggested' ? colors.primary : t.textSecondary }]}>
+              Suggested ({suggestedTemplates.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, tab === 'all' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+            onPress={() => setTab('all')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabLabel, { color: tab === 'all' ? colors.primary : t.textSecondary }]}>
+              All Templates
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
       ) : error ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+      ) : tab === 'suggested' && hasSuggestions ? (
+        /* ── Suggested view ── */
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <View style={[styles.suggestBanner, { backgroundColor: colors.primary + '14', borderColor: colors.primary + '40' }]}>
+            <Ionicons name="medical" size={14} color={colors.primary} />
+            <Text style={[styles.suggestBannerText, { color: colors.primary }]}>
+              Matched to this client's health conditions
+            </Text>
+          </View>
+          {suggestedTemplates.map((tmpl) => (
+            <TemplateCard key={tmpl.id} tmpl={tmpl} onSelect={onSelect} highlightSubgroup />
+          ))}
+        </ScrollView>
       ) : (
+        /* ── All templates view ── */
         <ScrollView contentContainerStyle={styles.scroll}>
           {groups.map(({ split, subgroups }) => (
             <View key={split} style={styles.splitSection}>
@@ -106,43 +250,8 @@ export function TemplatePicker({ onSelect, onClose }: Props) {
                       {subgroup}
                     </Text>
                   )}
-
                   {items.map((tmpl) => (
-                    <TouchableOpacity
-                      key={tmpl.id}
-                      style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}
-                      onPress={() => onSelect(tmpl)}
-                      activeOpacity={0.75}
-                    >
-                      <View style={styles.cardTop}>
-                        <View style={styles.cardTopLeft}>
-                          <Text style={[styles.cardName, { color: t.textPrimary }]}>{tmpl.name}</Text>
-                        </View>
-                        <View style={[styles.countBadge, { backgroundColor: colors.primary + '22' }]}>
-                          <Text style={[styles.countBadgeText, { color: colors.primary }]}>
-                            {tmpl.exerciseNames.length} exercises
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.exerciseList}>
-                        {tmpl.exerciseNames.slice(0, 5).map((name, i) => (
-                          <Text key={i} style={[styles.exerciseName, { color: t.textSecondary }]} numberOfLines={1}>
-                            {i + 1}. {name}
-                          </Text>
-                        ))}
-                        {tmpl.exerciseNames.length > 5 && (
-                          <Text style={[styles.exerciseName, { color: t.textSecondary }]}>
-                            +{tmpl.exerciseNames.length - 5} more…
-                          </Text>
-                        )}
-                      </View>
-
-                      <View style={[styles.cardFooter, { borderTopColor: t.border }]}>
-                        <Text style={[styles.selectLabel, { color: colors.primary }]}>Load this template</Text>
-                        <Ionicons name="arrow-forward" size={16} color={colors.primary} />
-                      </View>
-                    </TouchableOpacity>
+                    <TemplateCard key={tmpl.id} tmpl={tmpl} onSelect={onSelect} />
                   ))}
                 </View>
               ))}
@@ -166,6 +275,32 @@ const styles = StyleSheet.create({
   },
   closeBtn: { width: 32 },
   title: { ...typography.heading3, fontWeight: '700' },
+
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    paddingHorizontal: spacing.md,
+  },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginRight: spacing.xs,
+  },
+  tabLabel: { ...typography.bodySmall, fontWeight: '600' },
+
+  suggestBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  suggestBannerText: { ...typography.bodySmall, fontWeight: '600', flex: 1 },
 
   scroll: { padding: spacing.md, paddingBottom: spacing.xxl },
   errorText: { ...typography.body, textAlign: 'center', margin: spacing.xl },
@@ -205,6 +340,7 @@ const styles = StyleSheet.create({
   },
   cardTopLeft: { flex: 1 },
   cardName: { ...typography.body, fontWeight: '600' },
+  cardMeta: { ...typography.bodySmall, marginTop: 2 },
   countBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,

@@ -1800,3 +1800,279 @@ CREATE POLICY "workout_sets: trainer all" ON workout_sets
 
 CREATE POLICY "clients: trainer read" ON clients
   FOR SELECT USING  (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+-- ─── Migration 022: Clinical Workout Templates ────────────────
+-- Seed condition-specific workout templates organised into five
+-- clinical groups. ON CONFLICT DO NOTHING is safe to re-run.
+-- split  = top-level group (e.g. 'Metabolic & Chronic Disease')
+-- subgroup = condition name (e.g. 'Diabetes & Obesity')
+
+INSERT INTO workout_templates (name, split, subgroup, exercise_names) VALUES
+
+-- ── Metabolic & Chronic Disease ───────────────────────────────
+
+('Strength-Based Glucose Clearance',
+ 'Metabolic & Chronic Disease', 'Diabetes & Obesity',
+ ARRAY['Goblet Squat 3×12–15','Dumbbell Chest Press 3×12','Seated Cable Row 3×15',
+       'Reverse Lunges 3×10/side','Dumbbell Overhead Press 3×12',
+       'Forearm Plank 3×45 sec','Farmers Carry 3×40 yards']),
+
+('Low-Impact Metabolic Circuit',
+ 'Metabolic & Chronic Disease', 'Diabetes & Obesity',
+ ARRAY['Incline Treadmill Walk 5 min (warm-up)','Step-ups 3×15/side',
+       'Battle Ropes 3×30 sec','Wall Push-ups 3×15',
+       'Medicine Ball Slams 3×12','Dead Bug 3×12',
+       'Stationary Bike 5 min (cool-down)']),
+
+('Aerobic Resistance Training',
+ 'Metabolic & Chronic Disease', 'Hypertension & High Cholesterol',
+ ARRAY['Leg Press 3×20 (high rep, low weight)','Lat Pulldown 3×15',
+       'Seated Leg Curls 3×15','Machine Chest Press 3×15',
+       'Standing Calf Raises 3×20','Bicep Curls 3×15',
+       'Steady-State Walking 10 min']),
+
+('Cardiovascular Health & Flow',
+ 'Metabolic & Chronic Disease', 'Hypertension & High Cholesterol',
+ ARRAY['Cat-Cow 10 reps','Shadow Boxing 3×1 min',
+       'Bodyweight Squats 3×15','Resistance Band Rows 3×20',
+       'Bird-Dog 3×8/side','Wall Slides 3×12',
+       'Diaphragmatic Breathing 3 min']),
+
+('Phase II Supervised Resistance',
+ 'Metabolic & Chronic Disease', 'Cardiac Rehabilitation',
+ ARRAY['Warm-Up Walking 10 min','Stationary Cycling 15 min',
+       'Bicep Curls 2×10','Machine Shoulder Press 2×10',
+       'Leg Press 2×10','Seated Cable Row 2×10',
+       'Leg Extension 2×10','Machine Chest Press 2×10']),
+
+('Home-Based Cardiac Maintenance',
+ 'Metabolic & Chronic Disease', 'Cardiac Rehabilitation',
+ ARRAY['Walking 30 min','Resistance Band Bicep Curls 2×12',
+       'Resistance Band Chest Press 2×12','Resistance Band Shoulder Press 2×12',
+       'Bodyweight Squats 2×12','Resistance Band Rows 2×12',
+       'Wall Push-ups 2×10','Standing Calf Raises 2×15']),
+
+('COPD Aerobic Endurance Protocol',
+ 'Metabolic & Chronic Disease', 'COPD & Respiratory',
+ ARRAY['Treadmill Walking 20 min (RPE 4–6)','Stationary Cycling 15 min easy',
+       'Step-ups 3×8 (30 sec work / 30 sec rest)','Resistance Band Rows 2×12',
+       'Seated Leg Extensions 2×12','Pursed-Lip Breathing throughout',
+       'Cool-Down Walk 5 min']),
+
+('COPD Interval Training Protocol',
+ 'Metabolic & Chronic Disease', 'COPD & Respiratory',
+ ARRAY['Interval Cycling 30 sec/30 sec × 10 rounds','Interval Walking incline',
+       'Resistance Band Rows 3×10','Leg Press 2×10',
+       'Seated Chest Press 2×10','Bicep Curls 2×12',
+       'Cool-Down Walking 5 min']),
+
+-- ── Musculoskeletal & Orthopedic ──────────────────────────────
+
+('Lumbar Stabilization (The Big 3)',
+ 'Musculoskeletal & Orthopedic', 'Sciatica & Lower Back Pain',
+ ARRAY['Cat-Cow Stretch 10 reps','McGill Curl-Up 3×10 sec holds',
+       'Side Plank 3×30 sec/side','Bird-Dog 3×8/side',
+       'Glute Bridge 3×12','Pallof Press 3×10/side',
+       'Child''s Pose Decompression 2 min']),
+
+('Hip Mobility & Nerve Gliding',
+ 'Musculoskeletal & Orthopedic', 'Sciatica & Lower Back Pain',
+ ARRAY['Seated Sciatic Nerve Glide 15 reps/side','90/90 Hip Switches 3×10',
+       'Clamshells 3×15/side','Single-Leg RDL Bodyweight 3×10/side',
+       'Hip Flexor Stretch Half-Kneeling 45 sec/side',
+       'Wall Dead Bug 3×10','Figure-4 Glute Stretch 1 min/side']),
+
+('Joint Lubrication & Strength',
+ 'Musculoskeletal & Orthopedic', 'Arthritis & Joint Replacements',
+ ARRAY['Leg Extensions Machine 3×15 controlled','Seated Rows Neutral Grip 3×15',
+       'Hamstring Curls Machine 3×15','Scapular Squeezes 3×15',
+       'Wall Sits Partial Depth 3×30 sec','Seated Chest Fly Machine 3×15',
+       'Wrist & Ankle Circles 1 min each']),
+
+('Low-Impact Functional Movement',
+ 'Musculoskeletal & Orthopedic', 'Arthritis & Joint Replacements',
+ ARRAY['Sit-to-Stand Chair 3×12','Incline Push-up 3×12',
+       'Resistance Band Pull-aparts 3×20','Step-ups 4-inch box 3×10/side',
+       'Standing Side Leg Lifts 3×15/side','Face Pulls 3×15',
+       'Static Quad Sets 10×5 sec holds']),
+
+('Weight-Bearing Bone Loading',
+ 'Musculoskeletal & Orthopedic', 'Osteoporosis',
+ ARRAY['Bodyweight Squats 3×12','Dumbbell Floor Press 3×12',
+       'Standing Dumbbell Rows 3×12','Weighted Step-ups 3×10/side',
+       'Dumbbell Curl to Overhead Press 3×10',
+       'Standing Heel Raises 3×20','Wall Push-ups 3×15']),
+
+('Balance & Bone Density',
+ 'Musculoskeletal & Orthopedic', 'Osteoporosis',
+ ARRAY['Single-Leg Balance 3×30 sec/side','Tandem Walk 3×15 steps',
+       'Resistance Band Lat Pulldown 3×15',
+       'Medicine Ball Chest Pass Light 3×12',
+       'Side-to-Side Step Touches 3×30 sec',
+       'Modified Bird-Dog 3×10','Tai Chi Lunges 10 reps']),
+
+('Rotator Cuff Early-Phase Stabilization',
+ 'Musculoskeletal & Orthopedic', 'Shoulder Impingement & Rotator Cuff',
+ ARRAY['Pendulum Swings 2×10','Crossover Arm Stretch 4×30 sec/side',
+       'Sleeper Stretch 4×30 sec/side','Scapular Setting 3×10',
+       'Isometric External Rotation 3×8','Isometric Internal Rotation 3×8',
+       'Prone Horizontal Abduction 3×8']),
+
+('Rotator Cuff Progressive Strengthening',
+ 'Musculoskeletal & Orthopedic', 'Shoulder Impingement & Rotator Cuff',
+ ARRAY['Full-Can Scaption Thumb-Up 3×10','Standing External Rotation 3×10',
+       'Standing Internal Rotation 3×10','Standing Row 3×10',
+       'Prone Y Raise 3×10','Face Pulls 3×12',
+       'Bent-Over Horizontal Abduction 3×10']),
+
+('Knee Rehab Phase I Mobility & Quad Activation',
+ 'Musculoskeletal & Orthopedic', 'Knee Rehabilitation',
+ ARRAY['Ankle Pumps 15 reps every hour','Heel Slides 3×15',
+       'Quad Sets 3×12 (5 sec hold)','Straight Leg Raises 3×12',
+       'Hamstring Sets 3×12 (6 sec hold)',
+       'Double-Leg Quarter Squats 3×10','Knee Extension Stretch 20 min']),
+
+('Knee Rehab Phase II Strength Progression',
+ 'Musculoskeletal & Orthopedic', 'Knee Rehabilitation',
+ ARRAY['Quad Sets 3×12 (5 sec hold)','Side-Lying Hip Abduction 3×12',
+       'Straight Leg Raises with Resistance 3×12',
+       'Double-Leg Quarter Squats 3×10',
+       'Terminal Knee Extension Band 3×12','Single-Leg Heel Raises 2×12',
+       'Hamstring Curls Band or Prone 2×12']),
+
+-- ── Postural Deviations ───────────────────────────────────────
+
+('Posterior Chain Awakening',
+ 'Postural Deviations', 'Upper Crossed Syndrome',
+ ARRAY['Chin Tucks 3×12','Prone Y-T-W Raises 3×10 each',
+       'Face Pulls 3×15','Seated Cable Row High Elbows 3×12',
+       'Doorway Chest Stretch 3×45 sec',
+       'Resistance Band Pull-aparts 3×20']),
+
+('Vertical Integrity',
+ 'Postural Deviations', 'Upper Crossed Syndrome',
+ ARRAY['Wall Slides 3×12','Dead Bug Arms Overhead 3×10',
+       'Farmers Carry Tall Spine 3×30 yards','Scapular Push-ups 3×12',
+       'Single-Arm Dumbbell Row 3×12/side','Pec Minor Release 1 min/side']),
+
+('Anterior Core & Glutes',
+ 'Postural Deviations', 'Lower Crossed Syndrome & Scoliosis',
+ ARRAY['Dead Bug 3×12','Glute Bridge with Band 3×15',
+       'Plank with Knee Taps 3×12','Hip Flexor Stretch Half-Kneeling 1 min/side',
+       'Single-Leg Bridge 3×10/side','Bird-Dog 3×12',
+       'Goblet Squat Neutral Pelvis 3×12']),
+
+('Scoliosis Asymmetry Focus',
+ 'Postural Deviations', 'Lower Crossed Syndrome & Scoliosis',
+ ARRAY['Side Plank Weak Side 2:1 ratio 3×30 sec',
+       'Bird-Dog Leg Extension Focus 3×10',
+       'Single-Arm Lat Pulldown 3×12/side',
+       'Standing Single-Arm Press 3×10/side',
+       'Pallof Press 3×12/side','Seated Torso Rotation Controlled 3×10/side',
+       'Child''s Pose with Side Reach 1 min/side']),
+
+-- ── Special Populations ───────────────────────────────────────
+
+('Functional Independence',
+ 'Special Populations', 'Elderly (Seniors)',
+ ARRAY['Chair Squats 3×12','Wall Push-ups 3×12',
+       'Seated Resistance Band Rows 3×15','Standing Heel Raises 3×15',
+       'Single-Leg Balance Wall Support 3×30 sec/side',
+       'Modified Dead Bug 3×10']),
+
+('Fall Prevention & Mobility',
+ 'Special Populations', 'Elderly (Seniors)',
+ ARRAY['Tandem Stance 3×30 sec/side','Step-ups Low Step 3×10/side',
+       'Resistance Band Bicep Curls 3×15','Wall Slides 3×12',
+       'Hip Abduction Standing 3×15/side','Seated Leg Extensions 3×15']),
+
+('Safe Core & Pelvic Stability',
+ 'Special Populations', 'Prenatal & Postpartum',
+ ARRAY['Pelvic Tilts 3×15','Clamshells 3×15/side',
+       'Bird-Dog 3×10','Incline Push-ups 3×12',
+       'Glute Bridges 3×12','Cat-Cow 10 reps']),
+
+('Postural Re-alignment',
+ 'Special Populations', 'Prenatal & Postpartum',
+ ARRAY['Seated Row Band or Cable 3×15','Reverse Lunges 3×10/side',
+       'Wall Slides 3×10','Squat to Box 3×12',
+       'Side-Lying Hip Abduction 3×15/side',
+       'Hip Flexor & Chest Stretch 1 min each']),
+
+('Oncology Combined Aerobic & Resistance',
+ 'Special Populations', 'Cancer Survivors',
+ ARRAY['Treadmill Walking 20 min (60–80% HRmax)',
+       'Machine Chest Press 2×10','Leg Press 2×10',
+       'Seated Row 2×10','Machine Shoulder Press 2×10',
+       'Bicep Curls 2×12','Hamstring Curls 2×12']),
+
+('Oncology Fatigue Management Circuit',
+ 'Special Populations', 'Cancer Survivors',
+ ARRAY['Walking 20 min comfortable pace','Stationary Cycling 15 min light',
+       'Resistance Band Chest Fly 2×15','Resistance Band Rows 2×15',
+       'Side-Lying Leg Lifts 2×12/side','Arm Circles & Shoulder Mobility 3 min']),
+
+('Hypermobility Foundational Strength',
+ 'Special Populations', 'Hypermobility & EDS',
+ ARRAY['Sit-to-Stand Controlled 2×10','Resistance Band Knee Extension 2×12',
+       'Side-Lying Hip Abduction 2×12','Wall Push-ups 2×10',
+       'Resistance Band Rows 2×12',
+       'Bodyweight Quarter Squat 2×10','Plank Modified 2×20 sec',
+       'Bicep Curls Light 2×12']),
+
+('Hypermobility Proprioceptive Training',
+ 'Special Populations', 'Hypermobility & EDS',
+ ARRAY['Single-Leg Balance Eyes Open 3×30 sec/side',
+       'Single-Leg Balance Eyes Closed 2×15 sec/side',
+       'Wobble Board Balance 2×30 sec','Seated Gym Ball Balance 3 min',
+       'Slow Lateral Weight Shifts 2×20','Gentle Walking 20 min',
+       'Stationary Cycling 15 min light resistance']),
+
+-- ── Neurological & Mental Health ──────────────────────────────
+
+('Coordination & Stability Circuit',
+ 'Neurological & Mental Health', 'MS / Parkinson''s / Fibromyalgia',
+ ARRAY['Marching in Place High Knees 3×45 sec',
+       'Seated Medicine Ball Twists 3×12/side','Wall Push-ups 3×12',
+       'Opposite Arm Leg Reach Seated 3×12',
+       'Step-ups Slow and Controlled 3×8/side',
+       'Resistance Band Rows 3×15']),
+
+('Low-Impact Mobility & Fatigue Management',
+ 'Neurological & Mental Health', 'MS / Parkinson''s / Fibromyalgia',
+ ARRAY['Cat-Cow 10 reps','Bird-Dog Modified 3×8',
+       'Glute Bridges 3×12','Seated Leg Extensions 3×12',
+       'Doorway Chest Stretch 45 sec',
+       'Modified Child''s Pose 1 min','Relaxation Breathwork 3 min']),
+
+('Aerobic-Focused Depression & Anxiety Protocol',
+ 'Neurological & Mental Health', 'Anxiety & Depression',
+ ARRAY['Treadmill Walking 30 min (60–80% HRmax)',
+       'Stationary Cycling 20 min moderate','Bodyweight Squats 3×15',
+       'Resistance Band Rows 3×15','Elliptical Trainer 15 min',
+       'Deep Breathing Cool-Down 5 min']),
+
+('Calming Low-Intensity Circuit',
+ 'Neurological & Mental Health', 'Anxiety & Depression',
+ ARRAY['Gentle Stationary Cycling 20 min',
+       'Resistance Band Chest Press 2×15','Resistance Band Rows 2×15',
+       'Bodyweight Squats 2×15','Seated Forward Fold Stretch 30 sec',
+       'Diaphragmatic Breathing 3 min',
+       'Progressive Muscle Relaxation 5 min']),
+
+('Energy Envelope Protocol',
+ 'Neurological & Mental Health', 'Chronic Fatigue & Post-COVID',
+ ARRAY['Gentle Walking 10–15 min (stop before fatigue)',
+       'Lying Stretches 5 min slow','Seated Arm Circles 5 min',
+       'Diaphragmatic Breathing 3 min 2×/day',
+       'Seated Knee Extensions 5 min gentle',
+       'Rest Periods Between Every Set']),
+
+('Graduated Return to Exercise',
+ 'Neurological & Mental Health', 'Chronic Fatigue & Post-COVID',
+ ARRAY['Walking 10–20 min easy pace','Gentle Full-Body Stretching 10 min',
+       'Deep Breathing Exercises 5 min','Stationary Cycling 10 min easy',
+       'Resistance Band Work 2×10 light','Single-Leg Balance 2×20 sec/side',
+       'Relaxation & Body Scan 5 min'])
+
+ON CONFLICT (name, split, subgroup) DO NOTHING;
