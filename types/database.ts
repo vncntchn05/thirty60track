@@ -484,3 +484,75 @@ export type UserFavourite = {
   item_id: string;
   created_at: string;
 };
+
+// ─── Community Feed & AI Trend Summaries (Migration 024) ─────
+
+export type ReactionType = 'like' | 'fire' | 'clap';
+
+export type FeedPost = {
+  id: string;
+  author_id: string;
+  author_role: 'trainer' | 'client';
+  author_name: string;
+  body: string;
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FeedReaction = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  reaction_type: ReactionType;
+  created_at: string;
+};
+
+export type FeedComment = {
+  id: string;
+  post_id: string;
+  author_id: string;
+  author_role: 'trainer' | 'client';
+  author_name: string;
+  body: string;
+  created_at: string;
+};
+
+/** FeedPost enriched with reactions and comment count, used in the feed list. */
+export type FeedPostWithMeta = FeedPost & {
+  reactions: FeedReaction[];
+  comment_count: number;
+  my_reaction: ReactionType | null;
+};
+
+export type InsertFeedPost = {
+  body: string;
+  author_role: 'trainer' | 'client';
+  author_name: string;
+  image_url?: string | null;
+};
+
+export type InsertFeedComment = {
+  post_id: string;
+  body: string;
+  author_role: 'trainer' | 'client';
+  author_name: string;
+};
+
+// ─── AI Trend Summaries ───────────────────────────────────────
+
+export type TrendItem = {
+  title: string;
+  description: string;
+  url?: string;
+};
+
+export type TrendSummary = {
+  id: string;
+  date: string; // 'YYYY-MM-DD'
+  headline: string;
+  trends: TrendItem[];  // stored as JSONB
+  tip_of_day: string;
+  sources_note: string;
+  created_at: string;
+};

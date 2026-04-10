@@ -2094,3 +2094,91 @@ CREATE POLICY "Users manage own favourites" ON user_favourites
   FOR ALL
   USING  (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
+
+-- ─── Migration 024: Community Feed & AI Trends ────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS feed_posts (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_id   UUID        NOT NULL DEFAULT auth.uid(),
+  author_role TEXT        NOT NULL CHECK (author_role IN ('trainer', 'client')),
+  author_name TEXT        NOT NULL,
+  body        TEXT        NOT NULL,
+  image_url   TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS feed_reactions (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id       UUID        NOT NULL REFERENCES feed_posts(id) ON DELETE CASCADE,
+  user_id       UUID        NOT NULL DEFAULT auth.uid(),
+  reaction_type TEXT        NOT NULL CHECK (reaction_type IN ('like', 'fire', 'clap')),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (post_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS feed_comments (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id     UUID        NOT NULL REFERENCES feed_posts(id) ON DELETE CASCADE,
+  author_id   UUID        NOT NULL DEFAULT auth.uid(),
+  author_role TEXT        NOT NULL CHECK (author_role IN ('trainer', 'client')),
+  author_name TEXT        NOT NULL,
+  body        TEXT        NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS trend_summaries (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  date         DATE        NOT NULL UNIQUE,
+  headline     TEXT        NOT NULL,
+  trends       JSONB       NOT NULL DEFAULT '[]',
+  tip_of_day   TEXT        NOT NULL,
+  sources_note TEXT        NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS feed_posts_created_at_idx    ON feed_posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS feed_reactions_post_id_idx   ON feed_reactions(post_id);
+CREATE INDEX IF NOT EXISTS feed_comments_post_id_idx    ON feed_comments(post_id);
+CREATE INDEX IF NOT EXISTS trend_summaries_date_idx     ON trend_summaries(date DESC);
+
+-- updated_at trigger for feed_posts
+CREATE OR REPLACE FUNCTION update_feed_post_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$;
+DROP TRIGGER IF EXISTS trg_feed_posts_updated_at ON feed_posts;
+CREATE TRIGGER trg_feed_posts_updated_at
+  BEFORE UPDATE ON feed_posts
+  FOR EACH ROW EXECUTE FUNCTION update_feed_post_updated_at();
+
+-- RLS
+ALTER TABLE feed_posts      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feed_reactions  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feed_comments   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trend_summaries ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users read feed posts"
+  ON feed_posts FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users create feed posts"
+  ON feed_posts FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Authors delete own feed posts"
+  ON feed_posts FOR DELETE USING (author_id = auth.uid());
+
+CREATE POLICY "Authenticated users read reactions"
+  ON feed_reactions FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users manage own reactions"
+  ON feed_reactions FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Authenticated users read comments"
+  ON feed_comments FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users create comments"
+  ON feed_comments FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Authors delete own comments"
+  ON feed_comments FOR DELETE USING (author_id = auth.uid());
+
+CREATE POLICY "Authenticated users read trends"
+  ON trend_summaries FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users insert trends"
+  ON trend_summaries FOR INSERT WITH CHECK (auth.role() = 'authenticated');
