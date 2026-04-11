@@ -18,6 +18,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Client detail: info, body metrics, progress charts, workout history
 - Log workouts (multi-exercise builder with sets/reps/weight)
 - Assign workout programs with scheduled dates
+- Workout template library: 36 clinical templates across 5 speciality splits (Metabolic & Chronic Disease, Musculoskeletal & Orthopedic, Postural Deviations, Neurological & Mental Health, Special Populations)
 - Weekly availability management + session scheduling
 - Grant session credits to clients
 - Community feed: post, react, comment; delete any post
@@ -59,7 +60,7 @@ lib/
   anthropic.ts      — fetchOrGenerateTrend, generateTrendSummary (delegates to Edge Function)
 supabase/
   schema.sql        — source-of-truth DDL (all migrations inline)
-  seed.sql          — exercise library (30 exercises)
+  seed.sql          — exercise library (200+ exercises across all muscle groups)
   functions/
     generate-trend/ — Deno Edge Function: calls Anthropic API server-side, returns trend JSON
 types/
@@ -94,6 +95,8 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` for the exercise library.
 
+`schema.sql` includes all migrations in sequence (M001–M025). The final migration (M025) expands the exercise library to 200+ exercises and ensures all clinical workout template exercise names are clean base names (no set/rep prescriptions embedded in the name).
+
 Create a public storage bucket named `feed-images` in the Supabase dashboard.
 
 ### 4. Deploy the AI trends Edge Function
@@ -109,6 +112,50 @@ supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 
 ```bash
 npx expo start
+```
+
+## Exercise Library & Workout Templates
+
+### Exercise Library
+
+`seed.sql` seeds 200+ exercises covering all major muscle groups and movement patterns. Each exercise has a `name`, `muscle_group`, and `category` (`strength`, `cardio`, `flexibility`, `plyometric`, etc.).
+
+### Clinical Workout Templates
+
+36 pre-built clinical templates are defined in schema.sql (M022) across 5 speciality splits:
+
+| Split | Templates |
+|---|---|
+| Metabolic & Chronic Disease | Diabetes management, cardiac rehab, COPD, obesity, hypertension, metabolic syndrome |
+| Musculoskeletal & Orthopedic | Low back pain, knee rehab, shoulder rehab, arthritis, osteoporosis, hip replacement |
+| Postural Deviations | Kyphosis, lordosis, scoliosis, forward head, flat feet, upper-cross syndrome |
+| Neurological & Mental Health | Parkinson's, stroke recovery, MS, anxiety/depression, ADHD, chronic pain |
+| Special Populations | Prenatal, postnatal, pediatric, senior mobility, cancer recovery, wheelchair users |
+
+Template exercise names are stored as clean base names — no set/rep prescriptions (e.g. `'Battle Ropes'` not `'Battle Ropes 3×30 sec'`). The `normalizeExerciseName()` function in `app/workout/new.tsx` and `app/workout/assigned/[id].tsx` handles matching template names against the exercise library at runtime by stripping any residual qualifiers.
+
+### Verifying Template Coverage
+
+To check that all template exercise names resolve to an exercise in the library:
+
+```sql
+SELECT
+  t.name AS template_name,
+  t.split,
+  e AS raw_name,
+  lower(trim(e)) AS normalized,
+  CASE WHEN ex.name IS NULL THEN false ELSE true END AS in_library
+FROM workout_templates t,
+  unnest(t.exercise_names) AS e
+LEFT JOIN exercises ex ON lower(trim(ex.name)) = lower(trim(e))
+WHERE t.split IN (
+  'Metabolic & Chronic Disease',
+  'Musculoskeletal & Orthopedic',
+  'Postural Deviations',
+  'Neurological & Mental Health',
+  'Special Populations'
+)
+ORDER BY in_library, t.split, t.name;
 ```
 
 ## AI Trends
