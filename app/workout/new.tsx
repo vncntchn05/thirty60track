@@ -18,6 +18,19 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 import type { Exercise } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 
+// ─── Template name normalisation ─────────────────────────────────
+// Strips set/rep prescriptions embedded in clinical template exercise
+// names (e.g. "Goblet Squat 3×12–15" → "goblet squat") so they can be
+// matched against the exercises table which stores clean names only.
+function normalizeExerciseName(name: string): string {
+  return name
+    .replace(/\s+\d+\s*[×x]\s*\S+.*/i, '')          // "3×12", "3×8/side"
+    .replace(/\s+\d+[-–\d]*\s*(reps?|sets?|sec(onds?)?|min(utes?)?|yards?|rounds?|holds?|times?)\b.*/gi, '') // "10 reps", "45 sec"
+    .replace(/\s*\([^)]+\)\s*$/g, '')                 // trailing "(warm-up)"
+    .trim()
+    .toLowerCase();
+}
+
 // ─── Injury contraindication rules ───────────────────────────────
 type ContraindicationRule = {
   injuryKeywords: string[];
@@ -244,7 +257,7 @@ export default function NewWorkoutScreen() {
 
     for (const name of template.exerciseNames) {
       const exercise = allExercises.find(
-        (e) => e.name.trim().toLowerCase() === name.trim().toLowerCase()
+        (e) => normalizeExerciseName(e.name) === normalizeExerciseName(name)
       );
       if (exercise) {
         matched.push(EMPTY_BLOCK(exercise));

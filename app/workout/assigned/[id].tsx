@@ -14,6 +14,15 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 import type { Exercise } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 
+function normalizeExerciseName(name: string): string {
+  return name
+    .replace(/\s+\d+\s*[×x]\s*\S+.*/i, '')          // "3×12", "3×8/side"
+    .replace(/\s+\d+[-–\d]*\s*(reps?|sets?|sec(onds?)?|min(utes?)?|yards?|rounds?|holds?|times?)\b.*/gi, '') // "10 reps", "45 sec"
+    .replace(/\s*\([^)]+\)\s*$/g, '')                 // trailing "(warm-up)"
+    .trim()
+    .toLowerCase();
+}
+
 const SUPERSET_COLORS = ['#8B5CF6', '#3B82F6', '#F59E0B', '#EC4899', '#14B8A6'];
 function getSupersetColor(group: number): string {
   return SUPERSET_COLORS[(group - 1) % SUPERSET_COLORS.length];
@@ -167,7 +176,7 @@ export default function EditAssignedWorkoutScreen() {
     const skipped: string[] = [];
     for (const name of template.exerciseNames) {
       const exercise = allExercises.find(
-        (e) => e.name.trim().toLowerCase() === name.trim().toLowerCase()
+        (e) => normalizeExerciseName(e.name) === normalizeExerciseName(name)
       );
       if (exercise) matched.push(EMPTY_BLOCK(exercise));
       else skipped.push(name);
