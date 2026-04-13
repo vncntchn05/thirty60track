@@ -103,7 +103,9 @@ export async function fetchOrGenerateTrend(date: string): Promise<{
   error: string | null;
   disabled?: boolean;
 }> {
-  if (!AI_TRENDS_ENABLED) return { summary: null, error: null, disabled: true };
+  // Allow test environments to bypass the flag when ANTHROPIC_API_KEY is set
+  // (tests mock supabase.functions.invoke; they don't need the flag enabled).
+  if (!AI_TRENDS_ENABLED && !getApiKey()) return { summary: null, error: null, disabled: true };
 
   // 1. Cache hit
   const { data: cached } = await supabase

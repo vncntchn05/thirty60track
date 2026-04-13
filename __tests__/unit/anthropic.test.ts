@@ -120,6 +120,11 @@ describe('generateTrendSummary', () => {
 // ─── fetchOrGenerateTrend ─────────────────────────────────────
 
 describe('fetchOrGenerateTrend', () => {
+  // fetchOrGenerateTrend bypasses AI_TRENDS_ENABLED when ANTHROPIC_API_KEY is
+  // present — set it here so tests run even though the flag is off by default.
+  beforeAll(() => { process.env['ANTHROPIC_API_KEY'] = 'test-key'; });
+  afterAll(() => { delete process.env['ANTHROPIC_API_KEY']; });
+
   const CACHED = {
     id: 'cached-id',
     date: '2025-04-10',
