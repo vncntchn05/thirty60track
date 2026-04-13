@@ -21,6 +21,8 @@ import type { LinkedClientEntry } from '@/hooks/useClientLinks';
 import { MediaGallery } from '@/components/client/MediaGallery';
 import ReportCardButton from '@/components/client/ReportCardButton';
 import { NutritionTab } from '@/components/nutrition/NutritionTab';
+import { useCheckins } from '@/hooks/useCheckins';
+import type { ClientCheckin } from '@/types';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
@@ -52,7 +54,7 @@ function fmt(v: number | null, unit: string): string {
   return v != null ? `${v}${unit}` : '—';
 }
 
-type Tab      = 'progress' | 'workouts' | 'nutrition' | 'media' | 'credits' | 'family';
+type Tab      = 'progress' | 'workouts' | 'nutrition' | 'media' | 'credits' | 'family' | 'checkins';
 type ViewMode = 'calendar' | 'list';
 type Theme = ReturnType<typeof useTheme>;
 
@@ -82,6 +84,7 @@ export default function ClientDetailScreen() {
   const { links: familyLinks, loading: familyLoading, refetch: refetchFamily } = useClientLinks(isLinkedClientViewer ? '' : (client?.id ?? ''));
   const { clients: allClients } = useClients();
   const { plans: recurringPlans, refetch: refetchPlans } = useRecurringPlansForClient(isLinkedClientViewer ? '' : (client?.id ?? ''));
+  const { checkins, loading: checkinsLoading, refetch: refetchCheckins } = useCheckins(client?.id ?? '');
 
   useFocusEffect(useCallback(() => { refetchWorkouts(); refetchAssigned(); }, [refetchWorkouts, refetchAssigned]));
 
@@ -174,7 +177,7 @@ export default function ClientDetailScreen() {
       <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
         {(isLinkedClientViewer
           ? ['progress', 'workouts', 'nutrition', 'media', 'credits'] as Tab[]
-          : ['progress', 'workouts', 'nutrition', 'media', 'credits', 'family'] as Tab[]
+          : ['progress', 'workouts', 'nutrition', 'media', 'credits', 'checkins', 'family'] as Tab[]
         ).map((tab) => {
           const active = activeTab === tab;
           const label =
@@ -182,6 +185,7 @@ export default function ClientDetailScreen() {
             : tab === 'workouts'  ? 'Workouts'
             : tab === 'nutrition' ? 'Nutrition'
             : tab === 'credits'   ? 'Credits'
+            : tab === 'checkins'  ? 'Check-ins'
             : tab === 'family'    ? 'Family'
             : 'Media';
           return (
@@ -310,6 +314,16 @@ export default function ClientDetailScreen() {
         />
       )}
 
+      {/* ── Check-ins tab (trainer only) ── */}
+      {activeTab === 'checkins' && !isLinkedClientViewer && (
+        <CheckinsTab
+          checkins={checkins}
+          loading={checkinsLoading}
+          onRefresh={refetchCheckins}
+          t={t}
+        />
+      )}
+
       {/* ── Family tab (trainer only) ── */}
       {activeTab === 'family' && !isLinkedClientViewer && (
         <FamilyTab
@@ -344,7 +358,7 @@ export default function ClientDetailScreen() {
       )}
 
       {/* ── FAB (Log Workout — hidden on media/credits/family tabs; linked clients can also log) ── */}
-      {!confirmingDelete && activeTab !== 'media' && activeTab !== 'credits' && activeTab !== 'family' && (
+      {!confirmingDelete && activeTab !== 'media' && activeTab !== 'credits' && activeTab !== 'checkins' && activeTab !== 'family' && (
         <TouchableOpacity
           style={styles.fab}
           onPress={() => router.push({ pathname: '/workout/new', params: { clientId: client.id } } as never)}
@@ -384,6 +398,63 @@ export default function ClientDetailScreen() {
         </Pressable>
       </Modal>
     </View>
+  );
+}
+
+// ─── Check-ins tab ────────────────────────────────────────────────
+
+type CheckinsTabProps = {
+  checkins: ClientCheckin[];
+  loading: boolean;
+  onRefresh: () => void;
+  t: Theme;
+};
+
+function CheckinsTab({ checkins, loading, onRefresh, t }: CheckinsTabProps) {
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  function fmtCheckin(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    }) + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  return (
+    <FlatList
+      data={checkins}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.tabContent}
+      onRefresh={onRefresh}
+      refreshing={loading}
+      renderItem={({ item }) => (
+        <View style={[styles.checkinRow, { backgroundColor: t.surface, borderColor: t.border }]}>
+          <View style={[styles.checkinDot, { backgroundColor: colors.success }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.checkinTime, { color: t.textPrimary }]}>{fmtCheckin(item.checked_in_at)}</Text>
+            {item.note ? (
+              <Text style={[styles.checkinNote, { color: t.textSecondary }]}>{item.note}</Text>
+            ) : null}
+          </View>
+          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+        </View>
+      )}
+      ListEmptyComponent={
+        <View style={styles.emptyState}>
+          <Ionicons name="qr-code-outline" size={44} color={t.textSecondary as string} />
+          <Text style={[styles.emptyTitle, { color: t.textSecondary }]}>No check-ins yet</Text>
+          <Text style={[styles.emptyBody, { color: t.textSecondary }]}>
+            Ask the client to show their QR code from their Profile tab
+          </Text>
+        </View>
+      }
+    />
   );
 }
 
@@ -968,36 +1039,88 @@ function ClientInfoCard({ client, intake, onUpdate, onIntakeSave, t }: ClientInf
 
 // ─── Body metrics card ────────────────────────────────────────────
 
-type MetricsForm = { weight_kg: string; height_cm: string; bf_percent: string; lean_body_mass: string };
+type WeightUnit = 'kg' | 'lbs';
+type HeightUnit = 'cm' | 'in';
+type MetricsForm = { weight: string; height: string; bf_percent: string; lean_body_mass: string };
 
-function formFromClient(c: Client): MetricsForm {
+function kgToLbs(kg: number): number { return Math.round(kg * 2.20462 * 10) / 10; }
+function lbsToKg(lbs: number): number { return Math.round(lbs / 2.20462 * 10) / 10; }
+function cmToIn(cm: number): number { return Math.round(cm / 2.54 * 10) / 10; }
+function inToCm(inches: number): number { return Math.round(inches * 2.54 * 10) / 10; }
+
+function formFromClient(c: Client, wu: WeightUnit, hu: HeightUnit): MetricsForm {
+  const w = c.weight_kg != null ? (wu === 'lbs' ? kgToLbs(c.weight_kg) : c.weight_kg) : null;
+  const h = c.height_cm != null ? (hu === 'in' ? cmToIn(c.height_cm) : c.height_cm) : null;
+  const lbm = c.lean_body_mass != null ? (wu === 'lbs' ? kgToLbs(c.lean_body_mass) : c.lean_body_mass) : null;
   return {
-    weight_kg: c.weight_kg != null ? String(c.weight_kg) : '',
-    height_cm: c.height_cm != null ? String(c.height_cm) : '',
+    weight: w != null ? String(w) : '',
+    height: h != null ? String(h) : '',
     bf_percent: c.bf_percent != null ? String(c.bf_percent) : '',
-    lean_body_mass: c.lean_body_mass != null ? String(c.lean_body_mass) : '',
+    lean_body_mass: lbm != null ? String(lbm) : '',
   };
 }
 
 function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: UpdateClient) => Promise<{ error: string | null }>; t: Theme }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<MetricsForm>(() => formFromClient(client));
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
+  const [heightUnit, setHeightUnit] = useState<HeightUnit>('cm');
+  const [form, setForm] = useState<MetricsForm>(() => formFromClient(client, 'kg', 'cm'));
 
-  function startEdit() { setForm(formFromClient(client)); setEditing(true); }
+  function startEdit() { setForm(formFromClient(client, weightUnit, heightUnit)); setEditing(true); }
+
+  function toggleWeightUnit() {
+    setWeightUnit((prev) => {
+      const next = prev === 'kg' ? 'lbs' : 'kg';
+      const nW = parseOptionalFloat(form.weight);
+      const nL = parseOptionalFloat(form.lean_body_mass);
+      setForm((f) => ({
+        ...f,
+        weight: nW != null ? String(next === 'lbs' ? kgToLbs(nW) : lbsToKg(nW)) : f.weight,
+        lean_body_mass: nL != null ? String(next === 'lbs' ? kgToLbs(nL) : lbsToKg(nL)) : f.lean_body_mass,
+      }));
+      return next;
+    });
+  }
+
+  function toggleHeightUnit() {
+    setHeightUnit((prev) => {
+      const next = prev === 'cm' ? 'in' : 'cm';
+      const nH = parseOptionalFloat(form.height);
+      setForm((f) => ({
+        ...f,
+        height: nH != null ? String(next === 'in' ? cmToIn(nH) : inToCm(nH)) : f.height,
+      }));
+      return next;
+    });
+  }
 
   async function handleSave() {
     setSaving(true);
+    const rawW = parseOptionalFloat(form.weight);
+    const rawH = parseOptionalFloat(form.height);
+    const rawL = parseOptionalFloat(form.lean_body_mass);
     const { error } = await onUpdate({
-      weight_kg: parseOptionalFloat(form.weight_kg),
-      height_cm: parseOptionalFloat(form.height_cm),
+      weight_kg: rawW != null ? (weightUnit === 'lbs' ? lbsToKg(rawW) : rawW) : null,
+      height_cm: rawH != null ? (heightUnit === 'in' ? inToCm(rawH) : rawH) : null,
       bf_percent: parseOptionalFloat(form.bf_percent),
-      lean_body_mass: parseOptionalFloat(form.lean_body_mass),
+      lean_body_mass: rawL != null ? (weightUnit === 'lbs' ? lbsToKg(rawL) : rawL) : null,
     });
     setSaving(false);
     if (error) Alert.alert('Error', error);
     else setEditing(false);
   }
+
+  // Display values in selected units
+  const displayWeight = client.weight_kg != null
+    ? (weightUnit === 'lbs' ? kgToLbs(client.weight_kg) : client.weight_kg)
+    : null;
+  const displayHeight = client.height_cm != null
+    ? (heightUnit === 'in' ? cmToIn(client.height_cm) : client.height_cm)
+    : null;
+  const displayLbm = client.lean_body_mass != null
+    ? (weightUnit === 'lbs' ? kgToLbs(client.lean_body_mass) : client.lean_body_mass)
+    : null;
 
   const hasMetrics = client.weight_kg != null || client.height_cm != null || client.bf_percent != null || client.lean_body_mass != null;
 
@@ -1015,19 +1138,52 @@ function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: Up
             </TouchableOpacity>
           </View>
         </View>
-        {([['Weight (kg)', 'weight_kg'], ['Height (cm)', 'height_cm'], ['Body fat (%)', 'bf_percent'], ['Lean mass (kg)', 'lean_body_mass']] as const).map(([label, field]) => (
-          <View key={field} style={[styles.metricRow, { borderBottomColor: t.border }]}>
-            <Text style={[styles.metricRowLabel, { color: t.textPrimary }]}>{label}</Text>
-            <TextInput
-              style={[styles.metricInput, { color: t.textPrimary }]}
-              value={form[field]}
-              onChangeText={(v) => setForm((f) => ({ ...f, [field]: v }))}
-              keyboardType="decimal-pad"
-              placeholder="—"
-              placeholderTextColor={t.textSecondary}
-            />
-          </View>
-        ))}
+        <View style={[styles.metricRow, { borderBottomColor: t.border }]}>
+          <Text style={[styles.metricRowLabel, { color: t.textPrimary }]}>{`Weight (${weightUnit})`}</Text>
+          <TextInput
+            style={[styles.metricInput, { color: t.textPrimary }]}
+            value={form.weight}
+            onChangeText={(v) => setForm((f) => ({ ...f, weight: v }))}
+            keyboardType="decimal-pad"
+            placeholder="—"
+            placeholderTextColor={t.textSecondary}
+          />
+          <MetricUnitToggle value={weightUnit} options={['kg', 'lbs']} onToggle={toggleWeightUnit} t={t} />
+        </View>
+        <View style={[styles.metricRow, { borderBottomColor: t.border }]}>
+          <Text style={[styles.metricRowLabel, { color: t.textPrimary }]}>{`Height (${heightUnit})`}</Text>
+          <TextInput
+            style={[styles.metricInput, { color: t.textPrimary }]}
+            value={form.height}
+            onChangeText={(v) => setForm((f) => ({ ...f, height: v }))}
+            keyboardType="decimal-pad"
+            placeholder="—"
+            placeholderTextColor={t.textSecondary}
+          />
+          <MetricUnitToggle value={heightUnit} options={['cm', 'in']} onToggle={toggleHeightUnit} t={t} />
+        </View>
+        <View style={[styles.metricRow, { borderBottomColor: t.border }]}>
+          <Text style={[styles.metricRowLabel, { color: t.textPrimary }]}>Body fat (%)</Text>
+          <TextInput
+            style={[styles.metricInput, { color: t.textPrimary }]}
+            value={form.bf_percent}
+            onChangeText={(v) => setForm((f) => ({ ...f, bf_percent: v }))}
+            keyboardType="decimal-pad"
+            placeholder="—"
+            placeholderTextColor={t.textSecondary}
+          />
+        </View>
+        <View style={[styles.metricRow, { borderBottomColor: t.border }]}>
+          <Text style={[styles.metricRowLabel, { color: t.textPrimary }]}>{`Lean mass (${weightUnit})`}</Text>
+          <TextInput
+            style={[styles.metricInput, { color: t.textPrimary }]}
+            value={form.lean_body_mass}
+            onChangeText={(v) => setForm((f) => ({ ...f, lean_body_mass: v }))}
+            keyboardType="decimal-pad"
+            placeholder="—"
+            placeholderTextColor={t.textSecondary}
+          />
+        </View>
         {client.bmi != null ? (
           <View style={styles.metricRow}>
             <Text style={[styles.metricRowLabel, { color: t.textPrimary }]}>BMI (auto-calculated)</Text>
@@ -1042,14 +1198,27 @@ function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: Up
     <View style={[styles.metricsCard, { backgroundColor: t.surface, borderColor: t.border }]}>
       <View style={styles.cardHeader}>
         <Text style={[styles.cardLabel, { color: t.textSecondary }]}>Body Metrics</Text>
-        <TouchableOpacity onPress={startEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="pencil" size={16} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.metricsCardHeaderRight}>
+          <TouchableOpacity onPress={() => { setWeightUnit((u) => u === 'kg' ? 'lbs' : 'kg'); }} style={[styles.unitPill, { borderColor: t.border }]}>
+            <Text style={[styles.unitPillText, { color: colors.primary }]}>{weightUnit}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { setHeightUnit((u) => u === 'cm' ? 'in' : 'cm'); }} style={[styles.unitPill, { borderColor: t.border }]}>
+            <Text style={[styles.unitPillText, { color: colors.primary }]}>{heightUnit}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={startEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="pencil" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
       {hasMetrics ? (
         <>
           <View style={styles.metricsGrid}>
-            {[['Weight', fmt(client.weight_kg, ' kg')], ['Height', fmt(client.height_cm, ' cm')], ['BMI', fmt(client.bmi, '')], ['Body fat', fmt(client.bf_percent, '%')]].map(([label, value]) => (
+            {[
+              ['Weight', displayWeight != null ? `${displayWeight} ${weightUnit}` : '—'],
+              ['Height', displayHeight != null ? `${displayHeight} ${heightUnit}` : '—'],
+              ['BMI', fmt(client.bmi, '')],
+              ['Body fat', fmt(client.bf_percent, '%')],
+            ].map(([label, value]) => (
               <View key={label} style={[styles.metricChip, { backgroundColor: t.background, borderColor: t.border }]}>
                 <Text style={[styles.metricChipValue, { color: t.textPrimary }]}>{value}</Text>
                 <Text style={[styles.metricChipLabel, { color: t.textSecondary }]}>{label}</Text>
@@ -1059,7 +1228,7 @@ function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: Up
           {client.lean_body_mass != null ? (
             <View style={[styles.leanMassRow, { borderTopColor: t.border }]}>
               <Text style={[styles.leanMassLabel, { color: t.textSecondary }]}>Lean body mass</Text>
-              <Text style={[styles.leanMassValue, { color: t.textPrimary }]}>{client.lean_body_mass} kg</Text>
+              <Text style={[styles.leanMassValue, { color: t.textPrimary }]}>{displayLbm} {weightUnit}</Text>
             </View>
           ) : null}
         </>
@@ -1069,6 +1238,18 @@ function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: Up
         </TouchableOpacity>
       )}
     </View>
+  );
+}
+
+function MetricUnitToggle({ value, options, onToggle, t }: { value: string; options: [string, string]; onToggle: () => void; t: Theme }) {
+  return (
+    <TouchableOpacity onPress={onToggle} style={[styles.metricUnitToggle, { borderColor: t.border }]}>
+      {options.map((opt) => (
+        <Text key={opt} style={[styles.metricUnitOption, { color: opt === value ? colors.primary : t.textSecondary }]}>
+          {opt}
+        </Text>
+      ))}
+    </TouchableOpacity>
   );
 }
 
@@ -1312,6 +1493,21 @@ const styles = StyleSheet.create({
     height: 2, borderRadius: 1, backgroundColor: colors.primary,
   },
 
+  // ── Check-ins tab ──
+  checkinRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    borderRadius: radius.md, borderWidth: 1,
+    padding: spacing.md,
+  },
+  checkinDot: {
+    width: 8, height: 8, borderRadius: 4, flexShrink: 0,
+  },
+  checkinTime: { ...typography.body, fontWeight: '600' },
+  checkinNote: { ...typography.bodySmall, marginTop: 2 },
+  emptyState: { alignItems: 'center', paddingTop: 80, gap: spacing.sm, paddingHorizontal: spacing.xl },
+  emptyTitle: { ...typography.heading3 },
+  emptyBody: { ...typography.bodySmall, textAlign: 'center' },
+
   // ── Shared tab content ──
   tabContent: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xxl + 56 },
   viewToggleBar: {
@@ -1366,8 +1562,13 @@ const styles = StyleSheet.create({
   emptyMetricsText: { ...typography.bodySmall, fontStyle: 'italic' },
   metricRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.xs, borderBottomWidth: 1 },
   metricRowLabel: { ...typography.body, flex: 1 },
-  metricInput: { ...typography.body, width: 110, textAlign: 'right', paddingVertical: spacing.xs },
+  metricInput: { ...typography.body, width: 90, textAlign: 'right', paddingVertical: spacing.xs },
   bmiReadOnly: { ...typography.body, fontStyle: 'italic' },
+  metricsCardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  unitPill: { borderWidth: 1, borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 8 },
+  unitPillText: { ...typography.bodySmall, fontWeight: '600' },
+  metricUnitToggle: { flexDirection: 'row', borderWidth: 1, borderRadius: radius.full, overflow: 'hidden', marginLeft: spacing.xs },
+  metricUnitOption: { ...typography.bodySmall, paddingVertical: 2, paddingHorizontal: 6, fontWeight: '600' },
 
   // ── Progress ──
   progressLoader: { marginVertical: spacing.md },

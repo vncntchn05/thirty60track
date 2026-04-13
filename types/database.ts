@@ -90,6 +90,13 @@ export type Exercise = {
 
 export type UpdateExercise = Partial<Pick<Exercise, 'form_notes' | 'help_url' | 'equipment'>>;
 
+export type ExerciseAlternative = {
+  id: string;
+  exercise_id: string;
+  alternative_id: string;
+  created_at: string;
+};
+
 export type Workout = {
   id: string;
   client_id: string;
@@ -591,4 +598,12 @@ export type InsertRecurringPlan = {
   start_date: string;
   end_date: string;
   exercises: AssignedExercisePayload[];
+};
+
+export type ClientCheckin = {
+  id: string;
+  client_id: string;
+  trainer_id: string;
+  checked_in_at: string;
+  note: string | null;
 };

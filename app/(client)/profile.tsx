@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useAuth } from '@/lib/auth';
 import { useClientProfile } from '@/hooks/useClientProfile';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { IntakeForm } from '@/components/client/IntakeForm';
 import { ChangePasswordModal } from '@/components/ui/ChangePasswordModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+
+const QR_SIZE = 200;
 
 function MetricRow({ label, value }: { label: string; value: string | null }) {
   const t = useTheme();
@@ -25,6 +28,11 @@ export default function ClientProfileScreen() {
   const [editingIntake, setEditingIntake] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
+  // QR payload: encode client DB id so trainer scanner can look it up
+  const qrPayload = clientId
+    ? JSON.stringify({ type: 'thirty60_checkin', clientId })
+    : null;
+
   if (loading) {
     return (
       <View style={[styles.centered, { backgroundColor: t.background }]}>
@@ -35,6 +43,17 @@ export default function ClientProfileScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={styles.scroll}>
+      {/* Check-in QR code */}
+      {qrPayload && (
+        <View style={[styles.card, styles.qrCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+          <Text style={[styles.cardTitle, { color: t.textSecondary }]}>Check-In QR Code</Text>
+          <Text style={[styles.qrHint, { color: t.textSecondary }]}>Show this to your trainer to check in</Text>
+          <View style={[styles.qrWrap, { backgroundColor: '#fff' }]}>
+            <QRCode value={qrPayload} size={QR_SIZE} color="#000" backgroundColor="#fff" />
+          </View>
+        </View>
+      )}
+
       {/* Info card */}
       <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
         <Text style={[styles.cardTitle, { color: t.textSecondary }]}>Personal Info</Text>
@@ -127,6 +146,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, borderWidth: 1, padding: spacing.md, gap: spacing.sm,
   },
   cardTitle: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
+  qrCard: { alignItems: 'center', gap: spacing.md },
+  qrHint: { ...typography.bodySmall, textAlign: 'center' },
+  qrWrap: { padding: spacing.md, borderRadius: radius.md },
   readOnlyNote: { ...typography.bodySmall, fontStyle: 'italic', marginBottom: spacing.xs },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   editLink: { ...typography.bodySmall, fontWeight: '600' },

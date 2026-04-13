@@ -23,16 +23,20 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Weekly availability management + session scheduling
 - Grant or deduct session credits for any client (not limited to own clients)
 - **Family account linking** — link two or more client accounts into a family group; all members can view and edit each other's progress, workouts, nutrition, and credits
+- **QR check-in scanner** — scan a client's QR code to instantly log a timestamped gym visit; view full check-in history on the client's Check-ins tab
 - Community feed: post, react, comment; delete any post
 - AI fitness trends tab with daily summaries and article links
+- **Video calls** — generate an instant video call link from any conversation; link is sent as a pre-populated message the trainer can edit before sending
 
 ### Client
 - Home screen shows linked family members (avatar, workout count, last session) with tap-through to their full profile
 - Pending assigned workouts with one-tap execution
 - Log workouts and manage nutrition for linked family members
 - Book sessions from trainer's availability slots
+- **Check-in QR code** — personal QR code on the Profile tab; show it to the trainer to log a gym visit
 - Community feed: post, react, comment
 - AI fitness trends tab
+- **Video calls** — tap video icon in any conversation to generate a shareable call link
 
 ## Project Structure
 
@@ -49,8 +53,13 @@ app/
     recurring/new.tsx       — create a recurring workout series
   client/                   — client detail + new client form
 components/
+  checkin/
+    QRScannerModal          — full-screen camera scanner (expo-camera); validates payload,
+                              looks up client, records check-in, shows success/error result
   feed/                     — PostCard, PostComposer, CommentSheet, TrendCard
   feed/FeedScreen           — shared Community + Trends screen (trainer + client)
+  messaging/                — MessagesScreen, ConversationCard, AttachmentPickerModal,
+                              NewConversationModal
   schedule/
     CalendarStrip           — week strip with session dots
     SessionSheet            — session detail (confirm / cancel / complete)
@@ -62,6 +71,7 @@ components/
   exercises/                — WorkoutGuides, EncyclopediaPanel, MuscleMap
   charts/                   — VolumeChart, ExerciseProgressChart
 hooks/
+  useCheckins.ts            — useCheckins(clientId), recordCheckin()
   useClientLinks.ts         — family linking: useClientLinks, useMyLinkedClients,
                               addToFamilyGroup, removeFromFamilyGroup
   useRecurringPlans.ts      — recurring plans: useRecurringPlansForClient,
@@ -115,7 +125,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` for the exercise library.
 
-`schema.sql` includes all migrations in sequence (M001–M028):
+`schema.sql` includes all migrations in sequence (M001–M030):
 
 | Migration | Description |
 |---|---|
@@ -132,6 +142,8 @@ Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` f
 | M027b | Linked-client write access (workouts, workout_sets, recipes, nutrition_goals) |
 | M027c | Any trainer can delete family links (needed for mesh unlinking) |
 | M028 | Recurring workout plans — `recurring_plans` table; `assigned_workouts` gains `recurring_plan_id` and `'cancelled'` status |
+| M029 | Exercise enrichment — `exercise_alternatives` join table; `muscle_group`, `equipment`, `form_notes`, and `help_url` populated for all 280+ exercises; YouTube tutorial URLs verified via `scripts/fetch-youtube-ids.js` |
+| M030 | Client check-ins — `client_checkins` table; QR-code-based gym visit log with trainer scanner and per-client history |
 
 Create a public storage bucket named `feed-images` in the Supabase dashboard.
 
@@ -180,11 +192,57 @@ Trainers can then:
 - **Cancel a single instance** — tap the × on any upcoming row; other instances are untouched
 - **Edit a single instance** — tap the row to open the standard assigned-workout editor
 
+## Client Check-In (QR Code)
+
+Trainers scan a client's QR code at the gym to log a timestamped visit.
+
+**Client side** — the **Profile** tab displays a personal QR code. The code encodes a JSON payload `{ type: "thirty60_checkin", clientId }` so only valid app codes are accepted.
+
+**Trainer side** — the **Profile** tab has a **Scan Client Check-In** button that opens a full-screen camera view (uses `expo-camera`). A gold targeting reticle guides the scan. After a successful scan the trainer sees a confirmation with the client's name; tapping **Scan Another** immediately starts the next scan.
+
+**Check-ins tab** — each client's detail screen has a **Check-ins** tab showing a reverse-chronological list of every logged visit: date, time, and optional note.
+
+**RLS:** trainers have full access to check-in rows they created (`trainer_id = auth.uid()`); clients can read their own rows only.
+
+## Video Calls in Messaging
+
+Any conversation screen has a video-camera button in the input bar. Tapping it:
+
+1. Generates a unique [Jitsi Meet](https://meet.jit.si) room URL (`https://meet.jit.si/thirty60-xxxx-xxxx`) — no account or API key required.
+2. Pre-populates the message field with `"Join my video call: <url>"` so the sender can edit before sending.
+3. The recipient sees the URL as a tappable underlined link that opens in the system browser.
+
+Any other URL pasted into a message is also rendered as a tappable link.
+
+> Jitsi Meet is used because Google Meet requires OAuth + Google Calendar API to pre-generate a joinable room URL client-side.
+
 ## Exercise Library & Workout Templates
 
 ### Exercise Library
 
-`seed.sql` seeds 200+ exercises covering all major muscle groups and movement patterns. Each exercise has a `name`, `muscle_group`, and `category` (`strength`, `cardio`, `flexibility`, `plyometric`, etc.).
+`seed.sql` seeds 200+ exercises covering all major muscle groups and movement patterns. Each exercise has a `name`, `muscle_group`, `equipment`, `category`, `form_notes`, and `help_url` (verified YouTube tutorial link).
+
+Migration M029 enriched all 280+ exercises in the live library with:
+- **muscle_group** — primary muscle targeted
+- **equipment** — Barbell / Dumbbell / Cable / Machine / Bodyweight / Kettlebell / Band / Other
+- **form_notes** — 2–5 cue bullet points covering setup, execution, and common errors
+- **help_url** — YouTube tutorial URL verified against the exercise name via `scripts/fetch-youtube-ids.js` (YouTube Data API v3)
+- **exercise_alternatives** — bidirectional join table linking similar exercises (e.g. Bench Press ↔ Dumbbell Press); shown on the exercise detail screen
+
+#### Verifying / refreshing YouTube links
+
+```bash
+# 1. Clear unverified URLs
+#    Run supabase/migration_029c_clear_bad_urls.sql in the Supabase SQL editor
+
+# 2. Re-fetch verified links (requires a free YouTube Data API v3 key)
+node scripts/fetch-youtube-ids.js <YOUR_API_KEY>
+
+# 3. Apply the generated SQL
+#    Run supabase/migration_029c_youtube_urls.sql in the Supabase SQL editor
+```
+
+The script reads all exercises from the CSV export, verifies existing URLs using `videos.list` (1 quota unit per 50 videos), and replaces any whose video title doesn't match the exercise name via `search.list`. Use `--max-searches N` to stay within the 10 000 units/day free-tier cap (default: 80 searches).
 
 ### Clinical Workout Templates
 

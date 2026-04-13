@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
-import { useExercise } from '@/hooks/useExercises';
+import { useExercise, useExerciseAlternatives } from '@/hooks/useExercises';
 import { useExerciseMedia } from '@/hooks/useExerciseMedia';
 import { getDbImageUrls } from '@/lib/exerciseDb';
 import { APPROXIMATED_EXERCISES, EXERCISE_VARIANTS } from '@/lib/exerciseVariants';
@@ -37,6 +37,7 @@ export default function ExerciseDetailScreen() {
   const isTrainer = role === 'trainer';
   const { exercise, loading, error, updateExercise } = useExercise(id);
   const { media: customMedia, loading: mediaLoading, uploadMedia, deleteMedia } = useExerciseMedia(id ?? '');
+  const { alternatives, loading: altLoading, removeAlternative } = useExerciseAlternatives(id);
 
   const [formNotes, setFormNotes] = useState('');
   const [helpUrl, setHelpUrl] = useState('');
@@ -398,6 +399,43 @@ export default function ExerciseDetailScreen() {
           </Text>
         )}
 
+        {/* ── Alternatives ── */}
+        <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>Alternatives</Text>
+        {altLoading ? (
+          <ActivityIndicator color={colors.primary} style={{ alignSelf: 'flex-start' }} />
+        ) : alternatives.length === 0 ? (
+          <Text style={[styles.altEmpty, { color: t.textSecondary }]}>No alternatives linked yet.</Text>
+        ) : (
+          <View style={styles.altList}>
+            {alternatives.map((alt) => (
+              <View key={alt.id} style={[styles.altRow, { backgroundColor: t.surface, borderColor: t.border }]}>
+                <TouchableOpacity
+                  style={styles.altRowMain}
+                  onPress={() => router.push(`/exercise/${alt.id}` as never)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.altRowInfo}>
+                    <Text style={[styles.altName, { color: t.textPrimary }]}>{alt.name}</Text>
+                    <Text style={[styles.altMeta, { color: t.textSecondary }]}>
+                      {[alt.muscle_group, alt.equipment].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={t.textSecondary} />
+                </TouchableOpacity>
+                {isTrainer && (
+                  <TouchableOpacity
+                    onPress={() => removeAlternative(alt.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.altRemoveBtn}
+                  >
+                    <Ionicons name="close-circle" size={18} color={colors.error} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
         {isTrainer && isDirty ? (
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -517,4 +555,19 @@ const styles = StyleSheet.create({
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
 
   errorText: { ...typography.body, color: colors.error, textAlign: 'center', paddingHorizontal: spacing.lg },
+
+  altEmpty: { ...typography.bodySmall, fontStyle: 'italic' },
+  altList: { gap: spacing.xs },
+  altRow: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderRadius: radius.md, overflow: 'hidden',
+  },
+  altRowMain: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm,
+  },
+  altRowInfo: { flex: 1 },
+  altName: { ...typography.body, fontWeight: '600' },
+  altMeta: { ...typography.bodySmall, marginTop: 2 },
+  altRemoveBtn: { paddingRight: spacing.sm, paddingLeft: spacing.xs },
 });

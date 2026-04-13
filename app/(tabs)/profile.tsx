@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator
 import { useAuth } from '@/lib/auth';
 import { useTrainers } from '@/hooks/useTrainers';
 import { ChangePasswordModal } from '@/components/ui/ChangePasswordModal';
+import { QRScannerModal } from '@/components/checkin/QRScannerModal';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Trainer } from '@/types';
 
@@ -29,6 +31,7 @@ export default function ProfileScreen() {
   const { trainers, loading: trainersLoading, error: trainersError } = useTrainers();
   const t = useTheme();
   const [changingPassword, setChangingPassword] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   return (
     <ScrollView
@@ -61,6 +64,15 @@ export default function ProfileScreen() {
         ))}
       </View>
 
+      {/* Check-in scanner */}
+      <TouchableOpacity
+        style={[styles.scanButton, { backgroundColor: t.surface, borderColor: t.border }]}
+        onPress={() => setScannerOpen(true)}
+      >
+        <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
+        <Text style={[styles.scanText, { color: colors.primary }]}>Scan Client Check-In</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={[styles.resetButton, { backgroundColor: t.surface, borderColor: t.border }]}
         onPress={() => setChangingPassword(true)}
@@ -77,6 +89,14 @@ export default function ProfileScreen() {
         email={trainer?.email ?? ''}
         onClose={() => setChangingPassword(false)}
       />
+
+      {trainer?.id && (
+        <QRScannerModal
+          visible={scannerOpen}
+          trainerId={trainer.id}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -133,6 +153,13 @@ const styles = StyleSheet.create({
   trainerInfo: { flex: 1 },
   trainerName: { ...typography.body, fontWeight: '600' },
   trainerEmail: { ...typography.bodySmall },
+  scanButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.sm,
+    borderRadius: radius.md, borderWidth: 1,
+    paddingVertical: spacing.md,
+  },
+  scanText: { ...typography.body, fontWeight: '600' },
   resetButton: {
     borderRadius: radius.md,
     borderWidth: 1,

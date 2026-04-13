@@ -10,15 +10,22 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 import { slugify } from '@/lib/slugify';
 
 type GenderValue = 'male' | 'female' | 'other' | '';
+type WeightUnit = 'kg' | 'lbs';
+type HeightUnit = 'cm' | 'in';
 type FormState = {
   full_name: string; email: string; phone: string; date_of_birth: string; gender: GenderValue;
-  notes: string; weight_kg: string; height_cm: string; bf_percent: string; lean_body_mass: string;
+  notes: string; weight: string; height: string; bf_percent: string; lean_body_mass: string;
 };
 
 const EMPTY: FormState = {
   full_name: '', email: '', phone: '', date_of_birth: '', gender: '',
-  notes: '', weight_kg: '', height_cm: '', bf_percent: '', lean_body_mass: '',
+  notes: '', weight: '', height: '', bf_percent: '', lean_body_mass: '',
 };
+
+function kgToLbs(kg: number): number { return Math.round(kg * 2.20462 * 10) / 10; }
+function lbsToKg(lbs: number): number { return Math.round(lbs / 2.20462 * 10) / 10; }
+function cmToIn(cm: number): number { return Math.round(cm / 2.54 * 10) / 10; }
+function inToCm(inches: number): number { return Math.round(inches * 2.54 * 10) / 10; }
 
 function parseFloat_(v: string): number | null {
   const n = parseFloat(v);
@@ -31,9 +38,33 @@ export default function NewClientScreen() {
   const { clients, addClient } = useClients();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
+  const [heightUnit, setHeightUnit] = useState<HeightUnit>('cm');
 
   function set(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function toggleWeightUnit() {
+    setWeightUnit((prev) => {
+      const next = prev === 'kg' ? 'lbs' : 'kg';
+      const n = parseFloat_(form.weight);
+      if (n != null) {
+        set('weight', String(next === 'lbs' ? kgToLbs(n) : lbsToKg(n)));
+      }
+      return next;
+    });
+  }
+
+  function toggleHeightUnit() {
+    setHeightUnit((prev) => {
+      const next = prev === 'cm' ? 'in' : 'cm';
+      const n = parseFloat_(form.height);
+      if (n != null) {
+        set('height', String(next === 'in' ? cmToIn(n) : inToCm(n)));
+      }
+      return next;
+    });
   }
 
   async function handleSave() {
@@ -42,6 +73,12 @@ export default function NewClientScreen() {
     const duplicate = clients.find((c) => slugify(c.full_name) === slugify(name));
     if (duplicate) { Alert.alert('Duplicate name', `A client named "${duplicate.full_name}" already exists.`); return; }
     setSaving(true);
+    const rawWeight = parseFloat_(form.weight);
+    const rawHeight = parseFloat_(form.height);
+    const weightKg = rawWeight != null ? (weightUnit === 'lbs' ? lbsToKg(rawWeight) : rawWeight) : null;
+    const heightCm = rawHeight != null ? (heightUnit === 'in' ? inToCm(rawHeight) : rawHeight) : null;
+    const rawLbm = parseFloat_(form.lean_body_mass);
+    const lbmKg = rawLbm != null ? (weightUnit === 'lbs' ? lbsToKg(rawLbm) : rawLbm) : null;
     const { error } = await addClient({
       full_name: name,
       email: form.email.trim() || null,
@@ -49,10 +86,10 @@ export default function NewClientScreen() {
       date_of_birth: form.date_of_birth.trim() || null,
       gender: (form.gender || null) as 'male' | 'female' | 'other' | null,
       notes: form.notes.trim() || null,
-      weight_kg: parseFloat_(form.weight_kg),
-      height_cm: parseFloat_(form.height_cm),
+      weight_kg: weightKg,
+      height_cm: heightCm,
       bf_percent: parseFloat_(form.bf_percent),
-      lean_body_mass: parseFloat_(form.lean_body_mass),
+      lean_body_mass: lbmKg,
     });
     setSaving(false);
     if (error) Alert.alert('Error', error);
@@ -123,16 +160,20 @@ export default function NewClientScreen() {
 
         <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>Body Metrics</Text>
         <View style={cardStyle}>
-          <Field label="Weight (kg)" t={t}>
-            <TextInput style={[styles.input, { color: t.textPrimary }]} placeholder="70.0"
-              placeholderTextColor={t.textSecondary} value={form.weight_kg}
-              onChangeText={(v) => set('weight_kg', v)} keyboardType="decimal-pad" />
+          <Field label={`Weight (${weightUnit})`} t={t}>
+            <TextInput style={[styles.input, { color: t.textPrimary }]}
+              placeholder={weightUnit === 'kg' ? '70.0' : '154.3'}
+              placeholderTextColor={t.textSecondary} value={form.weight}
+              onChangeText={(v) => set('weight', v)} keyboardType="decimal-pad" />
+            <UnitToggle value={weightUnit} options={['kg', 'lbs']} onToggle={toggleWeightUnit} t={t} />
           </Field>
           <Divider t={t} />
-          <Field label="Height (cm)" t={t}>
-            <TextInput style={[styles.input, { color: t.textPrimary }]} placeholder="175.0"
-              placeholderTextColor={t.textSecondary} value={form.height_cm}
-              onChangeText={(v) => set('height_cm', v)} keyboardType="decimal-pad" />
+          <Field label={`Height (${heightUnit})`} t={t}>
+            <TextInput style={[styles.input, { color: t.textPrimary }]}
+              placeholder={heightUnit === 'cm' ? '175.0' : '68.9'}
+              placeholderTextColor={t.textSecondary} value={form.height}
+              onChangeText={(v) => set('height', v)} keyboardType="decimal-pad" />
+            <UnitToggle value={heightUnit} options={['cm', 'in']} onToggle={toggleHeightUnit} t={t} />
           </Field>
           <Divider t={t} />
           <Field label="Body fat (%)" t={t}>
@@ -141,8 +182,9 @@ export default function NewClientScreen() {
               onChangeText={(v) => set('bf_percent', v)} keyboardType="decimal-pad" />
           </Field>
           <Divider t={t} />
-          <Field label="Lean body mass (kg)" t={t}>
-            <TextInput style={[styles.input, { color: t.textPrimary }]} placeholder="57.2"
+          <Field label={`Lean mass (${weightUnit})`} t={t}>
+            <TextInput style={[styles.input, { color: t.textPrimary }]}
+              placeholder={weightUnit === 'kg' ? '57.2' : '126.1'}
               placeholderTextColor={t.textSecondary} value={form.lean_body_mass}
               onChangeText={(v) => set('lean_body_mass', v)} keyboardType="decimal-pad" />
           </Field>
@@ -191,6 +233,17 @@ function Field({ label, children, t }: { label: string; children: React.ReactNod
 function Divider({ t }: { t: Theme }) {
   return <View style={[styles.divider, { backgroundColor: t.border }]} />;
 }
+function UnitToggle({ value, options, onToggle, t }: { value: string; options: [string, string]; onToggle: () => void; t: Theme }) {
+  return (
+    <TouchableOpacity onPress={onToggle} style={[styles.unitToggle, { borderColor: t.border }]}>
+      {options.map((opt) => (
+        <Text key={opt} style={[styles.unitOption, { color: opt === value ? colors.primary : t.textSecondary }]}>
+          {opt}
+        </Text>
+      ))}
+    </TouchableOpacity>
+  );
+}
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -216,4 +269,6 @@ const styles = StyleSheet.create({
   saveBtn: { margin: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+  unitToggle: { flexDirection: 'row', borderWidth: 1, borderRadius: radius.full, overflow: 'hidden', marginLeft: spacing.xs },
+  unitOption: { ...typography.bodySmall, paddingVertical: 3, paddingHorizontal: 7, fontWeight: '600' },
 });

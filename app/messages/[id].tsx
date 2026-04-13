@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Linking,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,6 +44,40 @@ const ATTACHMENT_ICON: Record<MessageAttachmentType, React.ComponentProps<typeof
   assigned_workout: 'clipboard-outline',
   guide:            'book-outline',
 };
+
+// Renders plain text with any URLs highlighted and tappable.
+function BubbleText({ body, isMe, textColor }: { body: string; isMe: boolean; textColor: string | undefined }) {
+  const parts: { text: string; isUrl: boolean }[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  const re = new RegExp(URL_REGEX.source, 'g');
+  while ((match = re.exec(body)) !== null) {
+    if (match.index > lastIndex) parts.push({ text: body.slice(lastIndex, match.index), isUrl: false });
+    parts.push({ text: match[0], isUrl: true });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < body.length) parts.push({ text: body.slice(lastIndex), isUrl: false });
+
+  if (parts.length === 0) parts.push({ text: body, isUrl: false });
+
+  return (
+    <Text style={[styles.bubbleText, { color: textColor }]}>
+      {parts.map((p, i) =>
+        p.isUrl ? (
+          <Text
+            key={i}
+            style={[styles.bubbleLink, { color: isMe ? colors.textInverse : colors.primary }]}
+            onPress={() => Linking.openURL(p.text)}
+          >
+            {p.text}
+          </Text>
+        ) : (
+          <Text key={i}>{p.text}</Text>
+        )
+      )}
+    </Text>
+  );
+}
 
 type MessageBubbleProps = {
   msg: DirectMessage;
@@ -146,9 +180,11 @@ function MessageBubble({
           )}
           {/* Only show body text if it differs from the attachment title (i.e. user typed extra text) */}
           {(!msg.attachment_type || msg.body !== msg.attachment_title) && (
-            <Text style={[styles.bubbleText, { color: isMe ? colors.textInverse : t.textPrimary }]}>
-              {msg.body}
-            </Text>
+            <BubbleText
+              body={msg.body}
+              isMe={isMe}
+              textColor={isMe ? colors.textInverse : t.textPrimary}
+            />
           )}
           <Text style={[styles.bubbleTime, { color: isMe ? colors.textInverse + '99' : t.textSecondary }]}>
             {timeStr(msg.created_at)}
@@ -166,6 +202,17 @@ function MessageBubble({
       </View>
     </>
   );
+}
+
+// ── URL detection helpers ─────────────────────────────────────────────────────
+const URL_REGEX = /https?:\/\/[^\s]+/g;
+
+function generateMeetLink(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const rand = (n: number) =>
+    Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  // Format: thirty60-xxxx-xxxx  (unique enough for casual use)
+  return `https://meet.jit.si/thirty60-${rand(4)}-${rand(4)}`;
 }
 
 export default function ConversationScreen() {
@@ -504,6 +551,16 @@ export default function ConversationScreen() {
           <Ionicons name="attach-outline" size={20} color={colors.textInverse} />
         </TouchableOpacity>
         <TouchableOpacity
+          style={styles.videoBtn}
+          onPress={() => {
+            const link = generateMeetLink();
+            setText(`Join my video call: ${link}`);
+            setTimeout(() => inputRef.current?.focus(), 50);
+          }}
+        >
+          <Ionicons name="videocam-outline" size={20} color={colors.textInverse} />
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.sendBtn, (!text.trim() && !attachment || sending) && { opacity: 0.4 }]}
           onPress={handleSend}
           disabled={(!text.trim() && !attachment) || sending}
@@ -597,6 +654,14 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
+  },
+  videoBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bubbleLink: {
+    textDecorationLine: 'underline',
   },
 
   inputBar: {

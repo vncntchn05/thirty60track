@@ -79,3 +79,68 @@ export function useExercise(id: string) {
 
   return { exercise, loading, error, updateExercise };
 }
+
+// ─── Alternatives hook ─────────────────────────────────────────
+
+export function useExerciseAlternatives(exerciseId: string | null | undefined) {
+  const [alternatives, setAlternatives] = useState<Exercise[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!exerciseId) { setAlternatives([]); return; }
+    setLoading(true);
+    supabase
+      .from('exercise_alternatives')
+      .select(`alternative:exercises!exercise_alternatives_alternative_id_fkey(${EXERCISE_FIELDS})`)
+      .eq('exercise_id', exerciseId)
+      .then(({ data, error: err }) => {
+        if (!err && data) {
+          setAlternatives(
+            (data as unknown as { alternative: Exercise }[])
+              .map((row) => row.alternative)
+              .filter(Boolean)
+          );
+        }
+        setLoading(false);
+      });
+  }, [exerciseId]);
+
+  async function addAlternative(alternativeId: string): Promise<{ error: string | null }> {
+    const { error: err } = await supabase
+      .from('exercise_alternatives')
+      .insert([
+        { exercise_id: exerciseId, alternative_id: alternativeId },
+        { exercise_id: alternativeId, alternative_id: exerciseId },
+      ]);
+    if (!err) {
+      // re-fetch
+      const { data } = await supabase
+        .from('exercise_alternatives')
+        .select(`alternative:exercises!exercise_alternatives_alternative_id_fkey(${EXERCISE_FIELDS})`)
+        .eq('exercise_id', exerciseId!);
+      if (data) {
+        setAlternatives(
+          (data as unknown as { alternative: Exercise }[])
+            .map((row) => row.alternative)
+            .filter(Boolean)
+        );
+      }
+    }
+    return { error: err?.message ?? null };
+  }
+
+  async function removeAlternative(alternativeId: string): Promise<{ error: string | null }> {
+    const { error: err } = await supabase
+      .from('exercise_alternatives')
+      .delete()
+      .or(
+        `and(exercise_id.eq.${exerciseId},alternative_id.eq.${alternativeId}),and(exercise_id.eq.${alternativeId},alternative_id.eq.${exerciseId})`
+      );
+    if (!err) {
+      setAlternatives((prev) => prev.filter((e) => e.id !== alternativeId));
+    }
+    return { error: err?.message ?? null };
+  }
+
+  return { alternatives, loading, addAlternative, removeAlternative };
+}
