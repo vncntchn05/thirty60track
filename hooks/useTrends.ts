@@ -10,20 +10,22 @@ export function useTodayTrend() {
   const [summary, setSummary] = useState<TrendSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [disabled, setDisabled] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     const today = new Date().toISOString().slice(0, 10);
-    const { summary: s, error: e } = await fetchOrGenerateTrend(today);
+    const { summary: s, error: e, disabled: d } = await fetchOrGenerateTrend(today);
     setSummary(s);
     setError(e);
+    setDisabled(d ?? false);
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  return { summary, loading, error, refetch: load };
+  return { summary, loading, error, disabled, refetch: load };
 }
 
 /** Fetches the last `days` trend summaries from the cache (read-only). */

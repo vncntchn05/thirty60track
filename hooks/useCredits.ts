@@ -47,12 +47,18 @@ export function useCreditTransactions(clientId: string) {
   return { transactions, loading, refetch: load };
 }
 
+/**
+ * Adjust a client's credit balance by `amount` (positive = grant, negative = deduct).
+ * Any authenticated trainer can call this regardless of which trainer owns the client.
+ */
 export async function grantCredits(
   clientId: string,
   trainerId: string,
   amount: number,
   note?: string,
 ): Promise<{ error: string | null }> {
+  if (amount === 0) return { error: 'Amount must be non-zero.' };
+
   // Read current balance
   const { data: existing } = await supabase
     .from('client_credits')
@@ -69,16 +75,21 @@ export async function grantCredits(
       balance: currentBalance + amount,
       updated_at: new Date().toISOString(),
     });
-  if (creditErr) return { error: creditErr.message };
+  if (creditErr) {
+    if (creditErr.code === '42501' || creditErr.message.includes('row-level security')) {
+      return { error: 'Permission denied — run Migration 026 in the Supabase SQL editor to allow cross-client credit adjustments.' };
+    }
+    return { error: creditErr.message };
+  }
 
-  // Record transaction
+  // Record transaction — 'grant' for additions, 'manual' for deductions
   const { error: txErr } = await supabase
     .from('credit_transactions')
     .insert({
       client_id: clientId,
       trainer_id: trainerId,
       amount,
-      reason: 'grant',
+      reason: amount > 0 ? 'grant' : 'manual',
       note: note ?? null,
     });
   if (txErr) return { error: txErr.message };

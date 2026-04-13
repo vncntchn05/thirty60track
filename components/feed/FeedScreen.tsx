@@ -79,6 +79,7 @@ export function FeedScreen() {
     summary: todayTrend,
     loading: trendLoading,
     error: trendError,
+    disabled: trendsDisabled,
     refetch: refetchTrend,
   } = useTodayTrend();
   const { summaries: recentTrends } = useRecentTrends(7);
@@ -159,7 +160,17 @@ export function FeedScreen() {
         renderItem={null}
         ListHeaderComponent={
           <View style={styles.trendsContent}>
-            {trendLoading ? (
+            {trendsDisabled ? (
+              <View style={styles.trendError}>
+                <Ionicons name="sparkles-outline" size={40} color={t.textSecondary} />
+                <Text style={[styles.trendErrorTitle, { color: t.textPrimary }]}>
+                  AI Trends unavailable
+                </Text>
+                <Text style={[styles.trendErrorMsg, { color: t.textSecondary }]}>
+                  The AI-generated trends feature is currently disabled.
+                </Text>
+              </View>
+            ) : trendLoading ? (
               <View style={styles.trendLoader}>
                 <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={[styles.trendLoadingText, { color: t.textSecondary }]}>

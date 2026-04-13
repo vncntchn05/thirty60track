@@ -11,6 +11,14 @@ export type Trainer = {
   created_at: string;
 };
 
+export type ClientLink = {
+  id: string;
+  trainer_id: string;
+  client_id: string;
+  linked_client_id: string;
+  created_at: string;
+};
+
 export type Client = {
   id: string;
   trainer_id: string;
@@ -179,9 +187,10 @@ export type AssignedWorkout = {
   title: string | null;
   scheduled_date: string; // YYYY-MM-DD
   notes: string | null;
-  status: 'assigned' | 'completed';
+  status: 'assigned' | 'completed' | 'cancelled';
   completed_at: string | null;
   completed_workout_id: string | null;
+  recurring_plan_id: string | null;  // Migration 028
   created_at: string;
   updated_at: string;
 };
@@ -555,4 +564,31 @@ export type TrendSummary = {
   tip_of_day: string;
   sources_note: string;
   created_at: string;
+};
+
+// ─── Recurring Plans (Migration 028) ─────────────────────────
+
+export type RecurringPlan = {
+  id: string;
+  trainer_id: string;
+  client_id: string;
+  title: string;
+  notes: string | null;
+  /** Array of JS day-of-week integers: 0=Sun, 1=Mon … 6=Sat */
+  days_of_week: number[];
+  frequency: 'weekly' | 'biweekly';
+  start_date: string;  // YYYY-MM-DD
+  end_date: string;    // YYYY-MM-DD
+  created_at: string;
+  updated_at: string;
+};
+
+export type InsertRecurringPlan = {
+  title: string;
+  notes?: string | null;
+  days_of_week: number[];
+  frequency: 'weekly' | 'biweekly';
+  start_date: string;
+  end_date: string;
+  exercises: AssignedExercisePayload[];
 };

@@ -5,16 +5,19 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useClient } from '@/hooks/useClients';
+import { useClient, useClients } from '@/hooks/useClients';
 import { useWorkouts } from '@/hooks/useWorkouts';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { useAssignedWorkoutsForClient } from '@/hooks/useAssignedWorkouts';
 import { useClientCredits, useCreditTransactions, grantCredits } from '@/hooks/useCredits';
 import { useSessionsForClient } from '@/hooks/useSchedule';
+import { useClientLinks, addToFamilyGroup, removeFromFamilyGroup } from '@/hooks/useClientLinks';
+import { useRecurringPlansForClient, cancelRecurringPlan, cancelRecurringInstance } from '@/hooks/useRecurringPlans';
 import { WorkoutCalendar } from '@/components/workout/WorkoutCalendar';
 import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { Client, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake, AssignedWorkoutWithDetails, CreditTransaction } from '@/types';
+import type { Client, ClientWithStats, ClientIntake, WorkoutWithTrainer, UpdateClient, UpdateClientIntake, AssignedWorkoutWithDetails, CreditTransaction, RecurringPlan } from '@/types';
+import type { LinkedClientEntry } from '@/hooks/useClientLinks';
 import { MediaGallery } from '@/components/client/MediaGallery';
 import ReportCardButton from '@/components/client/ReportCardButton';
 import { NutritionTab } from '@/components/nutrition/NutritionTab';
@@ -49,7 +52,7 @@ function fmt(v: number | null, unit: string): string {
   return v != null ? `${v}${unit}` : '—';
 }
 
-type Tab      = 'progress' | 'workouts' | 'nutrition' | 'media' | 'credits';
+type Tab      = 'progress' | 'workouts' | 'nutrition' | 'media' | 'credits' | 'family';
 type ViewMode = 'calendar' | 'list';
 type Theme = ReturnType<typeof useTheme>;
 
@@ -65,7 +68,10 @@ export default function ClientDetailScreen() {
   const [dayOptions, setDayOptions] = useState<DayOption[]>([]);
   const [dayOptionsTitle, setDayOptionsTitle] = useState('');
 
-  const { trainer } = useAuth();
+  const { trainer, role } = useAuth();
+  // When role === 'client', this screen is being viewed by a linked family member
+  const isLinkedClientViewer = role === 'client';
+
   const { client, loading: clientLoading, error: clientError, updateClient, deleteClient } = useClient(id);
   const { workouts, loading: workoutsLoading, error: workoutsError, refetch: refetchWorkouts } = useWorkouts(client?.id ?? '');
   const { intake, saveIntake } = useClientIntake(client?.id ?? '');
@@ -73,6 +79,9 @@ export default function ClientDetailScreen() {
   const { balance, loading: creditsLoading, refetch: refetchCredits } = useClientCredits(client?.id ?? '');
   const { transactions, refetch: refetchTransactions } = useCreditTransactions(client?.id ?? '');
   const { sessions: clientSessions } = useSessionsForClient(client?.id ?? '', trainer?.id ?? '');
+  const { links: familyLinks, loading: familyLoading, refetch: refetchFamily } = useClientLinks(isLinkedClientViewer ? '' : (client?.id ?? ''));
+  const { clients: allClients } = useClients();
+  const { plans: recurringPlans, refetch: refetchPlans } = useRecurringPlansForClient(isLinkedClientViewer ? '' : (client?.id ?? ''));
 
   useFocusEffect(useCallback(() => { refetchWorkouts(); refetchAssigned(); }, [refetchWorkouts, refetchAssigned]));
 
@@ -129,11 +138,15 @@ export default function ClientDetailScreen() {
         options={{
           title: client.full_name,
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.headerBtn}>
+            <TouchableOpacity
+              onPress={() => router.canGoBack() ? router.back() : router.replace(isLinkedClientViewer ? '/(client)' : '/(tabs)' as never)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.headerBtn}
+            >
               <Ionicons name="chevron-back" size={24} color={colors.primary} />
             </TouchableOpacity>
           ),
-          headerRight: () => (
+          headerRight: isLinkedClientViewer ? undefined : () => (
             <TouchableOpacity onPress={() => { setConfirmingDelete(true); setDeleteError(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="trash-outline" size={22} color={colors.error} />
             </TouchableOpacity>
@@ -159,13 +172,17 @@ export default function ClientDetailScreen() {
 
       {/* ── Tab bar ── */}
       <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-        {(['progress', 'workouts', 'nutrition', 'media', 'credits'] as Tab[]).map((tab) => {
+        {(isLinkedClientViewer
+          ? ['progress', 'workouts', 'nutrition', 'media', 'credits'] as Tab[]
+          : ['progress', 'workouts', 'nutrition', 'media', 'credits', 'family'] as Tab[]
+        ).map((tab) => {
           const active = activeTab === tab;
           const label =
             tab === 'progress'  ? 'Progress'
             : tab === 'workouts'  ? 'Workouts'
             : tab === 'nutrition' ? 'Nutrition'
             : tab === 'credits'   ? 'Credits'
+            : tab === 'family'    ? 'Family'
             : 'Media';
           return (
             <Pressable key={tab} style={styles.tabItem} onPress={() => setActiveTab(tab)}>
@@ -236,8 +253,30 @@ export default function ClientDetailScreen() {
                     : workoutsError
                       ? <Text style={styles.errorText}>{workoutsError}</Text>
                       : null}
+
+                  {/* Recurring series section — trainers only */}
+                  {!isLinkedClientViewer && (
+                    <RecurringSeriesSection
+                      clientId={client.id}
+                      plans={recurringPlans}
+                      onRefresh={() => { refetchPlans(); refetchAssigned(); }}
+                      t={t}
+                      router={router}
+                    />
+                  )}
+
+                  {/* Upcoming assigned workouts */}
                   {assignedWorkouts.filter((a) => a.status === 'assigned').map((item) => (
-                    <UpcomingWorkoutRow key={item.id} item={item} t={t} />
+                    <UpcomingWorkoutRow
+                      key={item.id}
+                      item={item}
+                      t={t}
+                      onCancelRecurring={item.recurring_plan_id ? async () => {
+                        const { error } = await cancelRecurringInstance(item.id);
+                        if (error) Alert.alert('Error', error);
+                        else refetchAssigned();
+                      } : undefined}
+                    />
                   ))}
                 </>
               }
@@ -266,12 +305,26 @@ export default function ClientDetailScreen() {
           transactions={transactions}
           creditsLoading={creditsLoading}
           onRefresh={() => { refetchCredits(); refetchTransactions(); }}
+          readOnly={isLinkedClientViewer}
           t={t}
         />
       )}
 
-      {/* ── Delete confirmation bar ── */}
-      {confirmingDelete && (
+      {/* ── Family tab (trainer only) ── */}
+      {activeTab === 'family' && !isLinkedClientViewer && (
+        <FamilyTab
+          clientId={client.id}
+          trainerId={trainer?.id ?? ''}
+          links={familyLinks}
+          loading={familyLoading}
+          allClients={allClients}
+          onRefresh={refetchFamily}
+          t={t}
+        />
+      )}
+
+      {/* ── Delete confirmation bar (trainer only) ── */}
+      {!isLinkedClientViewer && confirmingDelete && (
         <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
           <Text style={[styles.deleteBarText, { color: t.textPrimary }]} numberOfLines={2}>
             Delete {client.full_name} and all workout history?
@@ -290,8 +343,8 @@ export default function ClientDetailScreen() {
         </View>
       )}
 
-      {/* ── FAB (Log Workout — hidden on media and credits tabs) ── */}
-      {!confirmingDelete && activeTab !== 'media' && activeTab !== 'credits' && (
+      {/* ── FAB (Log Workout — hidden on media/credits/family tabs; linked clients can also log) ── */}
+      {!confirmingDelete && activeTab !== 'media' && activeTab !== 'credits' && activeTab !== 'family' && (
         <TouchableOpacity
           style={styles.fab}
           onPress={() => router.push({ pathname: '/workout/new', params: { clientId: client.id } } as never)}
@@ -343,10 +396,11 @@ type CreditsTabProps = {
   transactions: CreditTransaction[];
   creditsLoading: boolean;
   onRefresh: () => void;
+  readOnly?: boolean;
   t: Theme;
 };
 
-function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading, onRefresh, t }: CreditsTabProps) {
+function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading, onRefresh, readOnly = false, t }: CreditsTabProps) {
   const [grantAmount, setGrantAmount] = useState('');
   const [grantNote, setGrantNote] = useState('');
   const [granting, setGranting] = useState(false);
@@ -354,7 +408,7 @@ function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading
 
   async function handleGrant() {
     const amount = parseInt(grantAmount, 10);
-    if (!amount || amount <= 0) { setGrantError('Enter a valid amount.'); return; }
+    if (isNaN(amount) || amount === 0) { setGrantError('Enter a non-zero amount.'); return; }
     setGranting(true); setGrantError(null);
     const { error } = await grantCredits(clientId, trainerId, amount, grantNote.trim() || undefined);
     setGranting(false);
@@ -365,10 +419,13 @@ function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading
 
   function reasonLabel(reason: string): string {
     if (reason === 'grant')          return 'Granted';
+    if (reason === 'manual')         return 'Adjusted';
     if (reason === 'session_deduct') return 'Session';
     if (reason === 'session_refund') return 'Refund';
     return 'Manual';
   }
+
+  const parsedAmount = parseInt(grantAmount, 10);
 
   return (
     <ScrollView contentContainerStyle={creditsStyles.container}>
@@ -386,15 +443,15 @@ function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading
         }
       </View>
 
-      {/* Grant credits */}
-      <View style={[creditsStyles.grantCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-        <Text style={[creditsStyles.sectionTitle, { color: t.textSecondary }]}>GRANT CREDITS</Text>
+      {/* Adjust credits — hidden for linked-client viewers */}
+      {!readOnly && <View style={[creditsStyles.grantCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <Text style={[creditsStyles.sectionTitle, { color: t.textSecondary }]}>ADJUST CREDITS</Text>
         <View style={creditsStyles.grantRow}>
           <TextInput
             style={[creditsStyles.grantInput, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-            placeholder="Amount"
+            placeholder="Amount (− to deduct)"
             placeholderTextColor={t.textSecondary as string}
-            keyboardType="numeric"
+            keyboardType="numbers-and-punctuation"
             value={grantAmount}
             onChangeText={setGrantAmount}
           />
@@ -410,13 +467,15 @@ function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading
         <TouchableOpacity style={creditsStyles.grantBtn} onPress={handleGrant} disabled={granting}>
           {granting
             ? <ActivityIndicator size="small" color={colors.textInverse} />
-            : <Text style={creditsStyles.grantBtnText}>Grant Credits</Text>
+            : <Text style={creditsStyles.grantBtnText}>
+                {!isNaN(parsedAmount) && parsedAmount < 0 ? 'Deduct Credits' : 'Grant Credits'}
+              </Text>
           }
         </TouchableOpacity>
         <Text style={[creditsStyles.hint, { color: t.textSecondary }]}>
-          30 min session = 1 credit · 60 min session = 2 credits
+          Use a negative number (e.g. −2) to deduct · 30 min = 1 credit · 60 min = 2 credits
         </Text>
-      </View>
+      </View>}
 
       {/* Transaction history */}
       <Text style={[creditsStyles.sectionTitle, { color: t.textSecondary, paddingHorizontal: spacing.md }]}>HISTORY</Text>
@@ -440,6 +499,178 @@ function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading
     </ScrollView>
   );
 }
+
+// ─── Family tab ───────────────────────────────────────────────────
+
+type FamilyTabProps = {
+  clientId: string;
+  trainerId: string;
+  links: LinkedClientEntry[];
+  loading: boolean;
+  allClients: ClientWithStats[];
+  onRefresh: () => void;
+  t: Theme;
+};
+
+function FamilyTab({ clientId, trainerId, links, loading, allClients, onRefresh, t }: FamilyTabProps) {
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
+  const router = useRouter();
+
+  // Clients not already linked and not the client themselves
+  const linkedIds = new Set(links.map((l) => l.client.id));
+  const available = allClients.filter((c) => c.id !== clientId && !linkedIds.has(c.id));
+
+  async function handleLink(newMemberId: string) {
+    setLinking(true); setLinkError(null);
+    const { error } = await addToFamilyGroup(trainerId, clientId, newMemberId);
+    setLinking(false);
+    if (error) { setLinkError(error); return; }
+    setPickerVisible(false);
+    onRefresh();
+  }
+
+  async function handleUnlink(removedClientId: string) {
+    const { error } = await removeFromFamilyGroup(removedClientId);
+    if (error) { setLinkError(error); return; }
+    onRefresh();
+  }
+
+  return (
+    <ScrollView contentContainerStyle={familyStyles.container}>
+      <Text style={[familyStyles.heading, { color: t.textSecondary }]}>LINKED FAMILY MEMBERS</Text>
+      <Text style={[familyStyles.subText, { color: t.textSecondary }]}>
+        Linked clients can view and edit each other's progress, workouts, and nutrition.
+      </Text>
+
+      {linkError ? <Text style={familyStyles.errText}>{linkError}</Text> : null}
+
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.md }} />
+      ) : links.length === 0 ? (
+        <Text style={[familyStyles.emptyText, { color: t.textSecondary }]}>No family members linked yet.</Text>
+      ) : (
+        links.map(({ link, client }) => (
+          <View key={link.id} style={[familyStyles.linkRow, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <TouchableOpacity
+              style={familyStyles.linkLeft}
+              onPress={() => router.push(`/client/${client.id}` as never)}
+              activeOpacity={0.7}
+            >
+              <View style={[familyStyles.avatar, { backgroundColor: colors.primary + '33' }]}>
+                <Text style={[familyStyles.avatarText, { color: colors.primary }]}>
+                  {client.full_name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View>
+                <Text style={[familyStyles.linkName, { color: t.textPrimary }]}>{client.full_name}</Text>
+                {client.email ? (
+                  <Text style={[familyStyles.linkEmail, { color: t.textSecondary }]}>{client.email}</Text>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleUnlink(client.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="unlink-outline" size={20} color={colors.error} />
+            </TouchableOpacity>
+          </View>
+        ))
+      )}
+
+      <TouchableOpacity
+        style={[familyStyles.addBtn, { borderColor: colors.primary }]}
+        onPress={() => { setLinkError(null); setPickerVisible(true); }}
+      >
+        <Ionicons name="person-add-outline" size={16} color={colors.primary} />
+        <Text style={[familyStyles.addBtnText, { color: colors.primary }]}>Link a Client</Text>
+      </TouchableOpacity>
+
+      {/* Client picker modal */}
+      <Modal visible={pickerVisible} transparent animationType="slide" onRequestClose={() => setPickerVisible(false)}>
+        <View style={familyStyles.modalOverlay}>
+          <View style={[familyStyles.modalSheet, { backgroundColor: t.surface }]}>
+            <View style={familyStyles.modalHeader}>
+              <Text style={[familyStyles.modalTitle, { color: t.textPrimary }]}>Link a client</Text>
+              <TouchableOpacity onPress={() => setPickerVisible(false)}>
+                <Ionicons name="close" size={22} color={t.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {linking && <ActivityIndicator color={colors.primary} style={{ marginBottom: spacing.sm }} />}
+            {available.length === 0 ? (
+              <Text style={[familyStyles.emptyText, { color: t.textSecondary }]}>All your clients are already linked.</Text>
+            ) : (
+              <FlatList
+                data={available}
+                keyExtractor={(c) => c.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[familyStyles.pickerRow, { borderBottomColor: t.border }]}
+                    onPress={() => handleLink(item.id)}
+                    disabled={linking}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[familyStyles.avatar, { backgroundColor: colors.primary + '22' }]}>
+                      <Text style={[familyStyles.avatarText, { color: colors.primary }]}>
+                        {item.full_name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View>
+                      <Text style={[familyStyles.linkName, { color: t.textPrimary }]}>{item.full_name}</Text>
+                      {item.email ? (
+                        <Text style={[familyStyles.linkEmail, { color: t.textSecondary }]}>{item.email}</Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
+  );
+}
+
+const familyStyles = StyleSheet.create({
+  container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
+  heading: { ...typography.label, letterSpacing: 1 },
+  subText: { ...typography.bodySmall, lineHeight: 18 },
+  emptyText: { ...typography.body, textAlign: 'center', marginVertical: spacing.md },
+  errText: { ...typography.bodySmall, color: colors.error },
+  linkRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: radius.md, borderWidth: 1, padding: spacing.md,
+  },
+  linkLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
+  avatar: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { ...typography.body, fontWeight: '700' },
+  linkName: { ...typography.body, fontWeight: '600' },
+  linkEmail: { ...typography.bodySmall },
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.xs, borderWidth: 1, borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+  },
+  addBtnText: { ...typography.body, fontWeight: '600' },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
+  modalSheet: {
+    borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg,
+    padding: spacing.md, maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  modalTitle: { ...typography.heading3 },
+  pickerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+});
 
 const creditsStyles = StyleSheet.create({
   container: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
@@ -843,13 +1074,22 @@ function MetricsCard({ client, onUpdate, t }: { client: Client; onUpdate: (p: Up
 
 // ─── Upcoming assigned workout row (green outline, shown in Workouts tab) ────
 
-function UpcomingWorkoutRow({ item, t }: { item: AssignedWorkoutWithDetails; t: Theme }) {
+function UpcomingWorkoutRow({
+  item,
+  t,
+  onCancelRecurring,
+}: {
+  item: AssignedWorkoutWithDetails;
+  t: Theme;
+  onCancelRecurring?: () => void;
+}) {
   const router = useRouter();
   const [y, m, d] = item.scheduled_date.split('-').map(Number);
   const dateStr = new Date(y, m - 1, d).toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
   });
   const exerciseCount = item.exercises.length;
+  const isRecurring = !!item.recurring_plan_id;
 
   return (
     <TouchableOpacity
@@ -861,6 +1101,12 @@ function UpcomingWorkoutRow({ item, t }: { item: AssignedWorkoutWithDetails; t: 
           <View style={styles.upcomingBadge}>
             <Text style={styles.upcomingBadgeText}>UPCOMING</Text>
           </View>
+          {isRecurring && (
+            <View style={styles.recurringBadge}>
+              <Ionicons name="repeat" size={10} color={colors.primary} />
+              <Text style={[styles.recurringBadgeText, { color: colors.primary }]}>RECURRING</Text>
+            </View>
+          )}
           <Text style={[styles.dateText, { color: t.textPrimary }]}>
             {item.title ?? 'Untitled Workout'}
           </Text>
@@ -872,10 +1118,148 @@ function UpcomingWorkoutRow({ item, t }: { item: AssignedWorkoutWithDetails; t: 
           </Text>
         )}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
+      <View style={styles.upcomingRowRight}>
+        {isRecurring && onCancelRecurring && (
+          <TouchableOpacity
+            onPress={(e) => { e.stopPropagation(); onCancelRecurring(); }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.cancelInstanceBtn}
+          >
+            <Ionicons name="close-circle-outline" size={20} color={colors.error} />
+          </TouchableOpacity>
+        )}
+        <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
+      </View>
     </TouchableOpacity>
   );
 }
+
+// ─── Recurring series section ─────────────────────────────────
+
+const DOW_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function RecurringSeriesSection({
+  clientId,
+  plans,
+  onRefresh,
+  t,
+  router,
+}: {
+  clientId: string;
+  plans: RecurringPlan[];
+  onRefresh: () => void;
+  t: Theme;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const today = new Date().toISOString().split('T')[0];
+
+  async function handleCancelSeries(plan: RecurringPlan) {
+    Alert.alert(
+      'Cancel recurring series',
+      `Cancel all remaining "${plan.title}" sessions? Past and completed sessions will not be affected.`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Cancel Series',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await cancelRecurringPlan(plan.id);
+            if (error) Alert.alert('Error', error);
+            else onRefresh();
+          },
+        },
+      ],
+    );
+  }
+
+  return (
+    <View style={recurStyles.container}>
+      <View style={recurStyles.header}>
+        <Text style={[recurStyles.heading, { color: t.textSecondary }]}>RECURRING SERIES</Text>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: '/workout/recurring/new', params: { clientId } } as never)}
+          style={recurStyles.newBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="add" size={16} color={colors.primary} />
+          <Text style={[recurStyles.newBtnText, { color: colors.primary }]}>New</Text>
+        </TouchableOpacity>
+      </View>
+
+      {plans.length === 0 ? (
+        <Text style={[recurStyles.emptyText, { color: t.textSecondary }]}>
+          No recurring series. Tap + New to create one.
+        </Text>
+      ) : (
+        plans.map((plan) => {
+          const dayLabels = [...plan.days_of_week]
+            .sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))
+            .map((d) => DOW_NAMES[d])
+            .join(', ');
+          const isActive = plan.end_date >= today;
+
+          return (
+            <View key={plan.id} style={[recurStyles.planRow, { backgroundColor: t.surface, borderColor: t.border }]}>
+              <View style={recurStyles.planInfo}>
+                <View style={recurStyles.planTitleRow}>
+                  <Ionicons name="repeat" size={14} color={colors.primary} style={{ marginTop: 1 }} />
+                  <Text style={[recurStyles.planTitle, { color: t.textPrimary }]}>{plan.title}</Text>
+                  {!isActive && (
+                    <View style={recurStyles.endedBadge}>
+                      <Text style={recurStyles.endedBadgeText}>ENDED</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[recurStyles.planSub, { color: t.textSecondary }]}>
+                  {plan.frequency === 'weekly' ? 'Weekly' : 'Biweekly'} · {dayLabels}
+                </Text>
+                <Text style={[recurStyles.planSub, { color: t.textSecondary }]}>
+                  {plan.start_date} → {plan.end_date === '9999-12-31' ? 'No end date' : plan.end_date}
+                </Text>
+              </View>
+              {isActive && (
+                <TouchableOpacity
+                  onPress={() => handleCancelSeries(plan)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={recurStyles.cancelBtn}
+                >
+                  <Text style={[recurStyles.cancelBtnText, { color: colors.error }]}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })
+      )}
+    </View>
+  );
+}
+
+const recurStyles = StyleSheet.create({
+  container: { marginBottom: spacing.sm },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  heading: { ...typography.label, letterSpacing: 1 },
+  newBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  newBtnText: { ...typography.bodySmall, fontWeight: '600' },
+  emptyText: { ...typography.bodySmall, marginBottom: spacing.sm },
+  planRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: radius.md, borderWidth: 1, padding: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  planInfo: { flex: 1, gap: 2 },
+  planTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  planTitle: { ...typography.body, fontWeight: '600', flex: 1 },
+  planSub: { ...typography.bodySmall },
+  endedBadge: {
+    backgroundColor: '#55555533', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1,
+  },
+  endedBadgeText: { ...typography.label, fontSize: 9, color: '#888' },
+  cancelBtn: { paddingLeft: spacing.sm },
+  cancelBtnText: { ...typography.bodySmall, fontWeight: '600' },
+});
 
 // ─── Workout row ──────────────────────────────────────────────────
 
@@ -998,6 +1382,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   upcomingBadgeText: { ...typography.label, color: colors.success, letterSpacing: 0.5 },
+  recurringBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    backgroundColor: `${colors.primary}22`,
+    paddingHorizontal: spacing.xs, paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  recurringBadgeText: { ...typography.label, fontSize: 9, letterSpacing: 0.5 },
+  upcomingRowRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  cancelInstanceBtn: {},
   rowMain: { flex: 1, gap: 2 },
   dateText: { ...typography.body, fontWeight: '600' },
   trainerText: { ...typography.bodySmall, fontStyle: 'italic' },

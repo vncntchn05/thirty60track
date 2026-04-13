@@ -10,6 +10,7 @@ import { WeeklyTimetable } from '@/components/schedule/WeeklyTimetable';
 import { SessionSheet } from '@/components/schedule/SessionSheet';
 import { AvailabilitySheet } from '@/components/schedule/AvailabilitySheet';
 import { TrainerBookingSheet } from '@/components/schedule/TrainerBookingSheet';
+import { RecurringPickerSheet } from '@/components/schedule/RecurringPickerSheet';
 import { WeekPickerModal } from '@/components/schedule/WeekPickerModal';
 import { colors, spacing, typography, useTheme } from '@/constants/theme';
 import type { ScheduledSessionWithDetails, Trainer } from '@/types';
@@ -57,6 +58,7 @@ export default function ScheduleScreen() {
   const [activeSession, setActiveSession] = useState<ScheduledSessionWithDetails | null>(null);
   const [availSheetOpen, setAvailSheetOpen] = useState(false);
   const [bookSheetOpen, setBookSheetOpen] = useState(false);
+  const [recurringSheetOpen, setRecurringSheetOpen] = useState(false);
   const [weekPickerOpen, setWeekPickerOpen] = useState(false);
 
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
@@ -174,6 +176,10 @@ export default function ScheduleScreen() {
             <Ionicons name="calendar-outline" size={20} color={colors.textInverse} />
             <Text style={styles.fabLabel}>Book Session</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={() => setRecurringSheetOpen(true)}>
+            <Ionicons name="repeat-outline" size={20} color={colors.primary} />
+            <Text style={[styles.fabLabel, { color: colors.primary }]}>Recurring</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={() => setAvailSheetOpen(true)}>
             <Ionicons name="time-outline" size={20} color={colors.primary} />
             <Text style={[styles.fabLabel, { color: colors.primary }]}>Availability</Text>
@@ -205,6 +211,11 @@ export default function ScheduleScreen() {
           onBooked={refetch}
         />
       ) : null}
+
+      <RecurringPickerSheet
+        visible={recurringSheetOpen}
+        onClose={() => setRecurringSheetOpen(false)}
+      />
 
       <WeekPickerModal
         visible={weekPickerOpen}

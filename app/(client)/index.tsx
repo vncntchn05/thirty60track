@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { useClientProfile } from '@/hooks/useClientProfile';
 import { useClientWorkouts } from '@/hooks/useClientWorkouts';
 import { useClientIntake } from '@/hooks/useClientIntake';
+import { useMyLinkedClients } from '@/hooks/useClientLinks';
 import { IntakeForm } from '@/components/client/IntakeForm';
 import ReportCardButton from '@/components/client/ReportCardButton';
 import { MediaGallery } from '@/components/client/MediaGallery';
@@ -31,6 +32,7 @@ export default function ClientDashboard() {
   const { client, loading: profileLoading, refresh: refreshProfile } = useClientProfile();
   const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const { workouts, loading, refresh } = useClientWorkouts(clientId ?? '');
+  const { linkedClients } = useMyLinkedClients(clientId ?? '');
   const [intakeCompleted, setIntakeCompleted] = useState(false);
   const [segment, setSegment] = useState<Segment>('progress');
 
@@ -105,6 +107,45 @@ export default function ClientDashboard() {
       {/* ── Progress segment ── */}
       {segment === 'progress' && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll}>
+          {/* Family section */}
+          {linkedClients.length > 0 && (
+            <View style={styles.familySection}>
+              <Text style={[styles.familyLabel, { color: t.textSecondary }]}>FAMILY</Text>
+              {linkedClients.map((lc) => {
+                const initials = lc.full_name
+                  .split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+                const lastWorkout = lc.last_workout_at
+                  ? new Date(lc.last_workout_at + 'T00:00:00')
+                      .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                  : null;
+                return (
+                  <TouchableOpacity
+                    key={lc.id}
+                    style={[styles.familyRow, { backgroundColor: t.surface, borderColor: t.border }]}
+                    onPress={() => router.push(`/client/${lc.id}` as never)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.familyAvatar}>
+                      <Text style={styles.familyAvatarText}>{initials}</Text>
+                    </View>
+                    <View style={styles.familyInfo}>
+                      <Text style={[styles.familyName, { color: t.textPrimary }]}>{lc.full_name}</Text>
+                      <View style={styles.familyStats}>
+                        <Text style={[styles.familyStat, { color: t.textSecondary }]}>
+                          {lc.workout_count} workout{lc.workout_count !== 1 ? 's' : ''}
+                        </Text>
+                        {lastWorkout ? (
+                          <Text style={[styles.familyStat, { color: t.textSecondary }]}>· Last {lastWorkout}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           {/* Greeting */}
           <Text style={[styles.greeting, { color: t.textPrimary }]}>Welcome back, {firstName}</Text>
 
@@ -199,4 +240,22 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 0, left: '20%', right: '20%',
     height: 2, backgroundColor: colors.primary, borderRadius: 1,
   },
+
+  // Family section — mirrors trainer ClientRow exactly
+  familySection: { gap: spacing.xs },
+  familyLabel: { ...typography.label, letterSpacing: 1, marginBottom: spacing.xs },
+  familyRow: {
+    borderRadius: radius.md, borderWidth: 1, padding: spacing.md,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+  },
+  familyAvatar: {
+    width: 44, height: 44, borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  familyAvatarText: { ...typography.label, color: colors.textInverse, fontSize: 15 },
+  familyInfo: { flex: 1, gap: 2 },
+  familyName: { ...typography.body, fontWeight: '600' },
+  familyStats: { flexDirection: 'row', gap: spacing.xs, marginTop: 2 },
+  familyStat: { ...typography.bodySmall },
 });

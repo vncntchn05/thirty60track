@@ -11,7 +11,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { createWorkoutWithSets } from '@/hooks/useWorkouts';
 import { createAssignedWorkout } from '@/hooks/useAssignedWorkouts';
 import { useExercises } from '@/hooks/useExercises';
-import { useClients } from '@/hooks/useClients';
+import { useClients, useClient } from '@/hooks/useClients';
 import { useAuth } from '@/lib/auth';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
@@ -170,12 +170,15 @@ export default function NewWorkoutScreen() {
   const navigation = useNavigation();
   const [isDirty, setIsDirty] = useState(false);
   const [showUnsavedBar, setShowUnsavedBar] = useState(false);
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isLinkedClient = role === 'client';
   const t = useTheme();
   const { exercises: allExercises } = useExercises();
   const { clients } = useClients();
   const singleClientId = Array.isArray(clientId) ? clientId[0] : clientId;
   const { intake } = useClientIntake(singleClientId ?? '');
+  // For linked clients: fetch the target client to get their trainer_id (required on workouts table)
+  const { client: targetClient } = useClient(isLinkedClient ? (singleClientId ?? '') : '');
   // ── mode ──
   const [mode, setMode] = useState<Mode>('log');
   // ── log-now state ──
@@ -351,6 +354,10 @@ export default function NewWorkoutScreen() {
     if (!user || !clientId) return;
     if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise before saving.'); return; }
 
+    // Linked clients use the target client's trainer_id (workouts.trainer_id is NOT NULL)
+    const effectiveTrainerId = isLinkedClient ? (targetClient?.trainer_id ?? '') : user.id;
+    if (!effectiveTrainerId) { Alert.alert('Error', 'Could not determine trainer. Try again.'); return; }
+
     // Compute superset_group per block using linkedToNext chain
     let groupCounter = 0;
     const blockGroups: (number | null)[] = new Array(blocks.length).fill(null);
@@ -382,14 +389,16 @@ export default function NewWorkoutScreen() {
     const { error } = await createWorkoutWithSets(
       {
         client_id: clientId,
-        trainer_id: user.id,
+        trainer_id: effectiveTrainerId,
         performed_at: date,
         notes: workoutNotes.trim() || null,
         body_weight_kg: !isNaN(wVal) && wVal > 0 ? wVal : null,
         body_fat_percent: !isNaN(bfVal) && bfVal >= 0 && bfVal < 100 ? bfVal : null,
+        logged_by_role: isLinkedClient ? 'client' : 'trainer',
+        logged_by_user_id: user.id,
       },
       allSets,
-      [...workedOutWith],
+      isLinkedClient ? [] : [...workedOutWith],
     );
     setSaving(false);
     if (error) {
@@ -398,7 +407,7 @@ export default function NewWorkoutScreen() {
       setIsDirty(false);
       router.back();
     }
-  }, [user, clientId, blocks, date, workoutNotes, bodyWeight, bodyFat, workedOutWith, router]);
+  }, [user, isLinkedClient, targetClient, clientId, blocks, date, workoutNotes, bodyWeight, bodyFat, workedOutWith, router]);
 
   const handleBackPress = useCallback(() => {
     if (!isDirty) { router.back(); return; }
@@ -486,24 +495,26 @@ export default function NewWorkoutScreen() {
       />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={[styles.header, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
-          {/* ── Mode toggle ── */}
-          <View style={[styles.modeToggle, { backgroundColor: t.background, borderColor: t.border }]}>
-            {(['log', 'assign'] as Mode[]).map((m) => {
-              const active = mode === m;
-              return (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.modeBtn, active && styles.modeBtnActive]}
-                  onPress={() => setMode(m)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.modeBtnText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                    {m === 'log' ? 'Log Now' : 'Assign for Later'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          {/* ── Mode toggle (trainers only — linked clients can only log) ── */}
+          {!isLinkedClient && (
+            <View style={[styles.modeToggle, { backgroundColor: t.background, borderColor: t.border }]}>
+              {(['log', 'assign'] as Mode[]).map((m) => {
+                const active = mode === m;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.modeBtn, active && styles.modeBtnActive]}
+                    onPress={() => setMode(m)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modeBtnText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                      {m === 'log' ? 'Log Now' : 'Assign for Later'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
           {mode === 'log' ? (
             <>
@@ -624,8 +635,8 @@ export default function NewWorkoutScreen() {
           </View>
         )}
 
-        {/* Worked out with — only shown in Log Now mode */}
-        {mode === 'log' && clients.filter((c) => c.id !== clientId).length > 0 && (
+        {/* Worked out with — trainers only, Log Now mode only */}
+        {!isLinkedClient && mode === 'log' && clients.filter((c) => c.id !== clientId).length > 0 && (
           <View style={[styles.groupSection, { backgroundColor: t.surface, borderColor: t.border }]}>
             <Text style={[styles.groupLabel, { color: t.textSecondary }]}>Worked out with</Text>
             {clients.filter((c) => c.id !== clientId).map((c) => {

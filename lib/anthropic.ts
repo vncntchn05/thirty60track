@@ -17,6 +17,16 @@
 import { supabase } from '@/lib/supabase';
 import type { TrendItem, TrendSummary } from '@/types';
 
+// ─── Feature flag ─────────────────────────────────────────────
+
+/**
+ * Master toggle for AI-generated trend summaries.
+ * Set to `true` to enable; requires the `generate-trend` Edge Function to be
+ * deployed and ANTHROPIC_API_KEY set via `supabase secrets set`.
+ * See README § "AI Trends" for full re-enablement steps.
+ */
+export const AI_TRENDS_ENABLED = false;
+
 // ─── Types ────────────────────────────────────────────────────
 
 type TrendPayload = {
@@ -91,7 +101,10 @@ export async function generateTrendSummary(date: string): Promise<{
 export async function fetchOrGenerateTrend(date: string): Promise<{
   summary: TrendSummary | null;
   error: string | null;
+  disabled?: boolean;
 }> {
+  if (!AI_TRENDS_ENABLED) return { summary: null, error: null, disabled: true };
+
   // 1. Cache hit
   const { data: cached } = await supabase
     .from('trend_summaries')

@@ -71,6 +71,7 @@ function RootNavigator() {
       <Stack.Screen name="client/[id]" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Client' }} />
       <Stack.Screen name="workout/new" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Log Workout', presentation: 'modal' }} />
       <Stack.Screen name="workout/[id]" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Workout' }} />
+      <Stack.Screen name="workout/recurring/new" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Recurring Series', presentation: 'modal' }} />
       <Stack.Screen name="messages/[id]" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Message' }} />
     </Stack>
   );

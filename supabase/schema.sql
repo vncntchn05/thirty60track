@@ -1185,11 +1185,11 @@ CREATE POLICY "credits_client_select" ON client_credits
   USING (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND auth_user_id = auth.uid()));
 CREATE POLICY "credits_trainer_upsert" ON client_credits
   FOR INSERT TO authenticated
-  WITH CHECK (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND trainer_id = auth.uid()));
+  WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
 CREATE POLICY "credits_trainer_update" ON client_credits
   FOR UPDATE TO authenticated
-  USING (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND trainer_id = auth.uid()))
-  WITH CHECK (EXISTS (SELECT 1 FROM clients WHERE id = client_id AND trainer_id = auth.uid()));
+  USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
 
 -- credit_transactions: all trainers can read any client's transactions; clients read own
 CREATE POLICY "transactions_trainer_select" ON credit_transactions
@@ -2429,3 +2429,286 @@ ON CONFLICT (name) DO NOTHING;
 -- (no set/rep prescriptions) directly in the INSERT above.
 -- For existing databases, run the explicit UPDATE statements in
 -- supabase/seed.sql (search for "Migration 025 cleanup").
+
+
+-- ============================================================
+-- Migration 026 — allow any trainer to adjust any client's credits
+-- ============================================================
+-- Replace the old policies that restricted credit writes to the
+-- client's own trainer with policies that allow any trainer.
+
+DROP POLICY IF EXISTS "credits_trainer_upsert" ON client_credits;
+DROP POLICY IF EXISTS "credits_trainer_update" ON client_credits;
+
+CREATE POLICY "credits_trainer_upsert" ON client_credits
+  FOR INSERT TO authenticated
+  WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+CREATE POLICY "credits_trainer_update" ON client_credits
+  FOR UPDATE TO authenticated
+  USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+-- ============================================================
+-- Migration 027 — client account linking (family view)
+-- ============================================================
+-- Trainers can link client accounts together. Linked clients
+-- can view and edit each other's data (profile, workouts,
+-- nutrition, media, credits) just like the trainer view.
+
+-- ── Table ────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS client_links (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  trainer_id       UUID NOT NULL REFERENCES trainers(id)  ON DELETE CASCADE,
+  client_id        UUID NOT NULL REFERENCES clients(id)   ON DELETE CASCADE,
+  linked_client_id UUID NOT NULL REFERENCES clients(id)   ON DELETE CASCADE,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT client_links_no_self CHECK (client_id != linked_client_id)
+);
+
+-- One row per unordered pair (A↔B and B↔A are the same relationship)
+CREATE UNIQUE INDEX IF NOT EXISTS client_links_pair_uniq ON client_links (
+  LEAST(client_id::text,        linked_client_id::text),
+  GREATEST(client_id::text,     linked_client_id::text)
+);
+
+ALTER TABLE client_links ENABLE ROW LEVEL SECURITY;
+
+-- Trainers: full CRUD on links they created
+CREATE POLICY "client_links_trainer_select" ON client_links
+  FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+CREATE POLICY "client_links_trainer_insert" ON client_links
+  FOR INSERT TO authenticated WITH CHECK (trainer_id = auth.uid());
+CREATE POLICY "client_links_trainer_delete" ON client_links
+  FOR DELETE TO authenticated USING (trainer_id = auth.uid());
+
+-- Clients: read links where they appear on either side
+CREATE POLICY "client_links_client_select" ON client_links
+  FOR SELECT TO authenticated
+  USING (
+    client_id        IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+    OR linked_client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+-- ── Helper function ───────────────────────────────────────────
+-- Returns true if the caller (auth.uid()) is a linked client of target_client_id.
+-- SECURITY DEFINER so it can read both tables without being subject to their RLS.
+
+CREATE OR REPLACE FUNCTION is_linked_to_client(target_client_id UUID)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM client_links cl
+    JOIN clients me ON me.auth_user_id = auth.uid()
+    WHERE (cl.client_id = me.id AND cl.linked_client_id = target_client_id)
+       OR (cl.linked_client_id = me.id AND cl.client_id = target_client_id)
+  );
+$$;
+
+-- ── Linked-client SELECT policies ─────────────────────────────
+
+-- clients
+CREATE POLICY "clients_linked_select" ON clients
+  FOR SELECT TO authenticated USING (is_linked_to_client(id));
+
+-- clients UPDATE (edit profile / body metrics of a linked client)
+CREATE POLICY "clients_linked_update" ON clients
+  FOR UPDATE TO authenticated
+  USING (is_linked_to_client(id))
+  WITH CHECK (is_linked_to_client(id));
+
+-- workouts
+CREATE POLICY "workouts_linked_select" ON workouts
+  FOR SELECT TO authenticated USING (is_linked_to_client(client_id));
+
+-- workout_sets
+CREATE POLICY "workout_sets_linked_select" ON workout_sets
+  FOR SELECT TO authenticated
+  USING (
+    workout_id IN (
+      SELECT id FROM workouts WHERE is_linked_to_client(client_id)
+    )
+  );
+
+-- client_media
+CREATE POLICY "client_media_linked_select" ON client_media
+  FOR SELECT TO authenticated USING (is_linked_to_client(client_id));
+
+-- assigned_workouts
+CREATE POLICY "assigned_workouts_linked_select" ON assigned_workouts
+  FOR SELECT TO authenticated USING (is_linked_to_client(client_id));
+
+-- assigned_workout_exercises
+CREATE POLICY "awe_linked_select" ON assigned_workout_exercises
+  FOR SELECT TO authenticated
+  USING (
+    assigned_workout_id IN (
+      SELECT id FROM assigned_workouts WHERE is_linked_to_client(client_id)
+    )
+  );
+
+-- assigned_workout_sets
+CREATE POLICY "aws_linked_select" ON assigned_workout_sets
+  FOR SELECT TO authenticated
+  USING (
+    assigned_workout_exercise_id IN (
+      SELECT awe.id FROM assigned_workout_exercises awe
+      JOIN assigned_workouts aw ON aw.id = awe.assigned_workout_id
+      WHERE is_linked_to_client(aw.client_id)
+    )
+  );
+
+-- client_credits
+CREATE POLICY "credits_linked_select" ON client_credits
+  FOR SELECT TO authenticated USING (is_linked_to_client(client_id));
+
+-- credit_transactions
+CREATE POLICY "transactions_linked_select" ON credit_transactions
+  FOR SELECT TO authenticated USING (is_linked_to_client(client_id));
+
+-- recipes
+CREATE POLICY "recipes_linked_select" ON recipes
+  FOR SELECT TO authenticated USING (is_linked_to_client(client_id));
+
+-- recipe_ingredients
+CREATE POLICY "recipe_ingredients_linked_select" ON recipe_ingredients
+  FOR SELECT TO authenticated
+  USING (
+    recipe_id IN (
+      SELECT id FROM recipes WHERE is_linked_to_client(client_id)
+    )
+  );
+
+-- nutrition_logs
+CREATE POLICY "nutrition_logs_linked_select" ON nutrition_logs
+  FOR SELECT TO authenticated USING (is_linked_to_client(client_id));
+CREATE POLICY "nutrition_logs_linked_insert" ON nutrition_logs
+  FOR INSERT TO authenticated WITH CHECK (is_linked_to_client(client_id));
+CREATE POLICY "nutrition_logs_linked_delete" ON nutrition_logs
+  FOR DELETE TO authenticated USING (is_linked_to_client(client_id));
+
+-- nutrition_goals
+CREATE POLICY "nutrition_goals_linked_select" ON nutrition_goals
+  FOR SELECT TO authenticated USING (is_linked_to_client(client_id));
+
+-- ============================================================
+-- Migration 027b — linked-client write access
+-- ============================================================
+-- Extends M027 with full write policies so linked clients can
+-- log workouts, manage nutrition, and manage recipes for each
+-- other's accounts — just like a trainer can.
+
+-- workouts: linked clients can log/edit/delete for each other
+CREATE POLICY "workouts_linked_insert" ON workouts
+  FOR INSERT TO authenticated
+  WITH CHECK (is_linked_to_client(client_id) AND logged_by_user_id = auth.uid());
+
+CREATE POLICY "workouts_linked_update" ON workouts
+  FOR UPDATE TO authenticated
+  USING (is_linked_to_client(client_id) AND logged_by_user_id = auth.uid());
+
+CREATE POLICY "workouts_linked_delete" ON workouts
+  FOR DELETE TO authenticated
+  USING (is_linked_to_client(client_id) AND logged_by_user_id = auth.uid());
+
+-- workout_sets: linked clients can write sets for workouts they logged
+CREATE POLICY "workout_sets_linked_write" ON workout_sets
+  FOR ALL TO authenticated
+  USING (
+    workout_id IN (
+      SELECT id FROM workouts
+      WHERE logged_by_user_id = auth.uid() AND is_linked_to_client(client_id)
+    )
+  );
+
+-- recipes: linked clients have full CRUD on each other's recipes
+CREATE POLICY "recipes_linked_all" ON recipes
+  FOR ALL TO authenticated
+  USING (is_linked_to_client(client_id))
+  WITH CHECK (is_linked_to_client(client_id));
+
+CREATE POLICY "recipe_ingredients_linked_all" ON recipe_ingredients
+  FOR ALL TO authenticated
+  USING (
+    recipe_id IN (SELECT id FROM recipes WHERE is_linked_to_client(client_id))
+  )
+  WITH CHECK (
+    recipe_id IN (SELECT id FROM recipes WHERE is_linked_to_client(client_id))
+  );
+
+-- nutrition_goals: linked clients can read and update each other's goals
+CREATE POLICY "nutrition_goals_linked_all" ON nutrition_goals
+  FOR ALL TO authenticated
+  USING (is_linked_to_client(client_id))
+  WITH CHECK (is_linked_to_client(client_id));
+
+-- ============================================================
+-- Migration 027c — allow any trainer to delete any family link
+-- ============================================================
+-- Auto-generated mesh links carry the creating trainer's ID.
+-- Any trainer must be able to remove them during unlink/regroup.
+
+DROP POLICY IF EXISTS "client_links_trainer_delete" ON client_links;
+
+CREATE POLICY "client_links_trainer_delete" ON client_links
+  FOR DELETE TO authenticated
+  USING (EXISTS (SELECT 1 FROM trainers WHERE id = auth.uid()));
+
+-- ============================================================
+-- Migration 028 — Recurring Workout Plans
+-- ============================================================
+-- Trainers can schedule a workout template to repeat on chosen
+-- days of the week. Each occurrence is stored as an
+-- assigned_workout row (with recurring_plan_id set). Individual
+-- instances can be edited or cancelled without affecting others.
+
+-- ── Table ─────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS recurring_plans (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  trainer_id   UUID        NOT NULL REFERENCES trainers(id)  ON DELETE CASCADE,
+  client_id    UUID        NOT NULL REFERENCES clients(id)   ON DELETE CASCADE,
+  title        TEXT        NOT NULL,
+  notes        TEXT,
+  days_of_week INT[]       NOT NULL,   -- 0=Sun 1=Mon … 6=Sat
+  frequency    TEXT        NOT NULL DEFAULT 'weekly'
+                           CHECK (frequency IN ('weekly', 'biweekly')),
+  start_date   DATE        NOT NULL,
+  end_date     DATE        NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Extend assigned_workouts ───────────────────────────────────
+
+-- Link each generated instance back to its plan (SET NULL on plan delete)
+ALTER TABLE assigned_workouts
+  ADD COLUMN IF NOT EXISTS recurring_plan_id UUID
+    REFERENCES recurring_plans(id) ON DELETE SET NULL;
+
+-- Allow 'cancelled' status on individual instances
+ALTER TABLE assigned_workouts
+  DROP CONSTRAINT IF EXISTS assigned_workouts_status_check;
+ALTER TABLE assigned_workouts
+  ADD CONSTRAINT assigned_workouts_status_check
+  CHECK (status IN ('assigned', 'completed', 'cancelled'));
+
+-- ── RLS ───────────────────────────────────────────────────────
+
+ALTER TABLE recurring_plans ENABLE ROW LEVEL SECURITY;
+
+-- Trainers have full CRUD on their own plans
+CREATE POLICY "rp_trainer_all" ON recurring_plans
+  FOR ALL TO authenticated
+  USING  (trainer_id = auth.uid())
+  WITH CHECK (trainer_id = auth.uid());
+
+-- Clients can view their own plans (read-only)
+CREATE POLICY "rp_client_select" ON recurring_plans
+  FOR SELECT TO authenticated
+  USING (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));
+
+-- Linked family members can view
+CREATE POLICY "rp_linked_select" ON recurring_plans
+  FOR SELECT TO authenticated
+  USING (is_linked_to_client(client_id));
