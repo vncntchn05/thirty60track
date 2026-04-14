@@ -11,8 +11,8 @@
 import { WORKOUT_TEMPLATES } from '@/constants/workoutTemplates';
 
 describe('WORKOUT_TEMPLATES — data integrity', () => {
-  it('contains exactly 32 templates', () => {
-    expect(WORKOUT_TEMPLATES).toHaveLength(32);
+  it('contains exactly 36 templates', () => {
+    expect(WORKOUT_TEMPLATES).toHaveLength(36);
   });
 
   it('every template has a non-empty id', () => {
