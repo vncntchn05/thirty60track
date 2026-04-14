@@ -7,19 +7,32 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, useTheme } from '@/constants/theme';
 import { createPost, uploadPostImage } from '@/hooks/useFeed';
+import { AttachmentPickerModal } from '@/components/messaging/AttachmentPickerModal';
+import type { MessageAttachment } from '@/hooks/useMessaging';
 import type { UserRole } from '@/lib/auth';
+import type { FeedAttachmentType } from '@/types';
 
 type Props = {
   authorId: string;
   authorName: string;
   authorRole: NonNullable<UserRole>;
+  clientId?: string | null;
   onPosted: () => void;
 };
 
-export function PostComposer({ authorId, authorName, authorRole, onPosted }: Props) {
+const ATTACHMENT_ICON: Record<FeedAttachmentType, React.ComponentProps<typeof Ionicons>['name']> = {
+  exercise:         'barbell-outline',
+  workout:          'calendar-outline',
+  assigned_workout: 'clipboard-outline',
+  guide:            'book-outline',
+};
+
+export function PostComposer({ authorId, authorName, authorRole, clientId, onPosted }: Props) {
   const t = useTheme();
   const [body, setBody] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
+  const [attachPickerOpen, setAttachPickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,6 +77,10 @@ export function PostComposer({ authorId, authorName, authorRole, onPosted }: Pro
       author_role: authorRole,
       author_name: authorName,
       image_url,
+      attachment_type: attachment ? (attachment.type as FeedAttachmentType) : null,
+      attachment_id: attachment?.id ?? null,
+      attachment_title: attachment?.title ?? null,
+      attachment_subtitle: attachment?.subtitle ?? null,
     });
 
     setSubmitting(false);
@@ -74,6 +91,7 @@ export function PostComposer({ authorId, authorName, authorRole, onPosted }: Pro
 
     setBody('');
     setImageUri(null);
+    setAttachment(null);
     onPosted();
   }
 
@@ -114,17 +132,49 @@ export function PostComposer({ authorId, authorName, authorRole, onPosted }: Pro
         </View>
       ) : null}
 
+      {/* Attachment preview */}
+      {attachment ? (
+        <View style={[styles.attachPreview, { backgroundColor: colors.primary + '11', borderColor: colors.primary + '44' }]}>
+          <Ionicons name={ATTACHMENT_ICON[attachment.type as FeedAttachmentType]} size={15} color={colors.primary} />
+          <View style={styles.attachPreviewText}>
+            <Text style={[styles.attachPreviewTitle, { color: colors.primary }]} numberOfLines={1}>
+              {attachment.title}
+            </Text>
+            {!!attachment.subtitle && (
+              <Text style={[styles.attachPreviewSub, { color: t.textSecondary }]} numberOfLines={1}>
+                {attachment.subtitle}
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity onPress={() => setAttachment(null)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            <Ionicons name="close" size={16} color={t.textSecondary as string} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {/* Error */}
       {error ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
       ) : null}
 
-      {/* Footer: attach + post */}
+      {/* Footer: attach buttons + post */}
       <View style={[styles.footer, { borderTopColor: t.border }]}>
-        <TouchableOpacity style={styles.attachBtn} onPress={pickImage} disabled={submitting}>
-          <Ionicons name="image-outline" size={22} color={t.textSecondary} />
-          <Text style={[styles.attachLabel, { color: t.textSecondary }]}>Photo</Text>
-        </TouchableOpacity>
+        <View style={styles.footerLeft}>
+          <TouchableOpacity style={styles.attachBtn} onPress={pickImage} disabled={submitting}>
+            <Ionicons name="image-outline" size={22} color={t.textSecondary} />
+            <Text style={[styles.attachLabel, { color: t.textSecondary }]}>Photo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.attachBtn}
+            onPress={() => setAttachPickerOpen(true)}
+            disabled={submitting}
+          >
+            <Ionicons name="attach-outline" size={22} color={attachment ? colors.primary : t.textSecondary} />
+            <Text style={[styles.attachLabel, { color: attachment ? colors.primary : t.textSecondary }]}>
+              Attach
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {submitting ? (
           <ActivityIndicator size="small" color={colors.primary} />
@@ -140,6 +190,14 @@ export function PostComposer({ authorId, authorName, authorRole, onPosted }: Pro
           </TouchableOpacity>
         )}
       </View>
+
+      <AttachmentPickerModal
+        visible={attachPickerOpen}
+        onClose={() => setAttachPickerOpen(false)}
+        onSelect={(a) => { setAttachment(a); setAttachPickerOpen(false); }}
+        role={authorRole}
+        clientId={clientId}
+      />
     </View>
   );
 }
@@ -189,6 +247,19 @@ const styles = StyleSheet.create({
     top: spacing.xs,
     right: spacing.xs,
   },
+  attachPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+  },
+  attachPreviewText: { flex: 1 },
+  attachPreviewTitle: { ...typography.label, fontWeight: '700' },
+  attachPreviewSub: { ...typography.label, marginTop: 1 },
   errorText: { ...typography.bodySmall, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
   footer: {
     flexDirection: 'row',
@@ -198,6 +269,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  footerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   attachBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   attachLabel: { ...typography.bodySmall, fontWeight: '500' },
   postBtn: {

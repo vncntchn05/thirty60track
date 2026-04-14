@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Switch } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { useClientProfile } from '@/hooks/useClientProfile';
 import { useClientIntake } from '@/hooks/useClientIntake';
+import { useFeatureGuide } from '@/hooks/useFeatureGuide';
 import { IntakeForm } from '@/components/client/IntakeForm';
 import { ChangePasswordModal } from '@/components/ui/ChangePasswordModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
@@ -22,11 +24,12 @@ function MetricRow({ label, value }: { label: string; value: string | null }) {
 
 export default function ClientProfileScreen() {
   const t = useTheme();
-  const { signOut, clientId } = useAuth();
+  const { signOut, clientId, user } = useAuth();
   const { client, loading, refresh } = useClientProfile();
   const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const [editingIntake, setEditingIntake] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const { enabled: guideEnabled, toggle: toggleGuide } = useFeatureGuide(user?.id);
 
   // QR payload: encode client DB id so trainer scanner can look it up
   const qrPayload = clientId
@@ -98,6 +101,28 @@ export default function ClientProfileScreen() {
         <MetricRow label="Occupation"     value={intake?.occupation ?? null} />
       </View>
 
+      {/* Preferences */}
+      <View style={[styles.card, { gap: 0, paddingHorizontal: 0, paddingVertical: 0 }]}>
+        <Text style={[styles.cardTitle, { color: t.textSecondary, paddingHorizontal: spacing.md, paddingTop: spacing.md }]}>
+          PREFERENCES
+        </Text>
+        <View style={[styles.toggleRow, { borderTopColor: t.border }]}>
+          <View style={styles.toggleLeft}>
+            <Ionicons name="compass-outline" size={18} color={colors.primary} />
+            <View style={styles.toggleInfo}>
+              <Text style={[styles.toggleLabel, { color: t.textPrimary }]}>Feature Guide</Text>
+              <Text style={[styles.toggleSub, { color: t.textSecondary }]}>Show button on home screen</Text>
+            </View>
+          </View>
+          <Switch
+            value={guideEnabled}
+            onValueChange={toggleGuide}
+            trackColor={{ false: t.border as string, true: colors.primary }}
+            thumbColor="#fff"
+          />
+        </View>
+      </View>
+
       {/* Change password */}
       <TouchableOpacity
         style={[styles.resetBtn, { borderColor: t.border, backgroundColor: t.surface }]}
@@ -158,6 +183,19 @@ const styles = StyleSheet.create({
   },
   metricLabel: { ...typography.body },
   metricValue: { ...typography.body, fontWeight: '600' },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: spacing.sm,
+  },
+  toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
+  toggleInfo: { flex: 1 },
+  toggleLabel: { ...typography.body, fontWeight: '600' },
+  toggleSub: { ...typography.bodySmall, marginTop: 1 },
   resetBtn: {
     borderWidth: 1, borderRadius: radius.md,
     paddingVertical: spacing.md, alignItems: 'center',

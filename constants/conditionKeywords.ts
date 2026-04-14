@@ -169,6 +169,34 @@ export const CONDITION_KEYWORDS: ConditionMatch[] = [
     ],
   },
 
+  // ── Fat Loss ──────────────────────────────────────────────
+  {
+    split: 'Fat Loss',
+    subgroup: 'HIIT Circuits',
+    keywords: [
+      'fat loss', 'weight loss', 'lose weight', 'losing weight', 'shed weight',
+      'burn fat', 'lose fat', 'body fat', 'fat burning', 'fat burn',
+      'calorie deficit', 'cutting', 'cut', 'shred', 'shredding',
+      'slim down', 'get lean', 'tone up', 'toning', 'lean out',
+      'weight management', 'drop weight', 'drop body fat',
+      'hiit', 'high intensity', 'cardio', 'cardio fitness',
+      'bmi', 'overweight', 'obesity',
+    ],
+  },
+  {
+    split: 'Fat Loss',
+    subgroup: 'Metabolic Strength',
+    keywords: [
+      'fat loss', 'weight loss', 'lose weight', 'losing weight', 'shed weight',
+      'burn fat', 'lose fat', 'body fat', 'fat burning', 'fat burn',
+      'calorie deficit', 'cutting', 'cut', 'shred', 'shredding',
+      'slim down', 'get lean', 'tone up', 'toning', 'lean out',
+      'weight management', 'drop weight', 'drop body fat',
+      'metabolic', 'lean muscle', 'build and burn',
+      'bmi', 'overweight', 'obesity',
+    ],
+  },
+
   // ── Neurological & Mental Health ──────────────────────────
   {
     split: 'Neurological & Mental Health',

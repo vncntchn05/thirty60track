@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, StyleSheet, ActivityIndicator, Alert, BackHandler, Modal,
+  ScrollView, StyleSheet, ActivityIndicator, Alert, BackHandler, Modal, Vibration,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,12 +10,13 @@ import { TemplatePicker } from '@/components/workout/TemplatePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { createWorkoutWithSets } from '@/hooks/useWorkouts';
 import { createAssignedWorkout } from '@/hooks/useAssignedWorkouts';
+import { checkAndSavePRs } from '@/hooks/usePersonalRecords';
 import { useExercises } from '@/hooks/useExercises';
 import { useClients, useClient } from '@/hooks/useClients';
 import { useAuth } from '@/lib/auth';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-import type { Exercise } from '@/types';
+import type { Exercise, NewPR } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 
 // ─── Template name normalisation ─────────────────────────────────
@@ -164,6 +165,36 @@ function getTomorrow(): string {
   return d.toISOString().split('T')[0];
 }
 
+// ─── Rest timer ───────────────────────────────────────────────
+
+type TimerEntry = { remaining: number; total: number; running: boolean };
+
+/** Format seconds as M:SS */
+function fmtCountdown(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Format seconds as a human label, e.g. "1 min 30 sec" */
+function fmtDuration(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  if (m === 0) return `${s}s`;
+  if (s === 0) return `${m}m`;
+  return `${m}m ${s}s`;
+}
+
+const REST_PRESETS = [30, 60, 90, 120, 150, 180] as const;
+
+
+type WorkoutSummary = {
+  workoutSeconds: number;
+  restSeconds: number;
+  tutSeconds: number;
+  prs: NewPR[];
+};
+
 export default function NewWorkoutScreen() {
   const { clientId } = useLocalSearchParams<{ clientId: string }>();
   const router = useRouter();
@@ -204,8 +235,26 @@ export default function NewWorkoutScreen() {
   const [pendingExercise, setPendingExercise] = useState<Exercise | null>(null);
   const [injuryWarning, setInjuryWarning] = useState<{ message: string; isCurrent: boolean } | null>(null);
 
+  // ── Rest timer state ──────────────────────────────────────────
+  const [defaultRestSecs, setDefaultRestSecs] = useState(120);
+  const [showRestPicker, setShowRestPicker] = useState(false);
+  const [timers, setTimers] = useState<Record<string, TimerEntry>>({});
+  const [totalRestSeconds, setTotalRestSeconds] = useState(0);
+  const workoutStartRef = useRef(Date.now());
+  // Set to Date.now() the moment the first exercise block is added
+  const firstExerciseTimeRef = useRef<number | null>(null);
+  const [restToast, setRestToast] = useState<string | null>(null);
+  const completionQueueRef = useRef<Array<{ total: number }>>([]);
+
+  // ── Workout summary modal ─────────────────────────────────────
+  const [summaryVisible, setSummaryVisible] = useState(false);
+  const [workoutSummary, setWorkoutSummary] = useState<WorkoutSummary | null>(null);
+
   function addExercise(exercise: Exercise) {
     setIsDirty(true);
+    if (firstExerciseTimeRef.current === null) {
+      firstExerciseTimeRef.current = Date.now();
+    }
     setBlocks((prev) => [...prev, EMPTY_BLOCK(exercise)]);
   }
 
@@ -217,6 +266,12 @@ export default function NewWorkoutScreen() {
       if (bi > 0 && prev[bi - 1].linkedToNext && bi === prev.length - 1) {
         return next.map((b, i) => i === bi - 1 ? { ...b, linkedToNext: false } : b);
       }
+      return next;
+    });
+    // Remove all timer entries for this block
+    setTimers((prev) => {
+      const next = { ...prev };
+      Object.keys(next).filter((k) => k.startsWith(`${bi}-`)).forEach((k) => delete next[k]);
       return next;
     });
   }
@@ -247,11 +302,71 @@ export default function NewWorkoutScreen() {
     setBlocks((prev) =>
       prev.map((b, i) => i === bi ? { ...b, sets: b.sets.filter((_, j) => j !== si) } : b)
     );
+    setTimers((prev) => {
+      const { [`${bi}-${si}`]: _removed, ...rest } = prev;
+      return rest;
+    });
   }
 
   function toggleLink(bi: number) {
     setIsDirty(true);
     setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, linkedToNext: !b.linkedToNext } : b));
+  }
+
+  // ── Rest timer logic ──────────────────────────────────────────
+
+  // Single interval ticking all running timers down every second
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTimers((prev) => {
+        const keys = Object.keys(prev).filter((k) => prev[k].running);
+        if (keys.length === 0) return prev;
+        const next = { ...prev };
+        for (const k of keys) {
+          const entry = next[k];
+          if (entry.remaining > 1) {
+            next[k] = { ...entry, remaining: entry.remaining - 1 };
+          } else {
+            // Completed
+            next[k] = { ...entry, remaining: 0, running: false };
+            completionQueueRef.current.push({ total: entry.total });
+          }
+        }
+        return next;
+      });
+      // Process completions outside setState
+      if (completionQueueRef.current.length > 0) {
+        const queue = completionQueueRef.current.splice(0);
+        const totalAdded = queue.reduce((s, c) => s + c.total, 0);
+        setTimeout(() => {
+          Vibration.vibrate([0, 300, 150, 300]);
+          setTotalRestSeconds((s) => s + totalAdded);
+          setRestToast('Rest complete — ready for your next set!');
+        }, 0);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Auto-dismiss rest toast after 3s
+  useEffect(() => {
+    if (!restToast) return;
+    const id = setTimeout(() => setRestToast(null), 3000);
+    return () => clearTimeout(id);
+  }, [restToast]);
+
+  function startTimer(key: string) {
+    setTimers((prev) => ({
+      ...prev,
+      [key]: { remaining: defaultRestSecs, total: defaultRestSecs, running: true },
+    }));
+  }
+
+  function cancelTimer(key: string) {
+    setTimers((prev) => {
+      const { [key]: _removed, ...rest } = prev;
+      return rest;
+    });
   }
 
   function handleSelectTemplate(template: WorkoutTemplate) {
@@ -405,7 +520,38 @@ export default function NewWorkoutScreen() {
       Alert.alert('Error', error);
     } else {
       setIsDirty(false);
-      router.back();
+
+      // Compute workout stats
+      const saveTime = Date.now();
+      const workoutSeconds = Math.round((saveTime - workoutStartRef.current) / 1000);
+      const tutSeconds = firstExerciseTimeRef.current !== null
+        ? Math.max(0, Math.round((saveTime - firstExerciseTimeRef.current) / 1000) - totalRestSeconds)
+        : 0;
+
+      // Check for personal records (fail-safe: show summary even on error)
+      const setsForPR = allSets
+        .filter((s) => s.reps != null || s.weight_kg != null)
+        .map((s) => ({
+          exercise_id: s.exercise_id,
+          exercise_name: blocks.find((b) => b.exercise.id === s.exercise_id)?.exercise.name ?? '',
+          reps: s.reps ?? null,
+          weight_kg: s.weight_kg ?? null,
+        }));
+
+      const prs = await checkAndSavePRs(
+        Array.isArray(clientId) ? clientId[0] : clientId,
+        date,
+        setsForPR,
+        'lbs',
+      );
+
+      setWorkoutSummary({
+        workoutSeconds,
+        restSeconds: totalRestSeconds,
+        tutSeconds,
+        prs,
+      });
+      setSummaryVisible(true);
     }
   }, [user, isLinkedClient, targetClient, clientId, blocks, date, workoutNotes, bodyWeight, bodyFat, workedOutWith, router]);
 
@@ -595,6 +741,37 @@ export default function NewWorkoutScreen() {
             </>
           )}
 
+          {/* ── Rest timer default — log mode only ── */}
+          {mode === 'log' && (
+            <View style={styles.restRow}>
+              <View style={styles.restRowLeft}>
+                <Ionicons name="timer-outline" size={14} color={t.textSecondary as string} />
+                <Text style={[styles.restRowLabel, { color: t.textSecondary }]}>Rest timer</Text>
+              </View>
+              <View style={styles.restPresets}>
+                {REST_PRESETS.map((secs) => {
+                  const active = defaultRestSecs === secs;
+                  return (
+                    <TouchableOpacity
+                      key={secs}
+                      style={[
+                        styles.restPresetBtn,
+                        { borderColor: active ? colors.primary : t.border },
+                        active && styles.restPresetBtnActive,
+                      ]}
+                      onPress={() => setDefaultRestSecs(secs)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.restPresetText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                        {fmtCountdown(secs)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
           <TextInput
             style={[styles.notesInput, { borderColor: t.border, color: t.textPrimary }]}
             placeholder={mode === 'log' ? 'Workout notes (optional)' : 'Instructions for client (optional)'}
@@ -728,37 +905,77 @@ export default function NewWorkoutScreen() {
                   </TouchableOpacity>
                   <Text style={[styles.colLabel, styles.colNotes, { color: t.textSecondary }]}>Notes</Text>
                   <View style={styles.colRemove} />
+                  {mode === 'log' && (
+                    <Text style={[styles.colLabel, styles.colTimer, { color: t.textSecondary }]}>Rest</Text>
+                  )}
                 </View>
 
-                {block.sets.map((s, si) => (
-                  <View key={si} style={styles.setRow}>
-                    <Text style={[styles.setNumber, styles.colSet, { color: t.textSecondary }]}>{si + 1}</Text>
-                    <TextInput
-                      style={[styles.setInput, styles.colReps, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-                      placeholder="0" placeholderTextColor={t.textSecondary}
-                      keyboardType="number-pad" value={s.reps}
-                      onChangeText={(v) => updateSet(bi, si, 'reps', v)}
-                    />
-                    <TextInput
-                      style={[styles.setInput, styles.colWeight, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-                      placeholder={block.unit === 'secs' ? '0' : '0.0'} placeholderTextColor={t.textSecondary}
-                      keyboardType={block.unit === 'secs' ? 'number-pad' : 'decimal-pad'} value={s.amount}
-                      onChangeText={(v) => updateSet(bi, si, 'amount', v)}
-                    />
-                    <TextInput
-                      style={[styles.setInput, styles.colNotes, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
-                      placeholder="—" placeholderTextColor={t.textSecondary}
-                      value={s.notes} onChangeText={(v) => updateSet(bi, si, 'notes', v)}
-                    />
-                    <TouchableOpacity
-                      style={[styles.colRemove, block.sets.length === 1 && styles.invisible]}
-                      onPress={() => removeSet(bi, si)}
-                      disabled={block.sets.length === 1}
-                    >
-                      <Ionicons name="close-circle" size={20} color={colors.error} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                {block.sets.map((s, si) => {
+                  const timerKey = `${bi}-${si}`;
+                  const timer = timers[timerKey];
+                  return (
+                    <View key={si} style={styles.setRow}>
+                      <Text style={[styles.setNumber, styles.colSet, { color: t.textSecondary }]}>{si + 1}</Text>
+                      <TextInput
+                        style={[styles.setInput, styles.colReps, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+                        placeholder="0" placeholderTextColor={t.textSecondary}
+                        keyboardType="number-pad" value={s.reps}
+                        onChangeText={(v) => updateSet(bi, si, 'reps', v)}
+                      />
+                      <TextInput
+                        style={[styles.setInput, styles.colWeight, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+                        placeholder={block.unit === 'secs' ? '0' : '0.0'} placeholderTextColor={t.textSecondary}
+                        keyboardType={block.unit === 'secs' ? 'number-pad' : 'decimal-pad'} value={s.amount}
+                        onChangeText={(v) => updateSet(bi, si, 'amount', v)}
+                      />
+                      <TextInput
+                        style={[styles.setInput, styles.colNotes, { borderColor: t.border, color: t.textPrimary, backgroundColor: t.background }]}
+                        placeholder="—" placeholderTextColor={t.textSecondary}
+                        value={s.notes} onChangeText={(v) => updateSet(bi, si, 'notes', v)}
+                      />
+                      <TouchableOpacity
+                        style={[styles.colRemove, block.sets.length === 1 && styles.invisible]}
+                        onPress={() => removeSet(bi, si)}
+                        disabled={block.sets.length === 1}
+                      >
+                        <Ionicons name="close-circle" size={20} color={colors.error} />
+                      </TouchableOpacity>
+
+                      {/* Rest timer button — log mode only */}
+                      {mode === 'log' && (
+                        <TouchableOpacity
+                          style={[
+                            styles.colTimer,
+                            styles.timerBtn,
+                            timer?.running
+                              ? [styles.timerBtnRunning, { borderColor: colors.primary }]
+                              : timer && timer.remaining === 0
+                                ? [styles.timerBtnDone, { borderColor: colors.success }]
+                                : { borderColor: t.border },
+                          ]}
+                          onPress={() => {
+                            if (timer?.running) {
+                              cancelTimer(timerKey);
+                            } else {
+                              startTimer(timerKey);
+                            }
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          {timer?.running ? (
+                            <Text style={[styles.timerCountdown, { color: colors.primary }]}>
+                              {fmtCountdown(timer.remaining)}
+                            </Text>
+                          ) : timer && timer.remaining === 0 ? (
+                            <Ionicons name="checkmark" size={14} color={colors.success} />
+                          ) : (
+                            <Ionicons name="timer-outline" size={16} color={t.textSecondary as string} />
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
 
                 <TouchableOpacity style={styles.addSetBtn} onPress={() => addSet(bi)}>
                   <Ionicons name="add" size={16} color={colors.primary} />
@@ -846,6 +1063,120 @@ export default function NewWorkoutScreen() {
                 <Text style={styles.warnBtnAddText}>Add Anyway</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Rest complete toast ───────────────────────────────── */}
+      {restToast && (
+        <View style={[styles.restToast, { backgroundColor: colors.success }]}>
+          <Ionicons name="checkmark-circle" size={16} color={colors.textInverse} />
+          <Text style={styles.restToastText}>{restToast}</Text>
+        </View>
+      )}
+
+      {/* ── Workout summary modal ─────────────────────────────── */}
+      <Modal
+        transparent
+        animationType="slide"
+        visible={summaryVisible}
+        onRequestClose={() => { setSummaryVisible(false); router.back(); }}
+      >
+        <View style={styles.summaryOverlay}>
+          <View style={[styles.summaryCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+            {/* Header */}
+            <View style={[styles.summaryHeader, { borderBottomColor: t.border }]}>
+              <Text style={styles.summaryHeaderEmoji}>💪</Text>
+              <View>
+                <Text style={[styles.summaryTitle, { color: t.textPrimary }]}>Workout Complete!</Text>
+                <Text style={[styles.summarySubtitle, { color: t.textSecondary }]}>Here's how it went</Text>
+              </View>
+            </View>
+
+            {/* Stats row */}
+            {workoutSummary && (
+              <View style={[styles.summaryStatsRow, { borderBottomColor: t.border }]}>
+                <View style={styles.summaryStat}>
+                  <Ionicons name="time-outline" size={20} color={colors.primary} />
+                  <Text style={[styles.summaryStatValue, { color: t.textPrimary }]}>
+                    {fmtDuration(workoutSummary.workoutSeconds)}
+                  </Text>
+                  <Text style={[styles.summaryStatLabel, { color: t.textSecondary }]}>Total time</Text>
+                </View>
+                <View style={[styles.summaryStatDivider, { backgroundColor: t.border }]} />
+                <View style={styles.summaryStat}>
+                  <Ionicons name="pause-circle-outline" size={20} color={colors.info} />
+                  <Text style={[styles.summaryStatValue, { color: t.textPrimary }]}>
+                    {workoutSummary.restSeconds > 0 ? fmtDuration(workoutSummary.restSeconds) : '—'}
+                  </Text>
+                  <Text style={[styles.summaryStatLabel, { color: t.textSecondary }]}>Rest</Text>
+                </View>
+                <View style={[styles.summaryStatDivider, { backgroundColor: t.border }]} />
+                <View style={styles.summaryStat}>
+                  <Ionicons name="flash-outline" size={20} color={colors.warning} />
+                  <Text style={[styles.summaryStatValue, { color: t.textPrimary }]}>
+                    {workoutSummary.tutSeconds > 0 ? fmtDuration(workoutSummary.tutSeconds) : '—'}
+                  </Text>
+                  <Text style={[styles.summaryStatLabel, { color: t.textSecondary }]}>Under tension</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Personal Records section */}
+            {workoutSummary && workoutSummary.prs.length > 0 && (
+              <View style={[styles.summaryPRSection, { borderBottomColor: t.border }]}>
+                <View style={styles.summaryPRHeader}>
+                  <Ionicons name="trophy" size={14} color={colors.primary} />
+                  <Text style={[styles.summaryPRTitle, { color: colors.primary }]}>
+                    {workoutSummary.prs.length === 1
+                      ? 'New Personal Record!'
+                      : `${workoutSummary.prs.length} New Personal Records!`}
+                  </Text>
+                </View>
+                {workoutSummary.prs.map((pr, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.summaryPRRow,
+                      { borderBottomColor: t.border },
+                      i === workoutSummary.prs.length - 1 && styles.summaryPRRowLast,
+                    ]}
+                  >
+                    <View style={styles.summaryPRIcon}>
+                      <Ionicons
+                        name={pr.type === 'weight' ? 'barbell-outline' : 'repeat-outline'}
+                        size={16}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <View style={styles.summaryPRText}>
+                      <Text style={[styles.summaryPRName, { color: t.textPrimary }]}>{pr.exerciseName}</Text>
+                      <Text style={[styles.summaryPRMeta, { color: t.textSecondary }]}>
+                        {pr.type === 'weight' ? 'Best weight' : 'Most reps'}
+                        {pr.previous != null
+                          ? ` · prev ${pr.previous} ${pr.unit}`
+                          : ' · first time!'}
+                      </Text>
+                    </View>
+                    <View style={[styles.summaryPRBadge, { backgroundColor: colors.primary + '22', borderColor: colors.primary }]}>
+                      <Text style={[styles.summaryPRBadgeText, { color: colors.primary }]}>
+                        {pr.value} {pr.unit}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.summaryDoneBtn}
+              onPress={() => { setSummaryVisible(false); router.back(); }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.summaryDoneBtnText}>
+                {workoutSummary && workoutSummary.prs.length > 0 ? 'Awesome! 🏆' : 'Done'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1025,4 +1356,98 @@ const styles = StyleSheet.create({
   supersetBadge: {
     ...typography.label, fontWeight: '700', letterSpacing: 1,
   },
+
+  // ── Rest timer column ──
+  colTimer: { width: 52, alignItems: 'center', justifyContent: 'center' },
+  timerBtn: {
+    width: 48, height: 36, borderRadius: radius.sm, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  timerBtnRunning: { backgroundColor: colors.primary + '18' },
+  timerBtnDone: { backgroundColor: colors.success + '18' },
+  timerCountdown: { ...typography.label, fontWeight: '700' },
+
+  // ── Rest timer customization row ──
+  restRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap',
+  },
+  restRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  restRowLabel: { ...typography.label },
+  restPresets: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap', flex: 1 },
+  restPresetBtn: {
+    paddingVertical: 3, paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm, borderWidth: 1,
+  },
+  restPresetBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  restPresetText: { ...typography.label, fontWeight: '600' },
+
+  // ── Rest complete toast ──
+  restToast: {
+    position: 'absolute', bottom: 80, left: spacing.lg, right: spacing.lg,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+  },
+  restToastText: { ...typography.bodySmall, color: colors.textInverse, fontWeight: '600', flex: 1 },
+
+  // ── Workout summary modal ──
+  summaryOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  summaryCard: {
+    borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg,
+    borderWidth: 1, borderBottomWidth: 0, overflow: 'hidden',
+  },
+  summaryHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    padding: spacing.lg, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  summaryHeaderEmoji: { fontSize: 36 },
+  summaryTitle: { ...typography.heading3, fontWeight: '700' },
+  summarySubtitle: { ...typography.bodySmall, marginTop: 2 },
+  summaryStatsRow: {
+    flexDirection: 'row', alignItems: 'stretch',
+    paddingVertical: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  summaryStat: {
+    flex: 1, alignItems: 'center', gap: spacing.xs,
+  },
+  summaryStatValue: { ...typography.heading3, fontWeight: '700' },
+  summaryStatLabel: { ...typography.label },
+  summaryStatDivider: { width: 1 },
+  summaryPRSection: {
+    paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  summaryPRHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingVertical: spacing.sm,
+  },
+  summaryPRTitle: { ...typography.label, fontWeight: '700', letterSpacing: 0.5 },
+  summaryPRRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  summaryPRRowLast: { borderBottomWidth: 0 },
+  summaryPRIcon: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: colors.primary + '18',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  summaryPRText: { flex: 1, minWidth: 0 },
+  summaryPRName: { ...typography.body, fontWeight: '600' },
+  summaryPRMeta: { ...typography.bodySmall, marginTop: 1 },
+  summaryPRBadge: {
+    borderWidth: 1, borderRadius: radius.sm,
+    paddingVertical: 3, paddingHorizontal: spacing.sm,
+  },
+  summaryPRBadgeText: { ...typography.label, fontWeight: '700' },
+  summaryDoneBtn: {
+    margin: spacing.md,
+    backgroundColor: colors.primary, borderRadius: radius.lg,
+    paddingVertical: spacing.md, alignItems: 'center',
+  },
+  summaryDoneBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
 });

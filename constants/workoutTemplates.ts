@@ -567,4 +567,75 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
       'Plank In and Outs',
     ],
   },
+
+  // ── Fat Loss ─────────────────────────────────────────────────
+  // Subgroup: HIIT Circuits (high-intensity bodyweight intervals)
+
+  {
+    id: 'FL-HIIT-A',
+    name: 'HIIT Circuit A',
+    split: 'Fat Loss',
+    subgroup: 'HIIT Circuits',
+    exerciseNames: [
+      'Jump Squats',
+      'Push-Up',
+      'Mountain Climbers',
+      'Burpees',
+      'Air Squat',
+      'High Knees (s)',
+      'Plank',
+      'Jumping Jacks (s)',
+    ],
+  },
+  {
+    id: 'FL-HIIT-B',
+    name: 'HIIT Circuit B',
+    split: 'Fat Loss',
+    subgroup: 'HIIT Circuits',
+    exerciseNames: [
+      'Box Jump',
+      'Skater Jumps',
+      'Mountain Climber Burpee',
+      'Speed Skaters',
+      'Squat Thrusts',
+      'Lateral Bounds',
+      'Plank Jacks',
+      'Jump Rope',
+    ],
+  },
+
+  // Subgroup: Metabolic Strength (compound lifts + cardio bursts)
+
+  {
+    id: 'FL-MS-A',
+    name: 'Metabolic Strength A',
+    split: 'Fat Loss',
+    subgroup: 'Metabolic Strength',
+    exerciseNames: [
+      'Goblet Squat',
+      'Romanian Deadlift',
+      'Push-Up',
+      'Walking Lunges',
+      'Burpees',
+      'Bicycle Crunches',
+      'Jump Rope',
+      'Plank',
+    ],
+  },
+  {
+    id: 'FL-MS-B',
+    name: 'Metabolic Strength B',
+    split: 'Fat Loss',
+    subgroup: 'Metabolic Strength',
+    exerciseNames: [
+      'Deadlift',
+      'DB Goblet Squat',
+      'Reverse Lunge',
+      'Mountain Climbers',
+      'Jump Squats',
+      'Russian Twists',
+      'Burpees',
+      'Flutter Kicks',
+    ],
+  },
 ];

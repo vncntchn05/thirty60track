@@ -39,17 +39,21 @@ export function useFeedPosts(currentUserId: string) {
     }
 
     const enriched: FeedPostWithMeta[] = ((data as unknown as RawFeedPost[]) ?? []).map((p) => ({
-      id:          p.id,
-      author_id:   p.author_id,
-      author_role: p.author_role,
-      author_name: p.author_name,
-      body:        p.body,
-      image_url:   p.image_url,
-      created_at:  p.created_at,
-      updated_at:  p.updated_at,
-      reactions:    p.feed_reactions ?? [],
-      comment_count: (p.feed_comments ?? []).length,
-      my_reaction: (p.feed_reactions ?? []).find((r) => r.user_id === currentUserId)?.reaction_type ?? null,
+      id:                  p.id,
+      author_id:           p.author_id,
+      author_role:         p.author_role,
+      author_name:         p.author_name,
+      body:                p.body,
+      image_url:           p.image_url,
+      attachment_type:     p.attachment_type,
+      attachment_id:       p.attachment_id,
+      attachment_title:    p.attachment_title,
+      attachment_subtitle: p.attachment_subtitle,
+      created_at:          p.created_at,
+      updated_at:          p.updated_at,
+      reactions:           p.feed_reactions ?? [],
+      comment_count:       (p.feed_comments ?? []).length,
+      my_reaction:         (p.feed_reactions ?? []).find((r) => r.user_id === currentUserId)?.reaction_type ?? null,
     }));
 
     setPosts(enriched);

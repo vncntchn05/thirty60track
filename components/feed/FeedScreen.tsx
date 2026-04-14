@@ -118,6 +118,7 @@ export function FeedScreen() {
               authorId={authorId}
               authorName={authorName}
               authorRole={role}
+              clientId={clientId}
               onPosted={refetchPosts}
             />
           ) : null
@@ -127,6 +128,7 @@ export function FeedScreen() {
             post={item}
             currentUserId={authorId}
             canDelete={role === 'trainer' || item.author_id === authorId}
+            role={role}
             onReact={(type) => handleReact(item, type)}
             onCommentPress={() => setSelectedPost(item)}
             onDelete={() => handleDelete(item.id)}

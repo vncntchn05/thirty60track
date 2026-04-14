@@ -16,7 +16,8 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 ### Trainer
 - Client list with workout count and last session date
 - Client detail: info, body metrics, progress charts, workout history
-- Log workouts (multi-exercise builder with sets/reps/weight)
+- Log workouts (multi-exercise builder with sets/reps/weight) with per-set rest timer, workout summary popup (total time, rest time, time under tension), and new PR detection
+- **Personal Records** — all-time best weight and reps per client per exercise; visible on the client's Progress tab; a congratulatory popup appears automatically when a workout is saved with any new PR
 - Assign workout programs with scheduled dates
 - **Recurring workout series** — schedule a workout template on selected days of the week (weekly or biweekly), with optional indefinite scheduling; cancel the entire series or individual instances
 - Workout template library: 36 clinical templates across 5 speciality splits (Metabolic & Chronic Disease, Musculoskeletal & Orthopedic, Postural Deviations, Neurological & Mental Health, Special Populations)
@@ -24,9 +25,10 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Grant or deduct session credits for any client (not limited to own clients)
 - **Family account linking** — link two or more client accounts into a family group; all members can view and edit each other's progress, workouts, nutrition, and credits
 - **QR check-in scanner** — scan a client's QR code to instantly log a timestamped gym visit; view full check-in history on the client's Check-ins tab
-- Community feed: post, react, comment; delete any post
+- Community feed: post, react, comment; delete any post; attach exercises, workouts, assigned workouts, or guides to any post
 - AI fitness trends tab with daily summaries and article links
 - **Video calls** — generate an instant video call link from any conversation; link is sent as a pre-populated message the trainer can edit before sending
+- **Feature Guide** — compass-icon button at the top of the home screen opens a categorised modal listing every feature with descriptions and direct navigation links; toggled on/off per account from the Profile tab
 
 ### Client
 - Home screen shows linked family members (avatar, workout count, last session) with tap-through to their full profile
@@ -34,9 +36,10 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Log workouts and manage nutrition for linked family members
 - Book sessions from trainer's availability slots
 - **Check-in QR code** — personal QR code on the Profile tab; show it to the trainer to log a gym visit
-- Community feed: post, react, comment
+- Community feed: post, react, comment; attach exercises or workouts to posts
 - AI fitness trends tab
 - **Video calls** — tap video icon in any conversation to generate a shareable call link
+- **Feature Guide** — same compass-icon button on the home screen; toggled on/off from the Profile tab
 
 ## Project Structure
 
@@ -70,6 +73,9 @@ components/
   nutrition/                — RecipeBuilderModal, AddFoodModal
   exercises/                — WorkoutGuides, EncyclopediaPanel, MuscleMap
   charts/                   — VolumeChart, ExerciseProgressChart
+  ui/
+    FeaturesModal           — role-aware feature guide modal (trainer / client content);
+                              19 trainer features + 16 client features with direct nav links
 hooks/
   useCheckins.ts            — useCheckins(clientId), recordCheckin()
   useClientLinks.ts         — family linking: useClientLinks, useMyLinkedClients,
@@ -77,11 +83,13 @@ hooks/
   useRecurringPlans.ts      — recurring plans: useRecurringPlansForClient,
                               createRecurringPlan, cancelRecurringPlan,
                               cancelRecurringInstance, generateOccurrenceDates
-  useFeed.ts                — feed posts, reactions, comments, image upload
+  useFeed.ts                — feed posts, reactions, comments, image upload, attachments
+  usePersonalRecords.ts     — fetch PRs per client; checkAndSavePRs() upserts on workout save
   useTrends.ts              — useTodayTrend, useRecentTrends
   useSchedule.ts            — availability, sessions, booking
   useCredits.ts             — client credits + transactions
   useRecipes.ts             — recipe CRUD
+  useFeatureGuide.ts        — AsyncStorage-backed per-user toggle for the Feature Guide button
   useAssignedWorkouts.ts
   useClients.ts / useWorkouts.ts / useClientProgress.ts
 lib/
@@ -89,7 +97,7 @@ lib/
   auth.tsx                  — AuthProvider + useAuth
   anthropic.ts              — fetchOrGenerateTrend, generateTrendSummary
 supabase/
-  schema.sql                — source-of-truth DDL (all migrations inline, M001–M028)
+  schema.sql                — source-of-truth DDL (all migrations inline, M001–M033)
   seed.sql                  — exercise library (200+ exercises across all muscle groups)
   functions/
     generate-trend/         — Deno Edge Function: calls Anthropic API, returns trend JSON
@@ -125,7 +133,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` for the exercise library.
 
-`schema.sql` includes all migrations in sequence (M001–M030):
+`schema.sql` includes all migrations in sequence (M001–M033):
 
 | Migration | Description |
 |---|---|
@@ -144,6 +152,9 @@ Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` f
 | M028 | Recurring workout plans — `recurring_plans` table; `assigned_workouts` gains `recurring_plan_id` and `'cancelled'` status |
 | M029 | Exercise enrichment — `exercise_alternatives` join table; `muscle_group`, `equipment`, `form_notes`, and `help_url` populated for all 280+ exercises; YouTube tutorial URLs verified via `scripts/fetch-youtube-ids.js` |
 | M030 | Client check-ins — `client_checkins` table; QR-code-based gym visit log with trainer scanner and per-client history |
+| M031 | Personal records — `personal_records` table (UNIQUE per client+exercise); auto-upserted when a workout is saved; PRs surface on the Progress tab and trigger a post-save popup |
+| M032 | Fat Loss workout templates — 4 templates (HIIT Circuit A/B, Metabolic Strength A/B) under a new Fat Loss split; keyword-matched to fat/weight-loss goals in the Suggested tab |
+| M033 | Feed post attachments — `attachment_type`, `attachment_id`, `attachment_title`, `attachment_subtitle` columns on `feed_posts`; tappable attachment cards in PostCard navigate to the referenced resource |
 
 Create a public storage bucket named `feed-images` in the Supabase dashboard.
 
@@ -191,6 +202,33 @@ Trainers can then:
 - **Cancel the full series** — marks all future `assigned` instances as `cancelled`
 - **Cancel a single instance** — tap the × on any upcoming row; other instances are untouched
 - **Edit a single instance** — tap the row to open the standard assigned-workout editor
+
+## Workout Logger — Rest Timer & Summary
+
+Every set row in Log mode has a rest timer button to the right of the weight/reps fields.
+
+- **Default rest** is 2 minutes; presets (30 s / 1 / 1.5 / 2 / 2.5 / 3 min) are shown at the top of the builder and update the default for new timers.
+- Tapping the button starts a countdown. The active timer shows the remaining time and turns gold; a completed timer shows a checkmark in green.
+- When a timer reaches zero the device vibrates and a brief toast notification appears above the save button.
+- Multiple timers can run concurrently (one per set).
+
+On save, a **Workout Summary** sheet slides up showing:
+
+| Stat | How it's measured |
+|---|---|
+| Total time | Wall-clock time from screen open to save |
+| Rest time | Sum of all completed rest intervals |
+| Time under tension | Total elapsed − rest (clock starts when the first exercise block is added) |
+
+Any new personal records broken in the workout are listed below the stats with the previous best and the new value.
+
+## Personal Records
+
+The `personal_records` table stores the all-time best weight and best reps per client per exercise (`UNIQUE(client_id, exercise_id)`). Records are upserted automatically when a workout is saved — only improvements update the row.
+
+**Progress tab** — a Personal Records card above the time-range selector lists every exercise with gold weight badges and blue reps badges. A lbs/kg toggle adjusts the display unit. Long lists collapse to the top 5 with a "Show all N records" button.
+
+**Post-save popup** — if any PR was broken, the Workout Summary sheet highlights it with the previous best and new value so the trainer can celebrate the moment with the client.
 
 ## Client Check-In (QR Code)
 
@@ -246,15 +284,18 @@ The script reads all exercises from the CSV export, verifies existing URLs using
 
 ### Clinical Workout Templates
 
-36 pre-built clinical templates are defined in schema.sql (M022) across 5 speciality splits:
+40 pre-built templates are defined in schema.sql (M022, M032) across 6 splits:
 
 | Split | Templates |
 |---|---|
+| Fat Loss | HIIT Circuit A/B, Metabolic Strength A/B |
 | Metabolic & Chronic Disease | Diabetes management, cardiac rehab, COPD, obesity, hypertension, metabolic syndrome |
 | Musculoskeletal & Orthopedic | Low back pain, knee rehab, shoulder rehab, arthritis, osteoporosis, hip replacement |
 | Postural Deviations | Kyphosis, lordosis, scoliosis, forward head, flat feet, upper-cross syndrome |
 | Neurological & Mental Health | Parkinson's, stroke recovery, MS, anxiety/depression, ADHD, chronic pain |
 | Special Populations | Prenatal, postnatal, pediatric, senior mobility, cancer recovery, wheelchair users |
+
+Fat Loss templates appear in the **Suggested** tab automatically when a client's goals mention fat loss, weight loss, burning fat, HIIT, cardio, or related keywords.
 
 Template exercise names are stored as clean base names — no set/rep prescriptions (e.g. `'Battle Ropes'` not `'Battle Ropes 3×30 sec'`). The `normalizeExerciseName()` function in `app/workout/new.tsx` and `app/workout/assigned/[id].tsx` handles matching template names against the exercise library at runtime.
 

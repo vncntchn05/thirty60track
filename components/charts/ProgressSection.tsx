@@ -9,6 +9,7 @@ import { VolumeChart } from './VolumeChart';
 import { ExerciseProgressChart } from './ExerciseProgressChart';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { useClientProgress } from '@/hooks/useClientProgress';
+import { usePersonalRecords } from '@/hooks/usePersonalRecords';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
 type Range = '1M' | '3M' | '6M' | '1Y' | 'All' | 'Custom';
@@ -44,6 +45,10 @@ export default function ProgressSection({ clientId }: Props) {
   const [query, setQuery] = useState('');
   const [weightUnit, setWeightUnit] = useState<'lbs' | 'kg'>('lbs');
   const [lastN, setLastN] = useState<LastN>(10);
+  const [prExpanded, setPrExpanded] = useState(false);
+  const [prWeightUnit, setPrWeightUnit] = useState<'lbs' | 'kg'>('lbs');
+
+  const { records: prRecords, loading: prLoading } = usePersonalRecords(clientId);
 
   function handleRangePress(r: Range) {
     if (r === 'Custom') {
@@ -101,8 +106,101 @@ export default function ProgressSection({ clientId }: Props) {
     setQuery('');
   };
 
+  // PR records sorted by exercise name; weight converted for display unit
+  const prRecordsWithWeight = prRecords.map((r) => ({
+    ...r,
+    displayWeight: r.max_weight_kg != null
+      ? (prWeightUnit === 'lbs'
+          ? Math.round(r.max_weight_kg * 2.20462 * 10) / 10
+          : Math.round(r.max_weight_kg * 10) / 10)
+      : null,
+  }));
+  const PREVIEW_COUNT = 5;
+  const visiblePRs = prExpanded ? prRecordsWithWeight : prRecordsWithWeight.slice(0, PREVIEW_COUNT);
+
   return (
     <>
+      {/* Personal Records card */}
+      <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <View style={styles.prHeaderRow}>
+          <View style={styles.prTitleRow}>
+            <Ionicons name="trophy" size={14} color={colors.primary} />
+            <Text style={[styles.label, { color: t.textSecondary, marginLeft: 4 }]}>Personal Records</Text>
+          </View>
+          <View style={[styles.unitToggle, { borderColor: t.border, backgroundColor: t.background }]}>
+            {(['lbs', 'kg'] as const).map((u) => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.unitBtn, prWeightUnit === u && styles.unitBtnActive]}
+                onPress={() => setPrWeightUnit(u)}
+              >
+                <Text style={[styles.unitBtnText, { color: prWeightUnit === u ? colors.textInverse : t.textSecondary }]}>
+                  {u}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {prLoading && <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.sm }} />}
+
+        {!prLoading && prRecords.length === 0 && (
+          <Text style={[styles.prEmpty, { color: t.textSecondary }]}>
+            No personal records yet. Log a workout to start tracking PRs.
+          </Text>
+        )}
+
+        {!prLoading && visiblePRs.map((r) => (
+          <View key={r.id} style={[styles.prRow, { borderBottomColor: t.border }]}>
+            <View style={styles.prExerciseCol}>
+              <Text style={[styles.prExerciseName, { color: t.textPrimary }]} numberOfLines={1}>
+                {r.exercise.name}
+              </Text>
+              {r.exercise.muscle_group && (
+                <Text style={[styles.prMuscle, { color: t.textSecondary }]} numberOfLines={1}>
+                  {r.exercise.muscle_group}
+                </Text>
+              )}
+            </View>
+            <View style={styles.prBadgeCol}>
+              {r.displayWeight != null && (
+                <View style={[styles.prBadge, { backgroundColor: colors.primary + '22', borderColor: colors.primary + '44' }]}>
+                  <Ionicons name="barbell-outline" size={11} color={colors.primary} />
+                  <Text style={[styles.prBadgeText, { color: colors.primary }]}>
+                    {r.displayWeight} {prWeightUnit}
+                  </Text>
+                </View>
+              )}
+              {r.max_reps != null && (
+                <View style={[styles.prBadge, { backgroundColor: colors.info + '22', borderColor: colors.info + '44' }]}>
+                  <Ionicons name="repeat-outline" size={11} color={colors.info} />
+                  <Text style={[styles.prBadgeText, { color: colors.info }]}>
+                    {r.max_reps} reps
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        ))}
+
+        {!prLoading && prRecords.length > PREVIEW_COUNT && (
+          <TouchableOpacity
+            style={styles.prToggleBtn}
+            onPress={() => setPrExpanded((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.prToggleText, { color: colors.primary }]}>
+              {prExpanded ? 'Show less' : `Show all ${prRecords.length} records`}
+            </Text>
+            <Ionicons
+              name={prExpanded ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={colors.primary}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Time range selector */}
       <View style={styles.rangeRow}>
         {RANGES.map((r) => (
@@ -398,4 +496,38 @@ const styles = StyleSheet.create({
   rangeChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   rangeChipText: { ...typography.label, fontWeight: '600', textAlign: 'center' },
   rangeChipTextActive: { color: colors.textInverse },
+
+  // Personal Records card
+  prHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  prTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  prEmpty: { ...typography.bodySmall, fontStyle: 'italic', textAlign: 'center', paddingVertical: spacing.sm },
+  prRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    gap: spacing.sm,
+  },
+  prExerciseCol: { flex: 1, minWidth: 0 },
+  prExerciseName: { ...typography.bodySmall, fontWeight: '600' },
+  prMuscle: { ...typography.label, marginTop: 1 },
+  prBadgeCol: { flexDirection: 'row', gap: spacing.xs, flexShrink: 0 },
+  prBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  prBadgeText: { ...typography.label, fontWeight: '700' },
+  prToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
+  },
+  prToggleText: { ...typography.bodySmall, fontWeight: '600' },
 });

@@ -2746,3 +2746,77 @@ CREATE POLICY "checkins_client_select" ON client_checkins
       SELECT id FROM clients WHERE auth_user_id = auth.uid()
     )
   );
+
+-- ============================================================
+-- Migration 031 — Personal Records
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS personal_records (
+  id                      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id               UUID        NOT NULL REFERENCES clients(id)   ON DELETE CASCADE,
+  exercise_id             UUID        NOT NULL REFERENCES exercises(id)  ON DELETE CASCADE,
+  max_weight_kg           NUMERIC(8,3),
+  max_reps                INTEGER,
+  max_weight_achieved_at  DATE,
+  max_reps_achieved_at    DATE,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (client_id, exercise_id)
+);
+
+CREATE INDEX IF NOT EXISTS personal_records_client_idx
+  ON personal_records (client_id, exercise_id);
+
+ALTER TABLE personal_records ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "pr_trainer_all" ON personal_records
+  FOR ALL TO authenticated
+  USING (
+    client_id IN (SELECT id FROM clients WHERE trainer_id = auth.uid())
+  )
+  WITH CHECK (
+    client_id IN (SELECT id FROM clients WHERE trainer_id = auth.uid())
+  );
+
+CREATE POLICY "pr_client_select" ON personal_records
+  FOR SELECT TO authenticated
+  USING (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+CREATE POLICY "pr_client_insert" ON personal_records
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+CREATE POLICY "pr_client_update" ON personal_records
+  FOR UPDATE TO authenticated
+  USING (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  )
+  WITH CHECK (
+    client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid())
+  );
+
+-- ============================================================
+-- Migration 032 — Fat Loss Workout Templates
+-- ============================================================
+
+INSERT INTO workout_templates (name, split, subgroup, exercise_names)
+VALUES
+  ('HIIT Circuit A',       'Fat Loss', 'HIIT Circuits',      ARRAY['Jump Squats','Push-Up','Mountain Climbers','Burpees','Air Squat','High Knees (s)','Plank','Jumping Jacks (s)']),
+  ('HIIT Circuit B',       'Fat Loss', 'HIIT Circuits',      ARRAY['Box Jump','Skater Jumps','Mountain Climber Burpee','Speed Skaters','Squat Thrusts','Lateral Bounds','Plank Jacks','Jump Rope']),
+  ('Metabolic Strength A', 'Fat Loss', 'Metabolic Strength', ARRAY['Goblet Squat','Romanian Deadlift','Push-Up','Walking Lunges','Burpees','Bicycle Crunches','Jump Rope','Plank']),
+  ('Metabolic Strength B', 'Fat Loss', 'Metabolic Strength', ARRAY['Deadlift','DB Goblet Squat','Reverse Lunge','Mountain Climbers','Jump Squats','Russian Twists','Burpees','Flutter Kicks'])
+ON CONFLICT (name, split, subgroup) DO NOTHING;
+
+-- ============================================================
+-- Migration 033 — Feed Post Attachments
+-- ============================================================
+
+ALTER TABLE feed_posts
+  ADD COLUMN IF NOT EXISTS attachment_type     TEXT CHECK (attachment_type IN ('exercise', 'workout', 'assigned_workout', 'guide')),
+  ADD COLUMN IF NOT EXISTS attachment_id       TEXT,
+  ADD COLUMN IF NOT EXISTS attachment_title    TEXT,
+  ADD COLUMN IF NOT EXISTS attachment_subtitle TEXT;

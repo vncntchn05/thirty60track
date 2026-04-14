@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Switch } from 'react-native';
 import { useAuth } from '@/lib/auth';
 import { useTrainers } from '@/hooks/useTrainers';
+import { useFeatureGuide } from '@/hooks/useFeatureGuide';
 import { ChangePasswordModal } from '@/components/ui/ChangePasswordModal';
 import { QRScannerModal } from '@/components/checkin/QRScannerModal';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,11 +28,12 @@ function TrainerRow({ trainer, t }: { trainer: Trainer; t: ReturnType<typeof use
 }
 
 export default function ProfileScreen() {
-  const { trainer, signOut } = useAuth();
+  const { trainer, user, signOut } = useAuth();
   const { trainers, loading: trainersLoading, error: trainersError } = useTrainers();
   const t = useTheme();
   const [changingPassword, setChangingPassword] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const { enabled: guideEnabled, toggle: toggleGuide } = useFeatureGuide(user?.id);
 
   return (
     <ScrollView
@@ -62,6 +64,26 @@ export default function ProfileScreen() {
         {!trainersLoading && trainers.map((tr) => (
           <TrainerRow key={tr.id} trainer={tr} t={t} />
         ))}
+      </View>
+
+      {/* Feature Guide toggle */}
+      <View style={[styles.section, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <Text style={[styles.sectionHeader, { color: t.textSecondary }]}>PREFERENCES</Text>
+        <View style={[styles.toggleRow, { borderTopColor: t.border }]}>
+          <View style={styles.toggleLeft}>
+            <Ionicons name="compass-outline" size={18} color={colors.primary} />
+            <View style={styles.toggleInfo}>
+              <Text style={[styles.toggleLabel, { color: t.textPrimary }]}>Feature Guide</Text>
+              <Text style={[styles.toggleSub, { color: t.textSecondary }]}>Show button on home screen</Text>
+            </View>
+          </View>
+          <Switch
+            value={guideEnabled}
+            onValueChange={toggleGuide}
+            trackColor={{ false: t.border as string, true: colors.primary }}
+            thumbColor="#fff"
+          />
+        </View>
       </View>
 
       {/* Check-in scanner */}
@@ -153,6 +175,18 @@ const styles = StyleSheet.create({
   trainerInfo: { flex: 1 },
   trainerName: { ...typography.body, fontWeight: '600' },
   trainerEmail: { ...typography.bodySmall },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
+  toggleInfo: { flex: 1 },
+  toggleLabel: { ...typography.body, fontWeight: '600' },
+  toggleSub: { ...typography.bodySmall, marginTop: 1 },
   scanButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: spacing.sm,

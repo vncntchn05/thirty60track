@@ -2,9 +2,19 @@ import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, Image, StyleSheet, Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, useTheme } from '@/constants/theme';
-import type { FeedPostWithMeta, ReactionType } from '@/types';
+import type { FeedPostWithMeta, ReactionType, FeedAttachmentType } from '@/types';
+
+// ─── Constants ────────────────────────────────────────────────
+
+const ATTACHMENT_ICON: Record<FeedAttachmentType, React.ComponentProps<typeof Ionicons>['name']> = {
+  exercise:         'barbell-outline',
+  workout:          'calendar-outline',
+  assigned_workout: 'clipboard-outline',
+  guide:            'book-outline',
+};
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -34,14 +44,46 @@ type Props = {
   post: FeedPostWithMeta;
   currentUserId: string;
   canDelete: boolean;
+  role?: 'trainer' | 'client' | null;
   onReact: (type: ReactionType) => void;
   onCommentPress: () => void;
   onDelete: () => void;
 };
 
-export function PostCard({ post, currentUserId, canDelete, onReact, onCommentPress, onDelete }: Props) {
+export function PostCard({ post, currentUserId, canDelete, role, onReact, onCommentPress, onDelete }: Props) {
   const t = useTheme();
+  const router = useRouter();
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
+
+  function handleAttachmentPress() {
+    if (!post.attachment_type || !post.attachment_id) return;
+    const isClient = role === 'client';
+    const exercisesBase = isClient ? '/(client)/exercises' : '/(tabs)/exercises';
+    switch (post.attachment_type) {
+      case 'exercise':
+        router.push({ pathname: exercisesBase as '/exercises', params: { highlight: post.attachment_id } });
+        break;
+      case 'workout':
+        // Clients view sessions at /(client)/session/[id]; trainers use /workout/[id]
+        if (isClient) {
+          router.push({ pathname: '/(client)/session/[id]', params: { id: post.attachment_id } });
+        } else {
+          router.push({ pathname: '/workout/[id]', params: { id: post.attachment_id } });
+        }
+        break;
+      case 'assigned_workout':
+        // Clients execute assigned workouts; trainers edit them
+        if (isClient) {
+          router.push({ pathname: '/workout/assigned/complete/[id]', params: { id: post.attachment_id } });
+        } else {
+          router.push({ pathname: '/workout/assigned/[id]', params: { id: post.attachment_id } });
+        }
+        break;
+      case 'guide':
+        router.push({ pathname: exercisesBase as '/exercises', params: { guide: post.attachment_id } });
+        break;
+    }
+  }
 
   function handleDeletePress() {
     Alert.alert('Delete post', 'Remove this post from the feed?', [
@@ -94,6 +136,30 @@ export function PostCard({ post, currentUserId, canDelete, onReact, onCommentPre
 
       {/* Body */}
       <Text style={[styles.body, { color: t.textPrimary }]}>{post.body}</Text>
+
+      {/* Attachment card */}
+      {post.attachment_type && post.attachment_id ? (
+        <TouchableOpacity
+          style={[styles.attachCard, { backgroundColor: colors.primary + '11', borderColor: colors.primary + '44' }]}
+          onPress={handleAttachmentPress}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.attachIconWrap, { backgroundColor: colors.primary + '22' }]}>
+            <Ionicons name={ATTACHMENT_ICON[post.attachment_type]} size={16} color={colors.primary} />
+          </View>
+          <View style={styles.attachCardText}>
+            <Text style={[styles.attachCardTitle, { color: colors.primary }]} numberOfLines={1}>
+              {post.attachment_title ?? post.attachment_type}
+            </Text>
+            {!!post.attachment_subtitle && (
+              <Text style={[styles.attachCardSub, { color: t.textSecondary }]} numberOfLines={1}>
+                {post.attachment_subtitle}
+              </Text>
+            )}
+          </View>
+          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+        </TouchableOpacity>
+      ) : null}
 
       {/* Image */}
       {post.image_url ? (
@@ -200,6 +266,26 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     lineHeight: 22,
   },
+  attachCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  attachIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachCardText: { flex: 1 },
+  attachCardTitle: { ...typography.label, fontWeight: '700' },
+  attachCardSub: { ...typography.label, marginTop: 1 },
   image: {
     width: '100%',
     height: 220,

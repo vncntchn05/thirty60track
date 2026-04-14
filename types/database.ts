@@ -505,6 +505,8 @@ export type UserFavourite = {
 
 export type ReactionType = 'like' | 'fire' | 'clap';
 
+export type FeedAttachmentType = 'exercise' | 'workout' | 'assigned_workout' | 'guide';
+
 export type FeedPost = {
   id: string;
   author_id: string;
@@ -512,6 +514,10 @@ export type FeedPost = {
   author_name: string;
   body: string;
   image_url: string | null;
+  attachment_type: FeedAttachmentType | null;
+  attachment_id: string | null;
+  attachment_title: string | null;
+  attachment_subtitle: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -546,6 +552,10 @@ export type InsertFeedPost = {
   author_role: 'trainer' | 'client';
   author_name: string;
   image_url?: string | null;
+  attachment_type?: FeedAttachmentType | null;
+  attachment_id?: string | null;
+  attachment_title?: string | null;
+  attachment_subtitle?: string | null;
 };
 
 export type InsertFeedComment = {
@@ -606,4 +616,32 @@ export type ClientCheckin = {
   trainer_id: string;
   checked_in_at: string;
   note: string | null;
+};
+
+// ─── Personal Records (Migration 031) ────────────────────────
+
+export type PersonalRecord = {
+  id: string;
+  client_id: string;
+  exercise_id: string;
+  max_weight_kg: number | null;
+  max_reps: number | null;
+  max_weight_achieved_at: string | null; // YYYY-MM-DD
+  max_reps_achieved_at: string | null;   // YYYY-MM-DD
+  created_at: string;
+  updated_at: string;
+};
+
+export type PersonalRecordWithExercise = PersonalRecord & {
+  exercise: Pick<Exercise, 'name' | 'muscle_group' | 'category'>;
+};
+
+/** A newly set PR detected when logging a workout. */
+export type NewPR = {
+  exerciseName: string;
+  type: 'weight' | 'reps';
+  value: number;
+  /** Display unit — 'lbs', 'kg', or 'reps' */
+  unit: string;
+  previous: number | null; // null = first ever record
 };

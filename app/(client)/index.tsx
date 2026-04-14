@@ -7,6 +7,8 @@ import { useClientProfile } from '@/hooks/useClientProfile';
 import { useClientWorkouts } from '@/hooks/useClientWorkouts';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { useMyLinkedClients } from '@/hooks/useClientLinks';
+import { useFeatureGuide } from '@/hooks/useFeatureGuide';
+import { FeaturesModal } from '@/components/ui/FeaturesModal';
 import { IntakeForm } from '@/components/client/IntakeForm';
 import ReportCardButton from '@/components/client/ReportCardButton';
 import { MediaGallery } from '@/components/client/MediaGallery';
@@ -28,13 +30,15 @@ function fmtDate(iso: string) {
 export default function ClientDashboard() {
   const router = useRouter();
   const t = useTheme();
-  const { clientId } = useAuth();
+  const { clientId, user } = useAuth();
   const { client, loading: profileLoading, refresh: refreshProfile } = useClientProfile();
   const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const { workouts, loading, refresh } = useClientWorkouts(clientId ?? '');
   const { linkedClients } = useMyLinkedClients(clientId ?? '');
   const [intakeCompleted, setIntakeCompleted] = useState(false);
   const [segment, setSegment] = useState<Segment>('progress');
+  const [guideOpen, setGuideOpen] = useState(false);
+  const { enabled: guideEnabled } = useFeatureGuide(user?.id);
 
   useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
 
@@ -88,6 +92,21 @@ export default function ClientDashboard() {
 
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
+      {/* Feature Guide banner */}
+      {guideEnabled && (
+        <View style={[styles.guideBannerRow, { backgroundColor: t.background }]}>
+          <TouchableOpacity
+            style={[styles.guideBanner, { backgroundColor: t.surface, borderColor: t.border }]}
+            onPress={() => setGuideOpen(true)}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="compass-outline" size={16} color={colors.primary} />
+            <Text style={[styles.guideBannerText, { color: colors.primary }]}>Feature Guide</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Segment control */}
       <View style={[styles.segmentBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
         {(['progress', 'media'] as Segment[]).map((seg) => (
@@ -203,6 +222,8 @@ export default function ClientDashboard() {
           <MediaGallery clientId={clientId} uploadTrainerId={client?.trainer_id} />
         </View>
       ) : null}
+
+      <FeaturesModal visible={guideOpen} role="client" onClose={() => setGuideOpen(false)} />
     </View>
   );
 }
@@ -226,6 +247,24 @@ const styles = StyleSheet.create({
   cardDate: { ...typography.heading3 },
   cardSub: { ...typography.bodySmall },
   loader: { marginVertical: spacing.md },
+
+  // Feature guide banner
+  guideBannerRow: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  guideBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  guideBannerText: { ...typography.label, fontWeight: '700' },
 
   // Segment control
   segmentBar: {

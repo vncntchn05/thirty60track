@@ -21,6 +21,7 @@ const SPLIT_ORDER = [
   'Upper / Lower',
   'Push / Pull / Legs',
   'Abs & Core',
+  'Fat Loss',
   'Metabolic & Chronic Disease',
   'Musculoskeletal & Orthopedic',
   'Postural Deviations',
@@ -33,6 +34,7 @@ const SUBGROUP_ORDER: Record<string, string[]> = {
   'Upper / Lower':      ['Upper', 'Lower'],
   'Push / Pull / Legs': ['Push', 'Pull', 'Legs'],
   'Abs & Core':         ['Core Fundamentals', 'Ab Circuits'],
+  'Fat Loss':           ['HIIT Circuits', 'Metabolic Strength'],
   'Metabolic & Chronic Disease': [
     'Diabetes & Obesity', 'Hypertension & High Cholesterol',
     'Cardiac Rehabilitation', 'COPD & Respiratory',

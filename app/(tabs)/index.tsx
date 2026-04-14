@@ -3,6 +3,9 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClients } from '@/hooks/useClients';
+import { useAuth } from '@/lib/auth';
+import { useFeatureGuide } from '@/hooks/useFeatureGuide';
+import { FeaturesModal } from '@/components/ui/FeaturesModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { clientSlug } from '@/lib/slugify';
 import type { ClientWithStats } from '@/types';
@@ -15,8 +18,11 @@ function isoToLocal(iso: string): Date {
 export default function ClientsScreen() {
   const router = useRouter();
   const t = useTheme();
+  const { user } = useAuth();
   const { clients, loading, error, refetch } = useClients();
   const [query, setQuery] = useState('');
+  const [guideOpen, setGuideOpen] = useState(false);
+  const { enabled: guideEnabled } = useFeatureGuide(user?.id);
 
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
@@ -45,6 +51,18 @@ export default function ClientsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
+      {guideEnabled && (
+        <TouchableOpacity
+          style={[styles.guideBanner, { backgroundColor: t.surface, borderColor: t.border }]}
+          onPress={() => setGuideOpen(true)}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="compass-outline" size={16} color={colors.primary} />
+          <Text style={[styles.guideBannerText, { color: colors.primary }]}>Feature Guide</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.primary} style={styles.guideBannerChevron} />
+        </TouchableOpacity>
+      )}
+
       <View style={[styles.searchBar, { backgroundColor: t.surface, borderColor: t.border }]}>
         <Ionicons name="search" size={16} color={t.textSecondary as string} />
         <TextInput
@@ -82,6 +100,8 @@ export default function ClientsScreen() {
         <Ionicons name="add" size={20} color={colors.textInverse} />
         <Text style={styles.fabLabel}>Add Client</Text>
       </TouchableOpacity>
+
+      <FeaturesModal visible={guideOpen} role="trainer" onClose={() => setGuideOpen(false)} />
     </View>
   );
 }
@@ -132,6 +152,20 @@ function ClientRow({ client }: { client: ClientWithStats }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  guideBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    margin: spacing.md,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  guideBannerText: { ...typography.label, fontWeight: '700' },
+  guideBannerChevron: { marginLeft: 2 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
