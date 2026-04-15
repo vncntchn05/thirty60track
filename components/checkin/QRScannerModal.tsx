@@ -26,6 +26,7 @@ export function QRScannerModal({ visible, trainerId, onClose, onCheckinRecorded 
   const [statusMsg, setStatusMsg] = useState('');
   const [facing, setFacing] = useState<'front' | 'back'>('back');
   const [webPermState, setWebPermState] = useState<'idle' | 'pending' | 'granted' | 'denied'>('idle');
+  const [webPermError, setWebPermError] = useState<string>('');
   const cooldown = useRef(false);
 
   // On web, getUserMedia triggers the browser's native permission prompt.
@@ -33,18 +34,22 @@ export function QRScannerModal({ visible, trainerId, onClose, onCheckinRecorded 
   useEffect(() => {
     if (Platform.OS !== 'web' || !visible) return;
     if (!navigator?.mediaDevices?.getUserMedia) {
+      setWebPermError('mediaDevices API not available');
       setWebPermState('denied');
       return;
     }
     setWebPermState('pending');
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+      .getUserMedia({ video: true })
       .then(stream => {
         // Release the stream — CameraView will open its own.
         stream.getTracks().forEach(t => t.stop());
         setWebPermState('granted');
       })
-      .catch(() => setWebPermState('denied'));
+      .catch((err: unknown) => {
+        setWebPermError(err instanceof Error ? `${err.name}: ${err.message}` : String(err));
+        setWebPermState('denied');
+      });
   }, [visible]);
 
   function handleClose() {
@@ -124,7 +129,7 @@ export function QRScannerModal({ visible, trainerId, onClose, onCheckinRecorded 
           <View style={styles.centered}>
             <Ionicons name="camera-outline" size={52} color={t.textSecondary as string} />
             <Text style={[styles.permText, { color: t.textPrimary }]}>
-              Camera unavailable. Make sure the page is loaded over HTTPS and camera access is allowed in your browser settings.
+              Camera unavailable. Make sure the page is loaded over HTTPS and camera access is allowed in your browser settings.{webPermError ? `\n\n(${webPermError})` : ''}
             </Text>
           </View>
         ) : Platform.OS !== 'web' && !permission ? (
