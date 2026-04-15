@@ -3,6 +3,7 @@ import {
   Modal, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { WebCameraView } from './WebCameraView';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { recordCheckin } from '@/hooks/useCheckins';
@@ -168,13 +169,20 @@ export function QRScannerModal({ visible, trainerId, onClose, onCheckinRecorded 
         ) : (
           /* Live camera */
           <View style={styles.cameraWrap}>
-            <CameraView
-              key={facing}
-              style={StyleSheet.absoluteFillObject}
-              facing={facing}
-              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-              onBarcodeScanned={handleBarcode}
-            />
+            {Platform.OS === 'web' ? (
+              <WebCameraView
+                key={facing}
+                facing={facing}
+                onQRDetected={data => handleBarcode({ data })}
+              />
+            ) : (
+              <CameraView
+                style={StyleSheet.absoluteFillObject}
+                facing={facing}
+                barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                onBarcodeScanned={handleBarcode}
+              />
+            )}
             {/* Targeting reticle */}
             <View style={styles.reticleWrap} pointerEvents="none">
               <View style={[styles.reticle, { borderColor: colors.primary }]}>
