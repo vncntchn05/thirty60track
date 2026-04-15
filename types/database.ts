@@ -208,6 +208,7 @@ export type AssignedWorkoutExercise = {
   exercise_id: string;
   order_index: number;
   superset_group: number | null;
+  rest_seconds: number | null;
 };
 
 export type AssignedWorkoutSet = {
@@ -236,6 +237,7 @@ export type AssignedExercisePayload = {
   exercise_id: string;
   order_index: number;
   superset_group: number | null;
+  rest_seconds?: number | null;
   sets: {
     set_number: number;
     reps: number | null;

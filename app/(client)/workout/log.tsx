@@ -6,6 +6,7 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { createWorkoutWithSets } from '@/hooks/useWorkouts';
@@ -43,7 +44,7 @@ export default function ClientNewWorkoutScreen() {
   const [bodyWeight, setBodyWeight] = useState('');
   const [bodyFat, setBodyFat] = useState('');
   const [isDirty, setIsDirty] = useState(false);
-  const [showUnsavedBar, setShowUnsavedBar] = useState(false);
+
 
   function addExercise(exercise: Exercise) {
     setBlocks((prev) => [...prev, EMPTY_BLOCK(exercise)]);
@@ -78,9 +79,11 @@ export default function ClientNewWorkoutScreen() {
     setIsDirty(true);
   }
 
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
   const handleBackPress = useCallback(() => {
     if (!isDirty) { router.back(); return; }
-    setShowUnsavedBar(true);
+    setShowUnsavedModal(true);
   }, [isDirty, router]);
 
   // Keep header back button and swipe gesture in sync with dirty state
@@ -277,35 +280,23 @@ export default function ClientNewWorkoutScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {showUnsavedBar ? (
-        <View style={[styles.unsavedBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
-          <Text style={[styles.unsavedBarText, { color: t.textPrimary }]}>You have unsaved changes.</Text>
-          <View style={styles.unsavedBarButtons}>
-            <TouchableOpacity
-              onPress={() => { setShowUnsavedBar(false); setIsDirty(false); router.back(); }}
-              style={[styles.unsavedCancelBtn, { borderColor: t.border }]}
-            >
-              <Text style={[styles.unsavedCancelText, { color: t.textSecondary }]}>Discard</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => { setShowUnsavedBar(false); handleSave(); }}
-              style={styles.unsavedSaveBtn}
-            >
-              <Text style={styles.unsavedSaveText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving
-            ? <ActivityIndicator color={colors.textInverse} />
-            : <Text style={styles.saveBtnText}>Save Workout</Text>}
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity
+        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+        onPress={handleSave}
+        disabled={saving}
+      >
+        {saving
+          ? <ActivityIndicator color={colors.textInverse} />
+          : <Text style={styles.saveBtnText}>Save Workout</Text>}
+      </TouchableOpacity>
+
+      <UnsavedChangesModal
+        visible={showUnsavedModal}
+        saveLabel="Save Workout"
+        onDiscard={() => { setShowUnsavedModal(false); setIsDirty(false); router.back(); }}
+        onSave={() => { setShowUnsavedModal(false); handleSave(); }}
+        onKeepEditing={() => setShowUnsavedModal(false)}
+      />
     </View>
   );
 }
@@ -371,11 +362,4 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
-  unsavedBar: { borderTopWidth: 1, padding: spacing.md, gap: spacing.sm },
-  unsavedBarText: { ...typography.body },
-  unsavedBarButtons: { flexDirection: 'row', gap: spacing.sm },
-  unsavedCancelBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, borderWidth: 1 },
-  unsavedCancelText: { ...typography.body },
-  unsavedSaveBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.primary },
-  unsavedSaveText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
 });

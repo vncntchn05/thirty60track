@@ -16,6 +16,8 @@ import { useClients, useClient } from '@/hooks/useClients';
 import { useAuth } from '@/lib/auth';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { estimateBlockKcal } from '@/lib/calorieEstimation';
+import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal';
 import type { Exercise, NewPR } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 
@@ -134,7 +136,7 @@ function getSupersetColor(group: number): string {
 type Mode = 'log' | 'assign';
 type WeightUnit = 'lbs' | 'kg' | 'secs';
 type SetRow = { reps: string; amount: string; notes: string };
-type ExerciseBlock = { exercise: Exercise; sets: SetRow[]; linkedToNext: boolean; unit: WeightUnit };
+type ExerciseBlock = { exercise: Exercise; sets: SetRow[]; linkedToNext: boolean; unit: WeightUnit; restSecs: number };
 
 const UNITS: WeightUnit[] = ['lbs', 'kg', 'secs'];
 function nextUnit(u: WeightUnit): WeightUnit { return UNITS[(UNITS.indexOf(u) + 1) % UNITS.length]; }
@@ -149,7 +151,7 @@ function resolveAmount(raw: string, unit: WeightUnit): { weight_kg: number | nul
 const EMPTY_SET: SetRow = { reps: '', amount: '', notes: '' };
 
 const EMPTY_BLOCK = (exercise: Exercise): ExerciseBlock =>
-  ({ exercise, sets: [{ ...EMPTY_SET }], linkedToNext: false, unit: 'lbs' });
+  ({ exercise, sets: [{ ...EMPTY_SET }], linkedToNext: false, unit: 'lbs', restSecs: 120 });
 
 function formatDate(iso: string) {
   // Avoid timezone shift by parsing as local date
@@ -185,13 +187,14 @@ function fmtDuration(secs: number): string {
   return `${m}m ${s}s`;
 }
 
-const REST_PRESETS = [30, 60, 90, 120, 150, 180] as const;
+const REST_PRESETS = [0, 30, 60, 90, 120, 150, 180] as const;
 
 
 type WorkoutSummary = {
   workoutSeconds: number;
   restSeconds: number;
   tutSeconds: number;
+  totalKcal: number;
   prs: NewPR[];
 };
 
@@ -200,7 +203,6 @@ export default function NewWorkoutScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const [isDirty, setIsDirty] = useState(false);
-  const [showUnsavedBar, setShowUnsavedBar] = useState(false);
   const { user, role } = useAuth();
   const isLinkedClient = role === 'client';
   const t = useTheme();
@@ -214,6 +216,8 @@ export default function NewWorkoutScreen() {
   const [mode, setMode] = useState<Mode>('log');
   // ── log-now state ──
   const [workedOutWith, setWorkedOutWith] = useState<Set<string>>(new Set());
+  const [showWorkedOutWith, setShowWorkedOutWith] = useState(false);
+  const [showAssignTo, setShowAssignTo] = useState(false);
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showCalendar, setShowCalendar] = useState(false);
   const [bodyWeight, setBodyWeight] = useState('');
@@ -286,6 +290,11 @@ export default function NewWorkoutScreen() {
   function updateBlockUnit(bi: number, unit: WeightUnit) {
     setIsDirty(true);
     setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, unit } : b));
+  }
+
+  function updateBlockRestSecs(bi: number, secs: number) {
+    setIsDirty(true);
+    setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, restSecs: secs } : b));
   }
 
   function updateSet(bi: number, si: number, field: keyof SetRow, value: string) {
@@ -429,6 +438,7 @@ export default function NewWorkoutScreen() {
       exercise_id: b.exercise.id,
       order_index: bi,
       superset_group: blockGroups[bi],
+      rest_seconds: b.restSecs,
       sets: b.sets
         .filter((s) => s.reps.trim() !== '' || s.amount.trim() !== '')
         .map((s, si) => ({
@@ -545,19 +555,27 @@ export default function NewWorkoutScreen() {
         'lbs',
       );
 
+      const bwKg = bodyWeight.trim() ? parseFloat(bodyWeight) : null;
+      const totalKcal = blocks.reduce((sum, b) =>
+        sum + estimateBlockKcal(b.sets, b.unit, bwKg, b.exercise.name), 0,
+      );
+
       setWorkoutSummary({
         workoutSeconds,
         restSeconds: totalRestSeconds,
         tutSeconds,
+        totalKcal,
         prs,
       });
       setSummaryVisible(true);
     }
   }, [user, isLinkedClient, targetClient, clientId, blocks, date, workoutNotes, bodyWeight, bodyFat, workedOutWith, router]);
 
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
   const handleBackPress = useCallback(() => {
     if (!isDirty) { router.back(); return; }
-    setShowUnsavedBar(true);
+    setShowUnsavedModal(true);
   }, [isDirty, router]);
 
   // Keep header buttons and gesture guard in sync with dirty state
@@ -785,8 +803,13 @@ export default function NewWorkoutScreen() {
         {/* Assign to — only shown in Assign mode */}
         {mode === 'assign' && (
           <View style={[styles.groupSection, { backgroundColor: t.surface, borderColor: t.border }]}>
-            <Text style={[styles.groupLabel, { color: t.textSecondary }]}>Assign to</Text>
-            {clients.length === 0 ? (
+            <TouchableOpacity style={styles.groupHeader} onPress={() => setShowAssignTo(v => !v)} activeOpacity={0.7}>
+              <Text style={[styles.groupLabel, { color: t.textSecondary }]}>
+                Assign to{assignedClients.size > 0 ? ` (${assignedClients.size})` : ''}
+              </Text>
+              <Ionicons name={showAssignTo ? 'chevron-up' : 'chevron-down'} size={16} color={t.textSecondary as string} />
+            </TouchableOpacity>
+            {showAssignTo && (clients.length === 0 ? (
               <Text style={[styles.groupClientName, { color: t.textSecondary }]}>No clients found.</Text>
             ) : clients.map((c) => {
               const selected = assignedClients.has(c.id);
@@ -808,15 +831,20 @@ export default function NewWorkoutScreen() {
                   <Text style={[styles.groupClientName, { color: t.textPrimary }]}>{c.full_name}</Text>
                 </TouchableOpacity>
               );
-            })}
+            }))}
           </View>
         )}
 
         {/* Worked out with — trainers only, Log Now mode only */}
         {!isLinkedClient && mode === 'log' && clients.filter((c) => c.id !== clientId).length > 0 && (
           <View style={[styles.groupSection, { backgroundColor: t.surface, borderColor: t.border }]}>
-            <Text style={[styles.groupLabel, { color: t.textSecondary }]}>Worked out with</Text>
-            {clients.filter((c) => c.id !== clientId).map((c) => {
+            <TouchableOpacity style={styles.groupHeader} onPress={() => setShowWorkedOutWith(v => !v)} activeOpacity={0.7}>
+              <Text style={[styles.groupLabel, { color: t.textSecondary }]}>
+                Worked out with{workedOutWith.size > 0 ? ` (${workedOutWith.size})` : ''}
+              </Text>
+              <Ionicons name={showWorkedOutWith ? 'chevron-up' : 'chevron-down'} size={16} color={t.textSecondary as string} />
+            </TouchableOpacity>
+            {showWorkedOutWith && clients.filter((c) => c.id !== clientId).map((c) => {
               const selected = workedOutWith.has(c.id);
               return (
                 <TouchableOpacity
@@ -977,10 +1005,53 @@ export default function NewWorkoutScreen() {
                   );
                 })}
 
-                <TouchableOpacity style={styles.addSetBtn} onPress={() => addSet(bi)}>
-                  <Ionicons name="add" size={16} color={colors.primary} />
-                  <Text style={styles.addSetBtnText}>Add Set</Text>
-                </TouchableOpacity>
+                <View style={styles.addSetRow}>
+                  <TouchableOpacity style={styles.addSetBtn} onPress={() => addSet(bi)}>
+                    <Ionicons name="add" size={16} color={colors.primary} />
+                    <Text style={styles.addSetBtnText}>Add Set</Text>
+                  </TouchableOpacity>
+                  {mode === 'log' && (() => {
+                    const bwKg = bodyWeight.trim() ? parseFloat(bodyWeight) : null;
+                    const kcal = estimateBlockKcal(block.sets, block.unit, bwKg, block.exercise.name);
+                    return kcal > 0 ? (
+                      <View style={styles.kcalBadge}>
+                        <Ionicons name="flame-outline" size={12} color={colors.primary} />
+                        <Text style={[styles.kcalBadgeText, { color: colors.primary }]}>~{kcal} kcal</Text>
+                      </View>
+                    ) : null;
+                  })()}
+                </View>
+
+                {/* ── Rest timer prescription — assign mode only ── */}
+                {mode === 'assign' && (
+                  <View style={[styles.restRow, styles.blockRestRow]}>
+                    <View style={styles.restRowLeft}>
+                      <Ionicons name="timer-outline" size={14} color={t.textSecondary as string} />
+                      <Text style={[styles.restRowLabel, { color: t.textSecondary }]}>Rest</Text>
+                    </View>
+                    <View style={styles.restPresets}>
+                      {REST_PRESETS.map((secs) => {
+                        const active = block.restSecs === secs;
+                        return (
+                          <TouchableOpacity
+                            key={secs}
+                            style={[
+                              styles.restPresetBtn,
+                              { borderColor: active ? colors.primary : t.border },
+                              active && styles.restPresetBtnActive,
+                            ]}
+                            onPress={() => updateBlockRestSecs(bi, secs)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.restPresetText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                              {fmtCountdown(secs)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
               </View>
             </View>
           );
@@ -998,35 +1069,15 @@ export default function NewWorkoutScreen() {
         </View>
       </ScrollView>
 
-      {showUnsavedBar ? (
-        <View style={[styles.unsavedBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
-          <Text style={[styles.unsavedBarText, { color: t.textPrimary }]}>You have unsaved changes.</Text>
-          <View style={styles.unsavedBarButtons}>
-            <TouchableOpacity
-              onPress={() => { setShowUnsavedBar(false); setIsDirty(false); router.back(); }}
-              style={[styles.unsavedCancelBtn, { borderColor: t.border }]}
-            >
-              <Text style={[styles.unsavedCancelText, { color: t.textSecondary }]}>Discard</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => { setShowUnsavedBar(false); (mode === 'log' ? handleSave : handleAssign)(); }}
-              style={styles.unsavedSaveBtn}
-            >
-              <Text style={styles.unsavedSaveText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={mode === 'log' ? handleSave : handleAssign}
-          disabled={saving}
-        >
-          {saving
-            ? <ActivityIndicator color={colors.textInverse} />
-            : <Text style={styles.saveBtnText}>{mode === 'log' ? 'Save Workout' : 'Assign Workout'}</Text>}
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity
+        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+        onPress={mode === 'log' ? handleSave : handleAssign}
+        disabled={saving}
+      >
+        {saving
+          ? <ActivityIndicator color={colors.textInverse} />
+          : <Text style={styles.saveBtnText}>{mode === 'log' ? 'Save Workout' : 'Assign Workout'}</Text>}
+      </TouchableOpacity>
 
       {/* ── Injury risk confirmation modal ─────────────────────────── */}
       <Modal transparent animationType="fade" visible={pendingExercise !== null}>
@@ -1066,6 +1117,15 @@ export default function NewWorkoutScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Unsaved changes modal ────────────────────────────── */}
+      <UnsavedChangesModal
+        visible={showUnsavedModal}
+        saveLabel={mode === 'log' ? 'Save Workout' : 'Assign Workout'}
+        onDiscard={() => { setShowUnsavedModal(false); setIsDirty(false); router.back(); }}
+        onSave={() => { setShowUnsavedModal(false); (mode === 'log' ? handleSave : handleAssign)(); }}
+        onKeepEditing={() => setShowUnsavedModal(false)}
+      />
 
       {/* ── Rest complete toast ───────────────────────────────── */}
       {restToast && (
@@ -1119,6 +1179,19 @@ export default function NewWorkoutScreen() {
                   </Text>
                   <Text style={[styles.summaryStatLabel, { color: t.textSecondary }]}>Under tension</Text>
                 </View>
+              </View>
+            )}
+
+            {/* Calories row */}
+            {workoutSummary && workoutSummary.totalKcal > 0 && (
+              <View style={[styles.summaryKcalRow, { borderBottomColor: t.border }]}>
+                <Ionicons name="flame" size={18} color={colors.primary} />
+                <Text style={[styles.summaryKcalText, { color: t.textPrimary }]}>
+                  ~{workoutSummary.totalKcal} kcal estimated
+                </Text>
+                <Text style={[styles.summaryKcalHint, { color: t.textSecondary }]}>
+                  based on sets, weight {bodyWeight.trim() ? '& body weight' : '(75 kg assumed)'}
+                </Text>
               </View>
             )}
 
@@ -1306,13 +1379,22 @@ const styles = StyleSheet.create({
     height: 40, textAlign: 'center',
   },
   invisible: { opacity: 0 },
-  addSetBtn: {
-    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+  addSetRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginHorizontal: spacing.md, marginTop: spacing.xs,
+  },
+  addSetBtn: {
+    flexDirection: 'row', alignItems: 'center',
     paddingVertical: spacing.xs, paddingHorizontal: spacing.sm,
     borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary, gap: spacing.xs,
   },
   addSetBtnText: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
+  kcalBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingVertical: spacing.xs, paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary + '44',
+  },
+  kcalBadgeText: { ...typography.label, fontWeight: '600' },
   actionRow: {
     flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.md,
   },
@@ -1332,18 +1414,12 @@ const styles = StyleSheet.create({
   saveBtn: { margin: spacing.md, backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
-  unsavedBar: { borderTopWidth: 1, padding: spacing.md, gap: spacing.sm },
-  unsavedBarText: { ...typography.body },
-  unsavedBarButtons: { flexDirection: 'row', gap: spacing.sm },
-  unsavedCancelBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, borderWidth: 1 },
-  unsavedCancelText: { ...typography.body },
-  unsavedSaveBtn: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: radius.sm, backgroundColor: colors.primary },
-  unsavedSaveText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
   groupSection: {
     marginHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1,
     padding: spacing.md, gap: spacing.sm,
   },
   groupLabel: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
+  groupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   groupRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
   groupClientName: { ...typography.body },
   // Superset connector
@@ -1370,6 +1446,10 @@ const styles = StyleSheet.create({
   // ── Rest timer customization row ──
   restRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap',
+  },
+  blockRestRow: {
+    marginTop: spacing.xs, paddingTop: spacing.xs, paddingHorizontal: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'transparent',
   },
   restRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   restRowLabel: { ...typography.label },
@@ -1417,6 +1497,13 @@ const styles = StyleSheet.create({
   summaryStatValue: { ...typography.heading3, fontWeight: '700' },
   summaryStatLabel: { ...typography.label },
   summaryStatDivider: { width: 1 },
+  summaryKcalRow: {
+    flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.xs,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  summaryKcalText: { ...typography.body, fontWeight: '700' },
+  summaryKcalHint: { ...typography.label, flex: 1 },
   summaryPRSection: {
     paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,

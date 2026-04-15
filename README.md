@@ -16,15 +16,15 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 ### Trainer
 - Client list with workout count and last session date
 - Client detail: info, body metrics, progress charts, workout history
-- Log workouts (multi-exercise builder with sets/reps/weight) with per-set rest timer, workout summary popup (total time, rest time, time under tension), and new PR detection
+- Log workouts (multi-exercise builder with sets/reps/weight) with per-set rest timer, estimated calorie burn per exercise, workout summary popup (total time, rest time, time under tension, total kcal), and new PR detection
 - **Personal Records** — all-time best weight and reps per client per exercise; visible on the client's Progress tab; a congratulatory popup appears automatically when a workout is saved with any new PR
-- Assign workout programs with scheduled dates
+- Assign workout programs with scheduled dates and prescribed rest durations per exercise
 - **Recurring workout series** — schedule a workout template on selected days of the week (weekly or biweekly), with optional indefinite scheduling; cancel the entire series or individual instances
 - Workout template library: 36 clinical templates across 5 speciality splits (Metabolic & Chronic Disease, Musculoskeletal & Orthopedic, Postural Deviations, Neurological & Mental Health, Special Populations)
 - Weekly availability management + session scheduling
 - Grant or deduct session credits for any client (not limited to own clients)
 - **Family account linking** — link two or more client accounts into a family group; all members can view and edit each other's progress, workouts, nutrition, and credits
-- **QR check-in scanner** — scan a client's QR code to instantly log a timestamped gym visit; view full check-in history on the client's Check-ins tab
+- **QR check-in scanner** — scan a client's QR code to instantly log a timestamped gym visit; view full check-in history on the client's Check-ins tab. On mobile web the scanner uses the device's rear camera by default with a flip-camera button; camera access is handled via native browser APIs (`getUserMedia` + `enumerateDevices`) for reliable cross-platform behaviour
 - Community feed: post, react, comment; delete any post; attach exercises, workouts, assigned workouts, or guides to any post
 - AI fitness trends tab with daily summaries and article links
 - **Video calls** — generate an instant video call link from any conversation; link is sent as a pre-populated message the trainer can edit before sending
@@ -57,8 +57,12 @@ app/
   client/                   — client detail + new client form
 components/
   checkin/
-    QRScannerModal          — full-screen camera scanner (expo-camera); validates payload,
-                              looks up client, records check-in, shows success/error result
+    QRScannerModal          — full-screen camera scanner; on native uses expo-camera, on web
+                              uses WebCameraView (getUserMedia + BarcodeDetector); validates
+                              payload, looks up client, records check-in, shows result
+    WebCameraView.web.tsx   — web-only camera using enumerateDevices for reliable rear/front
+                              selection; scans via BarcodeDetector requestAnimationFrame loop
+    WebCameraView.tsx       — native stub (returns null)
   feed/                     — PostCard, PostComposer, CommentSheet, TrendCard
   feed/FeedScreen           — shared Community + Trends screen (trainer + client)
   messaging/                — MessagesScreen, ConversationCard, AttachmentPickerModal,
@@ -76,6 +80,9 @@ components/
   ui/
     FeaturesModal           — role-aware feature guide modal (trainer / client content);
                               19 trainer features + 16 client features with direct nav links
+    UnsavedChangesModal     — cross-platform popup (Modal, not Alert) for dirty-state back
+                              navigation; Discard / Save / Keep Editing; used across all
+                              screens with dirty tracking
 hooks/
   useCheckins.ts            — useCheckins(clientId), recordCheckin()
   useClientLinks.ts         — family linking: useClientLinks, useMyLinkedClients,
@@ -96,6 +103,8 @@ lib/
   supabase.ts               — Supabase client singleton
   auth.tsx                  — AuthProvider + useAuth
   anthropic.ts              — fetchOrGenerateTrend, generateTrendSummary
+  calorieEstimation.ts      — estimateSetKcal / estimateBlockKcal; MET + mechanical work
+                              formula with EPOC multipliers per exercise category
 supabase/
   schema.sql                — source-of-truth DDL (all migrations inline, M001–M033)
   seed.sql                  — exercise library (200+ exercises across all muscle groups)
@@ -155,6 +164,7 @@ Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` f
 | M031 | Personal records — `personal_records` table (UNIQUE per client+exercise); auto-upserted when a workout is saved; PRs surface on the Progress tab and trigger a post-save popup |
 | M032 | Fat Loss workout templates — 4 templates (HIIT Circuit A/B, Metabolic Strength A/B) under a new Fat Loss split; keyword-matched to fat/weight-loss goals in the Suggested tab |
 | M033 | Feed post attachments — `attachment_type`, `attachment_id`, `attachment_title`, `attachment_subtitle` columns on `feed_posts`; tappable attachment cards in PostCard navigate to the referenced resource |
+| M030 | Assigned workout rest prescriptions — `rest_seconds INT` column on `assigned_workout_exercises`; trainers set per-exercise rest in the assign builder; clients see a live countdown during workout execution |
 
 Create a public storage bucket named `feed-images` in the Supabase dashboard.
 
@@ -203,14 +213,22 @@ Trainers can then:
 - **Cancel a single instance** — tap the × on any upcoming row; other instances are untouched
 - **Edit a single instance** — tap the row to open the standard assigned-workout editor
 
-## Workout Logger — Rest Timer & Summary
+## Workout Logger — Rest Timer, Calories & Summary
 
 Every set row in Log mode has a rest timer button to the right of the weight/reps fields.
 
-- **Default rest** is 2 minutes; presets (30 s / 1 / 1.5 / 2 / 2.5 / 3 min) are shown at the top of the builder and update the default for new timers.
+- **Default rest** is 2 minutes; presets (0 s / 30 s / 1 / 1.5 / 2 / 2.5 / 3 min) are shown at the top of the builder and update the default for new timers.
 - Tapping the button starts a countdown. The active timer shows the remaining time and turns gold; a completed timer shows a checkmark in green.
 - When a timer reaches zero the device vibrates and a brief toast notification appears above the save button.
 - Multiple timers can run concurrently (one per set).
+
+**Calorie estimation** — as sets are filled in, a `~X kcal` badge appears next to the Add Set button for each exercise block. The estimate uses a combined formula:
+
+- **MET component** (net metabolic cost above rest) — MET values by category: compound lifts 5.0, isolation 3.0, bodyweight/calisthenics 3.8, explosive/Olympic 7.0
+- **Mechanical work component** — load × gravity × vertical displacement × reps × 2, divided by 4 184 J/kcal at 22% muscle efficiency; displacement is looked up by exercise name (squat 0.55 m, deadlift 0.50 m, bench 0.35 m, curl 0.30 m, etc.)
+- **EPOC multiplier** per category to account for post-set elevated metabolism: compound ×3.0, explosive/bodyweight ×2.0, isolation ×1.5
+
+Body weight entered in the header is used; falls back to 75 kg if omitted.
 
 On save, a **Workout Summary** sheet slides up showing:
 
@@ -219,8 +237,20 @@ On save, a **Workout Summary** sheet slides up showing:
 | Total time | Wall-clock time from screen open to save |
 | Rest time | Sum of all completed rest intervals |
 | Time under tension | Total elapsed − rest (clock starts when the first exercise block is added) |
+| Estimated kcal | Sum of all set estimates across every exercise block |
 
 Any new personal records broken in the workout are listed below the stats with the previous best and the new value.
+
+## Assigned Workout Execution — Prescribed Rest Timers
+
+When a trainer assigns a workout they can set a **rest duration per exercise** (presets: 0 s / 30 s / 1 / 1.5 / 2 / 2.5 / 3 min) using the rest row below each exercise block in the assign builder. The `rest_seconds` value is stored on `assigned_workout_exercises`.
+
+During client execution (`workout/assigned/complete/[id].tsx`) each exercise block shows:
+
+- A **Rest: M:SS** label above the column headers indicating the prescribed rest
+- A timer button on every set row — tapping starts a countdown from the prescribed duration
+- Vibration and a toast when the timer completes
+- Multiple timers can run concurrently
 
 ## Personal Records
 
@@ -236,7 +266,7 @@ Trainers scan a client's QR code at the gym to log a timestamped visit.
 
 **Client side** — the **Profile** tab displays a personal QR code. The code encodes a JSON payload `{ type: "thirty60_checkin", clientId }` so only valid app codes are accepted.
 
-**Trainer side** — the **Profile** tab has a **Scan Client Check-In** button that opens a full-screen camera view (uses `expo-camera`). A gold targeting reticle guides the scan. After a successful scan the trainer sees a confirmation with the client's name; tapping **Scan Another** immediately starts the next scan.
+**Trainer side** — the **Profile** tab has a **Scan Client Check-In** button that opens a full-screen camera view. On native it uses `expo-camera`; on mobile web it uses a custom `WebCameraView` component built on `navigator.mediaDevices.getUserMedia` and `BarcodeDetector` for reliable rear-camera access and QR detection. A gold targeting reticle guides the scan; a flip-camera button lets the trainer switch between front and rear. After a successful scan the trainer sees a confirmation with the client's name; tapping **Scan Another** immediately starts the next scan.
 
 **Check-ins tab** — each client's detail screen has a **Check-ins** tab showing a reverse-chronological list of every logged visit: date, time, and optional note.
 

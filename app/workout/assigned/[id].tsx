@@ -11,6 +11,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { useAssignedWorkoutDetail, updateAssignedWorkout, deleteAssignedWorkout } from '@/hooks/useAssignedWorkouts';
 import { useExercises } from '@/hooks/useExercises';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal';
 import type { Exercise } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 
@@ -30,7 +31,7 @@ function getSupersetColor(group: number): string {
 
 type WeightUnit = 'lbs' | 'kg' | 'secs';
 type SetRow = { reps: string; amount: string; notes: string };
-type ExerciseBlock = { exercise: Exercise; sets: SetRow[]; linkedToNext: boolean; unit: WeightUnit };
+type ExerciseBlock = { exercise: Exercise; sets: SetRow[]; linkedToNext: boolean; unit: WeightUnit; restSecs: number };
 
 const UNITS: WeightUnit[] = ['lbs', 'kg', 'secs'];
 function nextUnit(u: WeightUnit): WeightUnit { return UNITS[(UNITS.indexOf(u) + 1) % UNITS.length]; }
@@ -44,7 +45,15 @@ function resolveAmount(raw: string, unit: WeightUnit): { weight_kg: number | nul
 
 const EMPTY_SET: SetRow = { reps: '', amount: '', notes: '' };
 const EMPTY_BLOCK = (exercise: Exercise): ExerciseBlock =>
-  ({ exercise, sets: [{ ...EMPTY_SET }], linkedToNext: false, unit: 'lbs' });
+  ({ exercise, sets: [{ ...EMPTY_SET }], linkedToNext: false, unit: 'lbs', restSecs: 120 });
+
+const REST_PRESETS = [0, 30, 60, 90, 120, 150, 180] as const;
+
+function fmtCountdown(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 function formatDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -71,7 +80,7 @@ export default function EditAssignedWorkoutScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showUnsavedBar, setShowUnsavedBar] = useState(false);
+
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -116,6 +125,7 @@ export default function EditAssignedWorkoutScreen() {
           : [{ ...EMPTY_SET }],
         linkedToNext,
         unit,
+        restSecs: ex.rest_seconds ?? 120,
       };
     });
     setBlocks(loaded);
@@ -125,6 +135,11 @@ export default function EditAssignedWorkoutScreen() {
   function updateBlockUnit(bi: number, unit: WeightUnit) {
     setIsDirty(true);
     setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, unit } : b));
+  }
+
+  function updateBlockRestSecs(bi: number, secs: number) {
+    setIsDirty(true);
+    setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, restSecs: secs } : b));
   }
 
   function addExercise(exercise: Exercise) {
@@ -227,6 +242,7 @@ export default function EditAssignedWorkoutScreen() {
       exercise_id: b.exercise.id,
       order_index: bi,
       superset_group: blockGroups[bi],
+      rest_seconds: b.restSecs,
       sets: b.sets
         .filter((s) => s.reps.trim() !== '' || s.amount.trim() !== '')
         .map((s, si) => ({
@@ -255,9 +271,11 @@ export default function EditAssignedWorkoutScreen() {
     if (!err) router.back();
   }, [performSave, router]);
 
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
   const handleBackPress = useCallback(() => {
     if (!isDirty) { router.back(); return; }
-    setShowUnsavedBar(true);
+    setShowUnsavedModal(true);
   }, [isDirty, router]);
 
   // Keep header back button and gesture guard in sync with dirty state
@@ -488,6 +506,35 @@ export default function EditAssignedWorkoutScreen() {
                   <Ionicons name="add" size={16} color={colors.primary} />
                   <Text style={styles.addSetBtnText}>Add Set</Text>
                 </TouchableOpacity>
+
+                {/* ── Rest timer prescription ── */}
+                <View style={styles.restRow}>
+                  <View style={styles.restRowLeft}>
+                    <Ionicons name="timer-outline" size={14} color={t.textSecondary as string} />
+                    <Text style={[styles.restRowLabel, { color: t.textSecondary }]}>Rest</Text>
+                  </View>
+                  <View style={styles.restPresets}>
+                    {REST_PRESETS.map((secs) => {
+                      const active = block.restSecs === secs;
+                      return (
+                        <TouchableOpacity
+                          key={secs}
+                          style={[
+                            styles.restPresetBtn,
+                            { borderColor: active ? colors.primary : t.border },
+                            active && styles.restPresetBtnActive,
+                          ]}
+                          onPress={() => updateBlockRestSecs(bi, secs)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.restPresetText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                            {fmtCountdown(secs)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
               </View>
             </View>
           );
@@ -505,27 +552,7 @@ export default function EditAssignedWorkoutScreen() {
         </View>
       </ScrollView>
 
-      {showUnsavedBar && (
-        <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
-          <Text style={[styles.deleteBarText, { color: t.textPrimary }]}>You have unsaved changes.</Text>
-          <View style={styles.deleteBarButtons}>
-            <TouchableOpacity
-              onPress={() => { setShowUnsavedBar(false); setIsDirty(false); router.back(); }}
-              style={[styles.deleteCancelBtn, { borderColor: t.border }]}
-            >
-              <Text style={[styles.deleteCancelText, { color: t.textSecondary }]}>Discard</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => { setShowUnsavedBar(false); handleSave(); }}
-              style={styles.saveSuccessBtn}
-            >
-              <Text style={styles.deleteConfirmText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {!confirmingDelete && !showUnsavedBar && (
+      {!confirmingDelete && (
         <View style={styles.footerRow}>
           <TouchableOpacity
             style={[styles.saveBtn, styles.footerFlex, saving && styles.saveBtnDisabled]}
@@ -584,6 +611,13 @@ export default function EditAssignedWorkoutScreen() {
           </View>
         </View>
       )}
+      <UnsavedChangesModal
+        visible={showUnsavedModal}
+        saveLabel="Save Changes"
+        onDiscard={() => { setShowUnsavedModal(false); setIsDirty(false); router.back(); }}
+        onSave={() => { setShowUnsavedModal(false); handleSave(); }}
+        onKeepEditing={() => setShowUnsavedModal(false)}
+      />
     </View>
   );
 }
@@ -644,6 +678,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary, gap: spacing.xs,
   },
   addSetBtnText: { ...typography.bodySmall, color: colors.primary, fontWeight: '600' },
+  restRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap', marginTop: spacing.sm, paddingTop: spacing.xs, paddingHorizontal: spacing.md },
+  restRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  restRowLabel: { ...typography.label },
+  restPresets: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap', flex: 1 },
+  restPresetBtn: { paddingVertical: 3, paddingHorizontal: spacing.sm, borderRadius: radius.sm, borderWidth: 1 },
+  restPresetBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  restPresetText: { ...typography.label, fontWeight: '600' },
   actionRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.md },
   actionFlex: { flex: 1, marginHorizontal: 0 },
   addExerciseBtn: {

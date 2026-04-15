@@ -13,7 +13,7 @@ const ASSIGNED_WORKOUT_SELECT = `
   id, trainer_id, client_id, title, scheduled_date, notes, status,
   completed_at, completed_workout_id, created_at, updated_at,
   exercises:assigned_workout_exercises (
-    id, assigned_workout_id, exercise_id, order_index, superset_group,
+    id, assigned_workout_id, exercise_id, order_index, superset_group, rest_seconds,
     exercise:exercises ( id, name, muscle_group, category, form_notes, help_url, created_at ),
     sets:assigned_workout_sets (
       id, assigned_workout_exercise_id, set_number, reps, weight_kg, duration_seconds, notes

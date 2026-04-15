@@ -174,7 +174,12 @@ export default function ClientDetailScreen() {
       )}
 
       {/* ── Tab bar ── */}
-      <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}
+        contentContainerStyle={styles.tabBarContent}
+      >
         {(isLinkedClientViewer
           ? ['progress', 'workouts', 'nutrition', 'media', 'credits'] as Tab[]
           : ['progress', 'workouts', 'nutrition', 'media', 'credits', 'checkins', 'family'] as Tab[]
@@ -197,7 +202,7 @@ export default function ClientDetailScreen() {
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* ── Progress tab ── */}
       {activeTab === 'progress' && (
@@ -1480,12 +1485,20 @@ const styles = StyleSheet.create({
 
   // ── Tab bar ──
   tabBar: {
-    flexDirection: 'row',
     borderBottomWidth: 1,
+    flexShrink: 0,
+    flexGrow: 0,
+    zIndex: 2,
+    height: 44,
+  },
+  tabBarContent: {
+    flexDirection: 'row',
   },
   tabItem: {
-    flex: 1, alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    paddingHorizontal: spacing.lg,
   },
   tabLabel: { ...typography.body, fontWeight: '600' },
   tabIndicator: {
@@ -1617,6 +1630,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start',
     backgroundColor: '#FEF2F2', borderBottomWidth: 1, borderBottomColor: '#FECACA',
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs,
+    zIndex: 1,
   },
   warningIcon: { marginTop: 1 },
   warningBody: { flex: 1, gap: 2 },

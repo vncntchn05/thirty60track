@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal';
 import type { WorkoutSet, Exercise, WorkoutGroupPeer, UpdateWorkout, UpdateWorkoutSet } from '@/types';
 
 const SUPERSET_COLORS = ['#8B5CF6', '#3B82F6', '#F59E0B', '#EC4899', '#14B8A6'];
@@ -105,11 +106,13 @@ export default function WorkoutDetailScreen() {
     setIsDirty(dirty);
     subSaveRef.current = dirty && save ? save : null;
   }
-  const [showUnsavedBar, setShowUnsavedBar] = useState(false);
+
+
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
   const handleBackPress = useCallback(() => {
     if (!isDirty) { if (router.canGoBack()) router.back(); else router.replace('/(tabs)' as never); return; }
-    setShowUnsavedBar(true);
+    setShowUnsavedModal(true);
   }, [isDirty, router]);
 
   useEffect(() => {
@@ -126,7 +129,7 @@ export default function WorkoutDetailScreen() {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (!isDirty) return false;
-      setShowUnsavedBar(true);
+      handleBackPress();
       return true;
     });
     return () => sub.remove();
@@ -385,27 +388,6 @@ export default function WorkoutDetailScreen() {
         }
       />
 
-      {/* ── Unsaved changes bar ── */}
-      {showUnsavedBar && (
-        <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
-          <Text style={[styles.deleteBarText, { color: t.textPrimary }]}>You have unsaved changes.</Text>
-          <View style={styles.deleteBarButtons}>
-            <TouchableOpacity
-              onPress={() => { setShowUnsavedBar(false); setIsDirty(false); setPendingExercise(null); if (router.canGoBack()) router.back(); else router.replace('/(tabs)' as never); }}
-              style={[styles.deleteCancelBtn, { borderColor: t.border }]}
-            >
-              <Text style={[styles.deleteCancelText, { color: t.textSecondary }]}>Discard</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={async () => { setShowUnsavedBar(false); if (subSaveRef.current) { await subSaveRef.current(); } else { await handleAddSet(); } if (router.canGoBack()) router.back(); else router.replace('/(tabs)' as never); }}
-              style={styles.saveSuccessBtn}
-            >
-              <Text style={styles.deleteConfirmText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
       {/* ── Delete confirmation bar (workout or set) ── */}
       {(confirmingDelete || deleteSetId) && (
         <View style={[styles.deleteBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
@@ -436,7 +418,7 @@ export default function WorkoutDetailScreen() {
       )}
 
       {/* FAB — add a new exercise to this workout */}
-      {!isReadOnly && !confirmingDelete && !deleteSetId && !showUnsavedBar && (
+      {!isReadOnly && !confirmingDelete && !deleteSetId && (
         <TouchableOpacity
           style={styles.fab}
           onPress={openPickerForNewExercise}
@@ -446,6 +428,21 @@ export default function WorkoutDetailScreen() {
           <Text style={styles.fabLabel}>Add Exercise</Text>
         </TouchableOpacity>
       )}
+
+      <UnsavedChangesModal
+        visible={showUnsavedModal}
+        saveLabel="Save"
+        onDiscard={() => {
+          setShowUnsavedModal(false); setIsDirty(false); setPendingExercise(null);
+          if (router.canGoBack()) router.back(); else router.replace('/(tabs)' as never);
+        }}
+        onSave={async () => {
+          setShowUnsavedModal(false);
+          if (subSaveRef.current) { await subSaveRef.current(); } else { await handleAddSet(); }
+          if (router.canGoBack()) router.back(); else router.replace('/(tabs)' as never);
+        }}
+        onKeepEditing={() => setShowUnsavedModal(false)}
+      />
     </View>
   );
 }
