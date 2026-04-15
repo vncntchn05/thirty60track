@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
-  Modal, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
+  Modal, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,12 +24,34 @@ export function QRScannerModal({ visible, trainerId, onClose, onCheckinRecorded 
   const [scanning, setScanning] = useState(true);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMsg, setStatusMsg] = useState('');
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
+  const [webPermState, setWebPermState] = useState<'idle' | 'pending' | 'granted' | 'denied'>('idle');
   const cooldown = useRef(false);
+
+  // On web, getUserMedia triggers the browser's native permission prompt.
+  // expo-camera's useCameraPermissions hook does not reliably do this on web.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !visible) return;
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      setWebPermState('denied');
+      return;
+    }
+    setWebPermState('pending');
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+      .then(stream => {
+        // Release the stream — CameraView will open its own.
+        stream.getTracks().forEach(t => t.stop());
+        setWebPermState('granted');
+      })
+      .catch(() => setWebPermState('denied'));
+  }, [visible]);
 
   function handleClose() {
     setScanning(true);
     setStatus('idle');
     setStatusMsg('');
+    setWebPermState('idle');
     cooldown.current = false;
     onClose();
   }
@@ -93,11 +115,23 @@ export function QRScannerModal({ visible, trainerId, onClose, onCheckinRecorded 
         </View>
 
         {/* Camera / permission / result area */}
-        {!permission ? (
+        {Platform.OS === 'web' && webPermState === 'pending' ? (
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={[styles.permText, { color: t.textPrimary }]}>Requesting camera…</Text>
+          </View>
+        ) : Platform.OS === 'web' && webPermState === 'denied' ? (
+          <View style={styles.centered}>
+            <Ionicons name="camera-outline" size={52} color={t.textSecondary as string} />
+            <Text style={[styles.permText, { color: t.textPrimary }]}>
+              Camera unavailable. Make sure the page is loaded over HTTPS and camera access is allowed in your browser settings.
+            </Text>
+          </View>
+        ) : Platform.OS !== 'web' && !permission ? (
           <View style={styles.centered}>
             <ActivityIndicator color={colors.primary} />
           </View>
-        ) : !permission.granted ? (
+        ) : Platform.OS !== 'web' && !permission?.granted ? (
           <View style={styles.centered}>
             <Ionicons name="camera-outline" size={52} color={t.textSecondary as string} />
             <Text style={[styles.permText, { color: t.textPrimary }]}>Camera permission needed</Text>
@@ -131,7 +165,7 @@ export function QRScannerModal({ visible, trainerId, onClose, onCheckinRecorded 
           <View style={styles.cameraWrap}>
             <CameraView
               style={StyleSheet.absoluteFillObject}
-              facing="front"
+              facing={facing}
               barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
               onBarcodeScanned={handleBarcode}
             />
@@ -145,6 +179,14 @@ export function QRScannerModal({ visible, trainerId, onClose, onCheckinRecorded 
               </View>
               <Text style={styles.reticleHint}>Point camera at client's QR code</Text>
             </View>
+            {/* Flip camera button */}
+            <TouchableOpacity
+              style={styles.flipBtn}
+              onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="camera-reverse-outline" size={30} color="#fff" />
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -177,6 +219,11 @@ const styles = StyleSheet.create({
   },
   scanAgainText: { ...typography.body, fontWeight: '700', color: colors.textInverse },
   cameraWrap: { flex: 1, position: 'relative' },
+  flipBtn: {
+    position: 'absolute', bottom: spacing.xl, right: spacing.xl,
+    backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 32,
+    padding: spacing.sm,
+  },
   reticleWrap: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center', justifyContent: 'center', gap: spacing.lg,
