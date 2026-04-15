@@ -131,7 +131,7 @@ export function QRScannerModal({ visible, trainerId, onClose, onCheckinRecorded 
           <View style={styles.cameraWrap}>
             <CameraView
               style={StyleSheet.absoluteFillObject}
-              facing="back"
+              facing="front"
               barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
               onBarcodeScanned={handleBarcode}
             />
