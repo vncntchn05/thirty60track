@@ -2953,3 +2953,26 @@ CREATE POLICY "ncm_client_all" ON nutrition_chat_messages
   FOR ALL TO authenticated
   USING  (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()))
   WITH CHECK (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));
+
+
+-- ============================================================
+-- Migration 038 — Trainer AI Chat
+-- ============================================================
+-- Per-trainer AI assistant message history (training + nutrition).
+
+CREATE TABLE IF NOT EXISTS trainer_ai_messages (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  trainer_id  UUID        NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+  role        TEXT        NOT NULL CHECK (role IN ('user', 'assistant')),
+  content     TEXT        NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS tam_trainer_created_idx ON trainer_ai_messages (trainer_id, created_at DESC);
+
+ALTER TABLE trainer_ai_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "tam_trainer_all" ON trainer_ai_messages
+  FOR ALL TO authenticated
+  USING  (trainer_id = auth.uid())
+  WITH CHECK (trainer_id = auth.uid());

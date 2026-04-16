@@ -6,10 +6,12 @@ import {
 import { useLocalSearchParams, useRouter, Stack, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useWorkoutDetail } from '@/hooks/useWorkouts';
+import { useWorkoutGrade } from '@/hooks/useWorkoutGrade';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/lib/auth';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { WorkoutGradeCard } from '@/components/workout/WorkoutGradeCard';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal';
 import type { WorkoutSet, Exercise, WorkoutGroupPeer, UpdateWorkout, UpdateWorkoutSet } from '@/types';
@@ -58,6 +60,12 @@ export default function WorkoutDetailScreen() {
   const { user } = useAuth();
   const { clients } = useClients();
   const { workout, groupPeers, loading, error, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet, updateExerciseSupersetGroup, addToGroup, removeFromGroup } = useWorkoutDetail(id);
+  const { grade, loading: gradeLoading } = useWorkoutGrade(
+    id ?? '',
+    workout?.client_id ?? '',
+    workout?.performed_at ?? '',
+    workout?.workout_sets ?? [],
+  );
 
   // Add-set state — tracks which exercise the pending form targets
   const [pendingExercise, setPendingExercise] = useState<{ id: string; name: string } | null>(null);
@@ -269,6 +277,7 @@ export default function WorkoutDetailScreen() {
               readOnly={isReadOnly}
               t={t}
             />
+            <WorkoutGradeCard grade={grade} loading={gradeLoading} t={t} />
             {!isReadOnly && (
               <GroupCard
                 peers={groupPeers}

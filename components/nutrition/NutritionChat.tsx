@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useNutritionChat, useNutritionSettings } from '@/hooks/useNutritionChat';
+import { useAIReminders } from '@/hooks/useAIReminders';
 import {
   getNutritionChatResponse, isCheatMealDue, daysUntilCheatMeal, NUTRITION_AI_ENABLED,
   type WorkoutHistorySummary, type PersonalRecordSummary, type WorkoutStatsContext,
@@ -393,6 +394,14 @@ export function NutritionChat({
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [messages.length]);
+
+  // Proactive reminders — fires once per mount for the viewing client only
+  useAIReminders({
+    clientId: isClient ? clientId : '',
+    clientName: client.full_name,
+    addMessage,
+    loading,
+  });
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();

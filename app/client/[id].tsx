@@ -375,8 +375,8 @@ export default function ClientDetailScreen() {
         </View>
       )}
 
-      {/* ── FAB (Log Workout — hidden on media/credits/family tabs; linked clients can also log) ── */}
-      {!confirmingDelete && activeTab !== 'media' && activeTab !== 'credits' && activeTab !== 'checkins' && activeTab !== 'family' && (
+      {/* ── FAB (Log Workout — trainer only, progress/workouts tabs only) ── */}
+      {!confirmingDelete && !isLinkedClientViewer && (activeTab === 'progress' || activeTab === 'workouts') && (
         <TouchableOpacity
           style={styles.fab}
           onPress={() => router.push({ pathname: '/workout/new', params: { clientId: client.id } } as never)}

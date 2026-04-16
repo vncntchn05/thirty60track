@@ -1,21 +1,17 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Modal, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNutrition } from '@/hooks/useNutrition';
 import { useNutritionGuide } from '@/hooks/useNutritionGuide';
-import { useNutritionSettings } from '@/hooks/useNutritionChat';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { isCheatMealDue } from '@/lib/nutritionAI';
 import { DailySummary } from './DailySummary';
 import { GoalEditor } from './GoalEditor';
 import { MealSection } from './MealSection';
 import { AddFoodModal } from './AddFoodModal';
 import { NutritionEncyclopedia } from './NutritionEncyclopedia';
-import { EncyclopediaPanel } from '@/components/exercises/EncyclopediaPanel';
 import { NutritionGuide } from './NutritionGuide';
 import { MealPlanView } from './MealPlanView';
-import { NutritionChat } from './NutritionChat';
 import { DatePickerModal } from '@/components/ui/DatePickerModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { MealType, InsertNutritionLog, NutritionLog, NutritionGoal, Client, ClientIntake } from '@/types';
@@ -107,13 +103,12 @@ function getMacroWarnings(
 
 // ─── Props ────────────────────────────────────────────────────────
 
-type NutritionView = 'log' | 'guide' | 'plan' | 'chat' | 'encyclopedia';
+type NutritionView = 'log' | 'guide' | 'plan' | 'encyclopedia';
 
 const SEGMENT_LABELS: Record<NutritionView, string> = {
   log: 'Log',
   guide: 'Guide',
   plan: 'Plan',
-  chat: 'Chat',
   encyclopedia: 'Ref',
 };
 
@@ -130,31 +125,17 @@ export function NutritionTab({ clientId, canEditGoal, client, intake }: Props) {
   const t = useTheme();
   const { user, trainer, role } = useAuth();
   const isTrainer = role === 'trainer';
-  const isClient  = role === 'client';
 
   const [view, setView] = useState<NutritionView>('log');
   const [encyclopediaTopicId, setEncyclopediaTopicId] = useState<string | null>(null);
 
   const { guide } = useNutritionGuide(clientId);
-  const { settings: nutritionSettings } = useNutritionSettings(clientId);
-
-  const cheatMealDue = isClient && nutritionSettings
-    ? isCheatMealDue(nutritionSettings.cheat_meal_last_date, nutritionSettings.cheat_meal_every_n_days)
-    : false;
 
   function navigateToEncyclopedia(topicId: string) {
     setEncyclopediaTopicId(topicId);
     setView('encyclopedia');
   }
 
-  // Exercise encyclopedia modal (opened from inline chat links)
-  const [exerciseEncMuscle, setExerciseEncMuscle] = useState<string | null>(null);
-  const [showExerciseEnc, setShowExerciseEnc] = useState(false);
-
-  function openExerciseEncyclopedia(muscleGroup: string) {
-    setExerciseEncMuscle(muscleGroup);
-    setShowExerciseEnc(true);
-  }
   const [date, setDate] = useState(toIso(new Date()));
   const [modalMeal, setModalMeal] = useState<MealType | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -230,9 +211,6 @@ export function NutritionTab({ clientId, canEditGoal, client, intake }: Props) {
               <Text style={[styles.segText, { color: view === v ? colors.primary : t.textSecondary }]}>
                 {SEGMENT_LABELS[v]}
               </Text>
-              {v === 'chat' && cheatMealDue && (
-                <View style={styles.cheatDot} />
-              )}
             </View>
             {view === v && <View style={styles.segIndicator} />}
           </TouchableOpacity>
@@ -265,19 +243,6 @@ export function NutritionTab({ clientId, canEditGoal, client, intake }: Props) {
           intake={intake ?? null}
           guide={guide?.content ?? null}
           isTrainer={isTrainer}
-        />
-      )}
-
-      {view === 'chat' && client && (
-        <NutritionChat
-          clientId={clientId}
-          client={client}
-          intake={intake ?? null}
-          guide={guide?.content ?? null}
-          isClient={isClient}
-          isTrainer={isTrainer}
-          onNavigateToNutritionEncyclopedia={navigateToEncyclopedia}
-          onNavigateToExerciseEncyclopedia={openExerciseEncyclopedia}
         />
       )}
 
@@ -371,27 +336,6 @@ export function NutritionTab({ clientId, canEditGoal, client, intake }: Props) {
         />
       )}
 
-      {/* ── Exercise Encyclopedia modal (opened from chat inline links) ── */}
-      <Modal
-        visible={showExerciseEnc}
-        animationType="slide"
-        onRequestClose={() => setShowExerciseEnc(false)}
-      >
-        <SafeAreaView style={[styles.exerciseEncModal, { backgroundColor: t.background }]}>
-          <View style={[styles.exerciseEncHeader, { borderBottomColor: t.border }]}>
-            <Text style={[styles.exerciseEncTitle, { color: t.textPrimary }]}>Exercise Encyclopedia</Text>
-            <TouchableOpacity onPress={() => setShowExerciseEnc(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={24} color={t.textPrimary as string} />
-            </TouchableOpacity>
-          </View>
-          <EncyclopediaPanel
-            selectedMuscle={exerciseEncMuscle}
-            onSelectMuscle={setExerciseEncMuscle}
-            isTrainer={isTrainer}
-          />
-        </SafeAreaView>
-      </Modal>
-
       {/* ── Macro/calorie limit confirmation modal ─────────────────── */}
       <Modal transparent animationType="fade" visible={pendingEntry !== null}>
         <View style={styles.overlay}>
@@ -459,11 +403,6 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 0, left: '20%', right: '20%',
     height: 2, backgroundColor: colors.primary, borderRadius: 1,
   },
-  cheatDot: {
-    width: 7, height: 7, borderRadius: 4,
-    backgroundColor: colors.primary,
-  },
-
   dateBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderWidth: 1, borderRadius: radius.md, padding: spacing.sm, paddingHorizontal: spacing.md,
@@ -471,15 +410,6 @@ const styles = StyleSheet.create({
   dateLabelBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   dateLabel: { ...typography.body, fontWeight: '600' },
   errorText: { ...typography.bodySmall },
-
-  // ── Exercise encyclopedia modal ──
-  exerciseEncModal: { flex: 1 },
-  exerciseEncHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  exerciseEncTitle: { ...typography.heading3 },
 
   // ── Macro warning modal ──
   overlay: {

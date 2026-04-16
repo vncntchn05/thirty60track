@@ -744,3 +744,13 @@ export type NutritionChatMessage = {
   content: string;
   created_at: string;
 };
+
+// ─── Trainer AI Chat (Migration 038) ──────────────────────────
+
+export type TrainerAIMessage = {
+  id: string;
+  trainer_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+};

@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { useConversations } from '@/hooks/useMessaging';
 import { ConversationCard } from './ConversationCard';
 import { NewConversationModal } from './NewConversationModal';
-import { colors, spacing, typography, useTheme } from '@/constants/theme';
+import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
 type Props = {
   role: 'trainer' | 'client';
@@ -42,6 +42,44 @@ export function MessagesScreen({ role }: Props) {
           <Text style={styles.newBtnText}>New</Text>
         </TouchableOpacity>
       </View>
+
+      {/* AI Assistant — pinned for clients (nutrition) and trainers (training + nutrition) */}
+      {role === 'client' && (
+        <TouchableOpacity
+          style={[styles.aiRow, { backgroundColor: t.surface, borderBottomColor: t.border }]}
+          onPress={() => router.push('/messages/ai' as never)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.aiAvatar, { backgroundColor: colors.primary + '20' }]}>
+            <Ionicons name="nutrition-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={styles.aiBody}>
+            <Text style={[styles.aiName, { color: t.textPrimary }]}>AI Nutrition Assistant</Text>
+            <Text style={[styles.aiSub, { color: t.textSecondary }]}>
+              Ask about meals, recipes, supplements & workouts
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={t.textSecondary as string} />
+        </TouchableOpacity>
+      )}
+      {role === 'trainer' && (
+        <TouchableOpacity
+          style={[styles.aiRow, { backgroundColor: t.surface, borderBottomColor: t.border }]}
+          onPress={() => router.push('/messages/ai-trainer' as never)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.aiAvatar, { backgroundColor: colors.primary + '20' }]}>
+            <Ionicons name="barbell-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={styles.aiBody}>
+            <Text style={[styles.aiName, { color: t.textPrimary }]}>AI Training Assistant</Text>
+            <Text style={[styles.aiSub, { color: t.textSecondary }]}>
+              Program design, training tips, client nutrition & more
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={t.textSecondary as string} />
+        </TouchableOpacity>
+      )}
 
       {loading ? (
         <View style={styles.centered}>
@@ -107,6 +145,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2,
   },
   newBtnText: { ...typography.bodySmall, fontWeight: '700', color: colors.textInverse },
+  aiRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  aiAvatar: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  aiBody: { flex: 1 },
+  aiName: { ...typography.body, fontWeight: '700' },
+  aiSub: { ...typography.bodySmall, marginTop: 2 },
   list: { padding: spacing.md, paddingBottom: spacing.xxl },
   emptyState: { alignItems: 'center', paddingTop: 80, gap: spacing.sm },
   emptyText: { ...typography.heading3 },
