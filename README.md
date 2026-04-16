@@ -1,13 +1,13 @@
 # thirty60track
 
-A personal training management app built with Expo + Supabase. Trainers manage clients, log workouts, assign programs, schedule sessions, and share content. Clients track progress, follow assigned workouts, book sessions, and stay connected via a community feed.
+A personal training management app built with Expo + Supabase. Trainers manage clients, log workouts, assign programs, schedule sessions, and share content. Clients track progress, follow assigned workouts, book sessions, use an AI nutrition assistant, and stay connected via a community feed.
 
 ## Stack
 
 - **Expo SDK 51** + Expo Router v3 (iOS, Android, Web)
 - **TypeScript** strict mode
 - **Supabase** — Postgres, Auth, Realtime, Storage, Edge Functions
-- **Anthropic Claude** — AI-generated daily fitness trends (via Supabase Edge Function)
+- **Anthropic Claude** — AI-generated fitness trends + personalised nutrition guides + meal plans + AI chat (all via Supabase Edge Functions)
 - **Victory Native XL** — progress and volume charts
 - **React Native StyleSheet** — luxury minimalist dark/light theme
 
@@ -16,6 +16,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 ### Trainer
 - Client list with workout count and last session date
 - Client detail: info, body metrics, progress charts, workout history
+- **Nutrition & Diet System** — generate a personalised nutrition guide per client (calories, macros, meal timing, foods to prioritise/avoid, supplements); generate a structured weekly meal plan with per-meal macro breakdowns and a supplement schedule; configure each client's cheat meal cadence
 - Log workouts (multi-exercise builder with sets/reps/weight) with per-set rest timer, estimated calorie burn per exercise, workout summary popup (total time, rest time, time under tension, total kcal), and new PR detection
 - **Personal Records** — all-time best weight and reps per client per exercise; visible on the client's Progress tab; a congratulatory popup appears automatically when a workout is saved with any new PR
 - Assign workout programs with scheduled dates and prescribed rest durations per exercise
@@ -35,6 +36,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Pending assigned workouts with one-tap execution
 - Log workouts and manage nutrition for linked family members
 - Book sessions from trainer's availability slots
+- **AI Nutrition Assistant** — ask the assistant for meal ideas, fast food picks, snack suggestions, recipe ideas, supplement guidance, workout recommendations, and exercise tips; answers are personalised to macro targets, dietary restrictions, and actual workout history (recent sessions, muscle group frequency, personal records); cheat meal tracker shows a banner when a cheat meal is due
 - **Check-in QR code** — personal QR code on the Profile tab; show it to the trainer to log a gym visit
 - Community feed: post, react, comment; attach exercises or workouts to posts
 - AI fitness trends tab
@@ -74,7 +76,8 @@ components/
     TrainerBookingSheet     — trainer-side session booking flow
     BookingSheet            — client-side session booking flow
     RecurringPickerSheet    — client picker → navigate to recurring/new
-  nutrition/                — RecipeBuilderModal, AddFoodModal
+  nutrition/                — NutritionGuide, MealPlanView, NutritionChat,
+                              RecipeBuilderModal, AddFoodModal
   exercises/                — WorkoutGuides, EncyclopediaPanel, MuscleMap
   charts/                   — VolumeChart, ExerciseProgressChart
   ui/
@@ -84,6 +87,9 @@ components/
                               navigation; Discard / Save / Keep Editing; used across all
                               screens with dirty tracking
 hooks/
+  useNutritionGuide.ts      — fetch + upsert client nutrition guide
+  useMealPlan.ts            — active meal plan + history; savePlan auto-deactivates previous
+  useNutritionChat.ts       — chat message CRUD + useNutritionSettings (cheat meal cadence)
   useCheckins.ts            — useCheckins(clientId), recordCheckin()
   useClientLinks.ts         — family linking: useClientLinks, useMyLinkedClients,
                               addToFamilyGroup, removeFromFamilyGroup
@@ -103,13 +109,18 @@ lib/
   supabase.ts               — Supabase client singleton
   auth.tsx                  — AuthProvider + useAuth
   anthropic.ts              — fetchOrGenerateTrend, generateTrendSummary
+  nutritionAI.ts            — generateNutritionGuide, generateMealPlan, getNutritionChatResponse;
+                              NUTRITION_AI_ENABLED flag; mock responses for nutrition + workout topics;
+                              WorkoutHistorySummary/PersonalRecordSummary/WorkoutStatsContext types;
+                              isCheatMealDue(); getMockChatResponse(message, context?)
   calorieEstimation.ts      — estimateSetKcal / estimateBlockKcal; MET + mechanical work
                               formula with EPOC multipliers per exercise category
 supabase/
-  schema.sql                — source-of-truth DDL (all migrations inline, M001–M033)
+  schema.sql                — source-of-truth DDL (all migrations inline, M001–M037)
   seed.sql                  — exercise library (200+ exercises across all muscle groups)
   functions/
     generate-trend/         — Deno Edge Function: calls Anthropic API, returns trend JSON
+    nutrition-ai/           — (deploy when NUTRITION_AI_ENABLED=true) guide + meal plan + chat
 types/
   database.ts               — manual TS types mirroring schema
 constants/
@@ -142,7 +153,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` for the exercise library.
 
-`schema.sql` includes all migrations in sequence (M001–M033):
+`schema.sql` includes all migrations in sequence (M001–M037):
 
 | Migration | Description |
 |---|---|
@@ -164,7 +175,10 @@ Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` f
 | M031 | Personal records — `personal_records` table (UNIQUE per client+exercise); auto-upserted when a workout is saved; PRs surface on the Progress tab and trigger a post-save popup |
 | M032 | Fat Loss workout templates — 4 templates (HIIT Circuit A/B, Metabolic Strength A/B) under a new Fat Loss split; keyword-matched to fat/weight-loss goals in the Suggested tab |
 | M033 | Feed post attachments — `attachment_type`, `attachment_id`, `attachment_title`, `attachment_subtitle` columns on `feed_posts`; tappable attachment cards in PostCard navigate to the referenced resource |
-| M030 | Assigned workout rest prescriptions — `rest_seconds INT` column on `assigned_workout_exercises`; trainers set per-exercise rest in the assign builder; clients see a live countdown during workout execution |
+| M034 | Extended client intake — `allergies`, `dietary_restrictions`, `training_frequency_per_week`, `typical_session_length_minutes`, `outside_gym_activity_level` columns on `client_intake` |
+| M035 | Nutrition guides — `nutrition_guides` table (UNIQUE per client); stores AI-generated or custom JSONB guide |
+| M036 | Meal plans — `meal_plans` table; daily or weekly structured plans (JSONB) with per-meal macros and supplement schedules |
+| M037 | Nutrition chat + settings — `nutrition_chat_messages` table; `client_nutrition_settings` table (cheat meal cadence per client) |
 
 Create a public storage bucket named `feed-images` in the Supabase dashboard.
 
@@ -350,6 +364,88 @@ WHERE t.split IN (
 )
 ORDER BY in_library, t.split, t.name;
 ```
+
+## Nutrition & Diet System
+
+The **Nutrition** tab on every client detail screen has five segments: **Log | Guide | Plan | Chat | Ref**.
+
+### Extended Client Intake
+
+The new client form and the client detail Progress tab both include two new sections:
+
+- **Health Restrictions** — allergies and dietary restrictions (e.g. no gluten, lactose intolerant, diabetic)
+- **Training Volume** — sessions per week, session length (minutes), activity level outside the gym
+
+These fields are stored in `client_intake` and surfaced in the health warning banner at the top of the client detail screen (alongside existing injuries and chronic conditions).
+
+### Nutrition Guide
+
+Trainers generate a personalised nutrition guide per client from the **Guide** tab. The guide is derived from the client's intake data (goals, restrictions, training volume, body metrics) and covers:
+
+- **Daily calorie and macro targets** — protein, carbs, and fat targets in grams
+- **Meal timing** — guidance relative to training sessions
+- **Foods to prioritise and avoid** — tailored to dietary restrictions and goals
+- **Supplement recommendations** — name, dose, timing; macro and supplement names are tappable and open the relevant entry in the Nutrition Encyclopedia
+
+Trainers can regenerate the guide at any time or manually edit the notes section. The guide is read-only for clients.
+
+> **AI generation is disabled by default** (`NUTRITION_AI_ENABLED = false` in `lib/nutritionAI.ts`). When disabled, a deterministic mock guide is returned so the UI is fully testable. To enable live generation, deploy the `nutrition-ai` Edge Function and flip the flag (see below).
+
+### Meal Plan
+
+Trainers generate a structured weekly meal plan from the **Plan** tab. Each plan includes:
+
+- Named meals per day (Breakfast, Lunch, Dinner, Pre-workout Snack, Evening Snack) with per-meal macro breakdowns
+- A supplement schedule (Morning / Pre-workout / Post-workout / Night)
+- Swap suggestions for common dietary restrictions
+
+Generating a new plan automatically deactivates the previous one. Clients can view their current active plan.
+
+### AI Nutrition Assistant
+
+Clients access the AI chat from the **Chat** tab. Capabilities:
+
+- **Meal ideas** — breakfast, lunch, dinner, snack suggestions aligned with macro targets
+- **Fast food advisor** — best options at McDonald's, KFC, Subway, etc. within calorie targets
+- **Recipe suggestions** — quick high-protein recipes
+- **Supplement guidance** — dosing and timing based on the client's guide
+- **Workout recommendations** — suggests which muscle groups to train based on recent session history; provides peri-workout nutrition advice
+- **Exercise guidance** — recommends specific exercises with progressive overload tips; references the client's personal records as benchmarks
+- **Recovery advice** — flags high training frequency, rest-day macro adjustments, and DOMS remedies
+- **Plateau troubleshooting** — microloading, double progression, and deload strategies personalised to the client's PRs
+- **Cheat meal tracker** — a gold banner appears when a cheat meal is due; the client taps Done to mark it used and reset the countdown
+
+**Workout context** — on mount, the chat fetches the client's last 60 workouts (exercise names + muscle groups + sets + estimated volume) and builds three context objects passed to the AI on every message:
+- `recent_workouts` — per-session summaries (exercises, muscle groups, total sets, estimated volume)
+- `personal_records` — all-time best weight and reps per exercise
+- `workout_stats` — total workouts, avg sessions/week, most/least trained muscles, days since last workout
+
+This lets the assistant give recommendations grounded in actual training history rather than generic advice.
+
+Trainers see a settings row at the top of the Chat tab to configure the **cheat meal cadence** (every N days) per client. A dot badge on the Chat segment indicates when a cheat meal is due for the viewing client.
+
+> Same flag as above: `NUTRITION_AI_ENABLED = false` returns keyword-matched mock responses for both nutrition and workout/exercise topics. All UI is fully functional in mock mode.
+
+### Enabling AI Nutrition Features
+
+**Step 1 — Flip the flag**
+
+In `lib/nutritionAI.ts`:
+
+```ts
+export const NUTRITION_AI_ENABLED = true;
+```
+
+**Step 2 — Deploy the Edge Function**
+
+```bash
+supabase functions deploy nutrition-ai --no-verify-jwt
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+The `nutrition-ai` function handles three actions (`generate_guide`, `generate_meal_plan`, `chat`) dispatched via the `action` field in the request body.
+
+---
 
 ## AI Trends
 

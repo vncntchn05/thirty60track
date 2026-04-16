@@ -1150,9 +1150,9 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 
 // ─── Component ────────────────────────────────────────────────
 
-export function NutritionEncyclopedia() {
+export function NutritionEncyclopedia({ initialTopicId }: { initialTopicId?: string | null }) {
   const t = useTheme();
-  const [topicId, setTopicId] = useState<string | null>(null);
+  const [topicId, setTopicId] = useState<string | null>(initialTopicId ?? null);
   const [filter, setFilter]   = useState<FilterKey>('all');
 
   const visibleTopics = filter === 'all' ? TOPICS : TOPICS.filter(tp => tp.category === filter);

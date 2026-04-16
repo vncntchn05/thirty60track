@@ -14,7 +14,7 @@ type UseClientsResult = {
   loading: boolean;
   error: string | null;
   refetch: () => void;
-  addClient: (payload: Omit<InsertClient, 'trainer_id'>) => Promise<{ error: string | null }>;
+  addClient: (payload: Omit<InsertClient, 'trainer_id'>) => Promise<{ error: string | null; clientId: string | null }>;
   updateClient: (id: string, payload: UpdateClient) => Promise<{ error: string | null }>;
   deleteClient: (id: string) => Promise<{ error: string | null }>;
 };
@@ -57,13 +57,15 @@ export function useClients(): UseClientsResult {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  async function addClient(payload: Omit<InsertClient, 'trainer_id'>) {
-    if (!user) return { error: 'Not authenticated' };
-    const { error: err } = await supabase
+  async function addClient(payload: Omit<InsertClient, 'trainer_id'>): Promise<{ error: string | null; clientId: string | null }> {
+    if (!user) return { error: 'Not authenticated', clientId: null };
+    const { data, error: err } = await supabase
       .from('clients')
-      .insert({ ...payload, trainer_id: user.id });
+      .insert({ ...payload, trainer_id: user.id })
+      .select('id')
+      .single();
     if (!err) fetch();
-    return { error: err?.message ?? null };
+    return { error: err?.message ?? null, clientId: data?.id ?? null };
   }
 
   async function updateClient(id: string, payload: UpdateClient) {

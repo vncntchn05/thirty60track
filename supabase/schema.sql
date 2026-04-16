@@ -2820,3 +2820,136 @@ ALTER TABLE feed_posts
   ADD COLUMN IF NOT EXISTS attachment_id       TEXT,
   ADD COLUMN IF NOT EXISTS attachment_title    TEXT,
   ADD COLUMN IF NOT EXISTS attachment_subtitle TEXT;
+
+-- ============================================================
+-- Migration 034 — Extended Client Intake
+-- ============================================================
+-- Adds health restriction details (allergies, dietary restrictions)
+-- and training volume fields to the client_intake table.
+
+ALTER TABLE client_intake
+  ADD COLUMN IF NOT EXISTS allergies                     TEXT,
+  ADD COLUMN IF NOT EXISTS dietary_restrictions          TEXT,
+  ADD COLUMN IF NOT EXISTS training_frequency_per_week   INT,
+  ADD COLUMN IF NOT EXISTS typical_session_length_minutes INT,
+  ADD COLUMN IF NOT EXISTS outside_gym_activity_level    TEXT
+    CHECK (outside_gym_activity_level IN ('sedentary','light','moderate','active','very_active'));
+
+-- ============================================================
+-- Migration 035 — Nutrition Guides
+-- ============================================================
+-- Per-client AI-generated or manually edited nutrition guide.
+-- Covers calorie/macro targets, meal timing, food recommendations,
+-- and supplement advice derived from the client's intake data.
+
+CREATE TABLE IF NOT EXISTS nutrition_guides (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id     UUID        NOT NULL REFERENCES clients(id)  ON DELETE CASCADE,
+  trainer_id    UUID        NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+  content       JSONB       NOT NULL DEFAULT '{}',
+  is_custom     BOOLEAN     NOT NULL DEFAULT false,
+  generated_at  TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (client_id)
+);
+
+CREATE INDEX IF NOT EXISTS nutrition_guides_client_idx ON nutrition_guides (client_id);
+
+ALTER TABLE nutrition_guides ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "ng_trainer_all" ON nutrition_guides
+  FOR ALL TO authenticated
+  USING  (trainer_id = auth.uid())
+  WITH CHECK (trainer_id = auth.uid());
+
+CREATE POLICY "ng_client_select" ON nutrition_guides
+  FOR SELECT TO authenticated
+  USING (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "ng_linked_select" ON nutrition_guides
+  FOR SELECT TO authenticated
+  USING (is_linked_to_client(client_id));
+
+-- ============================================================
+-- Migration 036 — Meal Plans
+-- ============================================================
+-- Trainer-generated daily or weekly meal plans for a client.
+
+CREATE TABLE IF NOT EXISTS meal_plans (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id     UUID        NOT NULL REFERENCES clients(id)  ON DELETE CASCADE,
+  trainer_id    UUID        NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+  title         TEXT        NOT NULL,
+  plan_type     TEXT        NOT NULL DEFAULT 'weekly'
+                            CHECK (plan_type IN ('daily', 'weekly')),
+  data          JSONB       NOT NULL DEFAULT '{}',
+  is_active     BOOLEAN     NOT NULL DEFAULT true,
+  generated_at  TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS meal_plans_client_active_idx ON meal_plans (client_id, is_active);
+
+ALTER TABLE meal_plans ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "mp_trainer_all" ON meal_plans
+  FOR ALL TO authenticated
+  USING  (trainer_id = auth.uid())
+  WITH CHECK (trainer_id = auth.uid());
+
+CREATE POLICY "mp_client_select" ON meal_plans
+  FOR SELECT TO authenticated
+  USING (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "mp_linked_select" ON meal_plans
+  FOR SELECT TO authenticated
+  USING (is_linked_to_client(client_id));
+
+-- ============================================================
+-- Migration 037 — Nutrition Chat & Settings
+-- ============================================================
+-- AI nutrition assistant chat history and per-client cheat-meal
+-- cadence settings.
+
+CREATE TABLE IF NOT EXISTS client_nutrition_settings (
+  client_id                 UUID        PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+  cheat_meal_every_n_days   INT         NOT NULL DEFAULT 4,
+  cheat_meal_last_date      DATE,
+  updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE client_nutrition_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "cns_trainer_all" ON client_nutrition_settings
+  FOR ALL TO authenticated
+  USING  (client_id IN (SELECT id FROM clients WHERE trainer_id = auth.uid()))
+  WITH CHECK (client_id IN (SELECT id FROM clients WHERE trainer_id = auth.uid()));
+
+CREATE POLICY "cns_client_all" ON client_nutrition_settings
+  FOR ALL TO authenticated
+  USING  (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()))
+  WITH CHECK (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));
+
+CREATE TABLE IF NOT EXISTS nutrition_chat_messages (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id   UUID        NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  role        TEXT        NOT NULL CHECK (role IN ('user', 'assistant')),
+  content     TEXT        NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ncm_client_created_idx ON nutrition_chat_messages (client_id, created_at DESC);
+
+ALTER TABLE nutrition_chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "ncm_trainer_all" ON nutrition_chat_messages
+  FOR ALL TO authenticated
+  USING  (client_id IN (SELECT id FROM clients WHERE trainer_id = auth.uid()))
+  WITH CHECK (client_id IN (SELECT id FROM clients WHERE trainer_id = auth.uid()));
+
+CREATE POLICY "ncm_client_all" ON nutrition_chat_messages
+  FOR ALL TO authenticated
+  USING  (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()))
+  WITH CHECK (client_id IN (SELECT id FROM clients WHERE auth_user_id = auth.uid()));

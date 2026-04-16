@@ -58,6 +58,12 @@ export type ClientIntake = {
   goal_timeframe: string | null;
   completed_at: string | null;
   updated_at: string;
+  // Migration 034: health restrictions & training volume
+  allergies: string | null;
+  dietary_restrictions: string | null;
+  training_frequency_per_week: number | null;
+  typical_session_length_minutes: number | null;
+  outside_gym_activity_level: ActivityLevel | null;
 };
 
 export type UpdateClientIntake = Partial<Omit<ClientIntake, 'id' | 'client_id' | 'updated_at'>>;
@@ -646,4 +652,95 @@ export type NewPR = {
   /** Display unit — 'lbs', 'kg', or 'reps' */
   unit: string;
   previous: number | null; // null = first ever record
+};
+
+// ─── Nutrition Guide (Migration 035) ─────────────────────────
+
+export type NutritionGuideSupplement = {
+  name: string;
+  dose: string;
+  timing: string;
+  encyclopediaId?: string | null; // maps to NutritionEncyclopedia topic id
+};
+
+export type NutritionGuideContent = {
+  calories: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  meal_timing: string | null;
+  foods_to_prioritise: string[];
+  foods_to_avoid: string[];
+  supplements: NutritionGuideSupplement[];
+  notes: string | null;
+};
+
+export type NutritionGuide = {
+  id: string;
+  client_id: string;
+  trainer_id: string;
+  content: NutritionGuideContent;
+  is_custom: boolean;
+  generated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// ─── Meal Plans (Migration 036) ───────────────────────────────
+
+export type MealPlanItem = {
+  name: string;   // 'Breakfast', 'Lunch', 'Dinner', 'Snack'
+  time: string | null;
+  foods: string[];
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+};
+
+export type SupplementScheduleItem = {
+  time: string;   // 'Morning', 'Pre-workout', 'Post-workout', 'Night'
+  items: string[];
+};
+
+export type MealPlanDay = {
+  day: string;    // 'Monday' … 'Sunday' or 'Daily'
+  meals: MealPlanItem[];
+  supplements: SupplementScheduleItem[];
+  swap_suggestions: string[] | null;
+};
+
+export type MealPlanData = {
+  days: MealPlanDay[];
+  notes: string | null;
+};
+
+export type MealPlan = {
+  id: string;
+  client_id: string;
+  trainer_id: string;
+  title: string;
+  plan_type: 'daily' | 'weekly';
+  data: MealPlanData;
+  is_active: boolean;
+  generated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// ─── Nutrition Chat & Settings (Migration 037) ────────────────
+
+export type ClientNutritionSettings = {
+  client_id: string;
+  cheat_meal_every_n_days: number;
+  cheat_meal_last_date: string | null; // YYYY-MM-DD
+  updated_at: string;
+};
+
+export type NutritionChatMessage = {
+  id: string;
+  client_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
 };

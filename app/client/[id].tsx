@@ -158,7 +158,7 @@ export default function ClientDetailScreen() {
       />
 
       {/* ── Health warning banner ── */}
-      {(intake?.current_injuries || intake?.chronic_conditions) && (
+      {(intake?.current_injuries || intake?.chronic_conditions || intake?.allergies || intake?.dietary_restrictions) && (
         <View style={styles.warningBanner}>
           <Ionicons name="warning-outline" size={16} color={colors.error} style={styles.warningIcon} />
           <View style={styles.warningBody}>
@@ -168,6 +168,12 @@ export default function ClientDetailScreen() {
             ) : null}
             {intake.chronic_conditions ? (
               <Text style={styles.warningText}><Text style={styles.warningFieldLabel}>Conditions: </Text>{intake.chronic_conditions}</Text>
+            ) : null}
+            {intake.allergies ? (
+              <Text style={styles.warningText}><Text style={styles.warningFieldLabel}>Allergies: </Text>{intake.allergies}</Text>
+            ) : null}
+            {intake.dietary_restrictions ? (
+              <Text style={styles.warningText}><Text style={styles.warningFieldLabel}>Diet: </Text>{intake.dietary_restrictions}</Text>
             ) : null}
           </View>
         </View>
@@ -300,7 +306,14 @@ export default function ClientDetailScreen() {
       )}
 
       {/* ── Nutrition tab ── */}
-      {activeTab === 'nutrition' && <NutritionTab clientId={client.id} canEditGoal />}
+      {activeTab === 'nutrition' && (
+        <NutritionTab
+          clientId={client.id}
+          canEditGoal={!isLinkedClientViewer}
+          client={client}
+          intake={intake}
+        />
+      )}
 
       {/* ── Media tab ── */}
       {activeTab === 'media' && <MediaGallery clientId={client.id} />}
@@ -803,6 +816,10 @@ type InfoForm = {
   occupation: string; current_injuries: string; past_injuries: string;
   chronic_conditions: string; medications: string;
   activity_level: string; goals: string; goal_timeframe: string;
+  // Migration 034: health restrictions & training volume
+  allergies: string; dietary_restrictions: string;
+  training_frequency_per_week: string; typical_session_length_minutes: string;
+  outside_gym_activity_level: string;
 };
 
 function infoFormFrom(c: Client, i: ClientIntake | null): InfoForm {
@@ -815,6 +832,10 @@ function infoFormFrom(c: Client, i: ClientIntake | null): InfoForm {
     past_injuries: i?.past_injuries ?? '', chronic_conditions: i?.chronic_conditions ?? '',
     medications: i?.medications ?? '', activity_level: i?.activity_level ?? '',
     goals: i?.goals ?? '', goal_timeframe: i?.goal_timeframe ?? '',
+    allergies: i?.allergies ?? '', dietary_restrictions: i?.dietary_restrictions ?? '',
+    training_frequency_per_week: i?.training_frequency_per_week != null ? String(i.training_frequency_per_week) : '',
+    typical_session_length_minutes: i?.typical_session_length_minutes != null ? String(i.typical_session_length_minutes) : '',
+    outside_gym_activity_level: i?.outside_gym_activity_level ?? '',
   };
 }
 
@@ -842,6 +863,7 @@ function ClientInfoCard({ client, intake, onUpdate, onIntakeSave, t }: ClientInf
   async function handleSave() {
     if (!form.full_name.trim()) { Alert.alert('Name required', 'Full name cannot be empty.'); return; }
     setSaving(true);
+    const parseIntOrNull = (v: string) => { const n = parseInt(v, 10); return v.trim() !== '' && !isNaN(n) ? n : null; };
     const { error } = await onIntakeSave(
       {
         address: form.address.trim() || null,
@@ -856,6 +878,11 @@ function ClientInfoCard({ client, intake, onUpdate, onIntakeSave, t }: ClientInf
         activity_level: (form.activity_level || null) as UpdateClientIntake['activity_level'],
         goals: form.goals.trim() || null,
         goal_timeframe: form.goal_timeframe.trim() || null,
+        allergies: form.allergies.trim() || null,
+        dietary_restrictions: form.dietary_restrictions.trim() || null,
+        training_frequency_per_week: parseIntOrNull(form.training_frequency_per_week),
+        typical_session_length_minutes: parseIntOrNull(form.typical_session_length_minutes),
+        outside_gym_activity_level: (form.outside_gym_activity_level || null) as UpdateClientIntake['outside_gym_activity_level'],
       },
       {
         full_name: form.full_name.trim(),
@@ -974,6 +1001,30 @@ function ClientInfoCard({ client, intake, onUpdate, onIntakeSave, t }: ClientInf
         {multiRow('Past injuries / surgery', 'past_injuries')}
         {multiRow('Chronic conditions', 'chronic_conditions')}
         {multiRow('Medications', 'medications')}
+
+        {sectionLabel('Health Restrictions')}
+        {multiRow('Allergies', 'allergies')}
+        {multiRow('Dietary restrictions', 'dietary_restrictions')}
+
+        {sectionLabel('Training Volume')}
+        {textRow('Sessions per week', 'training_frequency_per_week', 'none', 'number-pad' as never)}
+        {textRow('Session length (min)', 'typical_session_length_minutes', 'none', 'number-pad' as never)}
+        <View style={[styles.infoEditRow, { borderBottomColor: t.border, flexWrap: 'wrap', height: 'auto' as never }]}>
+          <Text style={[styles.infoEditLabel, { color: t.textSecondary }]}>Outside gym</Text>
+          <View style={styles.activityPicker}>
+            {(['sedentary','light','moderate','active','very_active'] as const).map((v) => {
+              const sel = form.outside_gym_activity_level === v;
+              return (
+                <Pressable key={v} style={[styles.activityChip, { borderColor: t.border }, sel && styles.activityChipSel]}
+                  onPress={() => set('outside_gym_activity_level', sel ? '' : v)}>
+                  <Text style={[styles.activityChipText, { color: t.textSecondary }, sel && styles.activityChipTextSel]}>
+                    {ACTIVITY_LABELS[v]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
       </View>
     );
   }
@@ -1036,6 +1087,25 @@ function ClientInfoCard({ client, intake, onUpdate, onIntakeSave, t }: ClientInf
           {viewRow('Past injuries', intake?.past_injuries)}
           {viewRow('Chronic conditions', intake?.chronic_conditions)}
           {viewRow('Medications', intake?.medications)}
+        </>
+      ) : null}
+
+      {/* Health Restrictions (M034) */}
+      {(intake?.allergies || intake?.dietary_restrictions) ? (
+        <>
+          <Text style={[styles.infoSectionLabel, { color: t.textSecondary, borderBottomColor: t.border }]}>Health Restrictions</Text>
+          {viewRow('Allergies', intake?.allergies)}
+          {viewRow('Dietary restrictions', intake?.dietary_restrictions)}
+        </>
+      ) : null}
+
+      {/* Training Volume (M034) */}
+      {(intake?.training_frequency_per_week != null || intake?.typical_session_length_minutes != null || intake?.outside_gym_activity_level) ? (
+        <>
+          <Text style={[styles.infoSectionLabel, { color: t.textSecondary, borderBottomColor: t.border }]}>Training Volume</Text>
+          {viewRow('Sessions per week', intake?.training_frequency_per_week != null ? `${intake.training_frequency_per_week}× / week` : null)}
+          {viewRow('Session length', intake?.typical_session_length_minutes != null ? `${intake.typical_session_length_minutes} min` : null)}
+          {viewRow('Outside gym', intake?.outside_gym_activity_level ? ACTIVITY_LABELS[intake.outside_gym_activity_level] : null)}
         </>
       ) : null}
     </View>

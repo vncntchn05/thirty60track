@@ -6,8 +6,14 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClients } from '@/hooks/useClients';
+import { supabase } from '@/lib/supabase';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { slugify } from '@/lib/slugify';
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  sedentary: 'Sedentary', light: 'Lightly Active', moderate: 'Moderate',
+  active: 'Active', very_active: 'Very Active',
+};
 
 type GenderValue = 'male' | 'female' | 'other' | '';
 type WeightUnit = 'kg' | 'lbs';
@@ -15,11 +21,18 @@ type HeightUnit = 'cm' | 'in';
 type FormState = {
   full_name: string; email: string; phone: string; date_of_birth: string; gender: GenderValue;
   notes: string; weight: string; height: string; bf_percent: string; lean_body_mass: string;
+  // M034
+  allergies: string; dietary_restrictions: string;
+  training_frequency_per_week: string; typical_session_length_minutes: string;
+  outside_gym_activity_level: string;
 };
 
 const EMPTY: FormState = {
   full_name: '', email: '', phone: '', date_of_birth: '', gender: '',
   notes: '', weight: '', height: '', bf_percent: '', lean_body_mass: '',
+  allergies: '', dietary_restrictions: '',
+  training_frequency_per_week: '', typical_session_length_minutes: '',
+  outside_gym_activity_level: '',
 };
 
 function kgToLbs(kg: number): number { return Math.round(kg * 2.20462 * 10) / 10; }
@@ -79,7 +92,7 @@ export default function NewClientScreen() {
     const heightCm = rawHeight != null ? (heightUnit === 'in' ? inToCm(rawHeight) : rawHeight) : null;
     const rawLbm = parseFloat_(form.lean_body_mass);
     const lbmKg = rawLbm != null ? (weightUnit === 'lbs' ? lbsToKg(rawLbm) : rawLbm) : null;
-    const { error } = await addClient({
+    const { error, clientId } = await addClient({
       full_name: name,
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
@@ -91,9 +104,26 @@ export default function NewClientScreen() {
       bf_percent: parseFloat_(form.bf_percent),
       lean_body_mass: lbmKg,
     });
+    if (error) { setSaving(false); Alert.alert('Error', error); return; }
+
+    // Save intake fields if any M034 fields are filled
+    const parseIntOrNull = (v: string) => { const n = parseInt(v, 10); return v.trim() !== '' && !isNaN(n) ? n : null; };
+    const hasIntakeData = form.allergies.trim() || form.dietary_restrictions.trim() ||
+      form.training_frequency_per_week.trim() || form.typical_session_length_minutes.trim() ||
+      form.outside_gym_activity_level;
+    if (hasIntakeData && clientId) {
+      await supabase.from('client_intake').upsert({
+        client_id: clientId,
+        allergies: form.allergies.trim() || null,
+        dietary_restrictions: form.dietary_restrictions.trim() || null,
+        training_frequency_per_week: parseIntOrNull(form.training_frequency_per_week),
+        typical_session_length_minutes: parseIntOrNull(form.typical_session_length_minutes),
+        outside_gym_activity_level: form.outside_gym_activity_level || null,
+      }, { onConflict: 'client_id' });
+    }
+
     setSaving(false);
-    if (error) Alert.alert('Error', error);
-    else router.back();
+    router.back();
   }
 
   const cardStyle = [styles.card, { backgroundColor: t.surface, borderColor: t.border }];
@@ -196,6 +226,55 @@ export default function NewClientScreen() {
           </View>
         </View>
 
+        <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>Health Restrictions</Text>
+        <View style={cardStyle}>
+          <Field label="Allergies" t={t}>
+            <TextInput style={[styles.input, { color: t.textPrimary }]}
+              placeholder="e.g. peanuts, shellfish"
+              placeholderTextColor={t.textSecondary} value={form.allergies}
+              onChangeText={(v) => set('allergies', v)} />
+          </Field>
+          <Divider t={t} />
+          <Field label="Dietary restrictions" t={t}>
+            <TextInput style={[styles.input, { color: t.textPrimary }]}
+              placeholder="e.g. no gluten, lactose intolerant"
+              placeholderTextColor={t.textSecondary} value={form.dietary_restrictions}
+              onChangeText={(v) => set('dietary_restrictions', v)} />
+          </Field>
+        </View>
+
+        <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>Training Volume</Text>
+        <View style={cardStyle}>
+          <Field label="Sessions / week" t={t}>
+            <TextInput style={[styles.input, { color: t.textPrimary }]} placeholder="4"
+              placeholderTextColor={t.textSecondary} value={form.training_frequency_per_week}
+              onChangeText={(v) => set('training_frequency_per_week', v)} keyboardType="number-pad" />
+          </Field>
+          <Divider t={t} />
+          <Field label="Session length (min)" t={t}>
+            <TextInput style={[styles.input, { color: t.textPrimary }]} placeholder="60"
+              placeholderTextColor={t.textSecondary} value={form.typical_session_length_minutes}
+              onChangeText={(v) => set('typical_session_length_minutes', v)} keyboardType="number-pad" />
+          </Field>
+          <Divider t={t} />
+          <Field label="Outside gym" t={t}>
+            <View style={styles.activityPicker}>
+              {(['sedentary','light','moderate','active','very_active'] as const).map((v) => {
+                const selected = form.outside_gym_activity_level === v;
+                return (
+                  <Pressable key={v}
+                    style={[styles.activityChip, { borderColor: colors.primary }, selected && styles.activityChipSel]}
+                    onPress={() => set('outside_gym_activity_level', selected ? '' : v)}>
+                    <Text style={[styles.activityChipText, { color: colors.primary }, selected && styles.activityChipTextSel]}>
+                      {ACTIVITY_LABELS[v]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Field>
+        </View>
+
         <Text style={[styles.sectionLabel, { color: t.textSecondary }]}>Notes</Text>
         <View style={cardStyle}>
           <TextInput
@@ -254,7 +333,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm, marginBottom: spacing.xs, paddingHorizontal: spacing.xs,
   },
   card: { borderRadius: radius.md, borderWidth: 1, overflow: 'hidden' },
-  field: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, minHeight: 48, gap: spacing.md },
+  field: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', paddingHorizontal: spacing.md, minHeight: 48, gap: spacing.md, paddingVertical: spacing.sm },
   fieldLabel: { ...typography.body, width: 148 },
   input: { ...typography.body, flex: 1, paddingVertical: spacing.sm },
   genderPicker: { flexDirection: 'row', gap: spacing.xs, flex: 1, justifyContent: 'flex-end' },
@@ -271,4 +350,9 @@ const styles = StyleSheet.create({
   saveBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
   unitToggle: { flexDirection: 'row', borderWidth: 1, borderRadius: radius.full, overflow: 'hidden', marginLeft: spacing.xs },
   unitOption: { ...typography.bodySmall, paddingVertical: 3, paddingHorizontal: 7, fontWeight: '600' },
+  activityPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, flex: 1, justifyContent: 'flex-end' },
+  activityChip: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: radius.full, borderWidth: 1 },
+  activityChipSel: { backgroundColor: colors.primary },
+  activityChipText: { ...typography.bodySmall },
+  activityChipTextSel: { color: colors.textInverse, fontWeight: '600' },
 });
