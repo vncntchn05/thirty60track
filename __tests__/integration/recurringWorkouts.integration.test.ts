@@ -37,8 +37,8 @@ function buildClient() {
 }
 
 // Fixed dates: 2025-01-06 (Monday) to 2025-01-20 (Monday) — 3 Mondays
-const START_DATE = '2025-01-06';
-const END_DATE   = '2025-01-20';
+const START_DATE = '2026-04-20'; // Monday
+const END_DATE   = '2026-05-04'; // Monday (+2 weeks) → 3 Mondays total
 
 maybeDescribe('Recurring Workouts integration', () => {
   let sb: SupabaseClient;
@@ -72,12 +72,12 @@ maybeDescribe('Recurring Workouts integration', () => {
 
   it('generateOccurrenceDates returns 3 Mondays for weekly between Jan 6 and Jan 20', () => {
     const dates = generateOccurrenceDates(START_DATE, END_DATE, [1], 'weekly');
-    expect(dates).toEqual(['2025-01-06', '2025-01-13', '2025-01-20']);
+    expect(dates).toEqual(['2026-04-20', '2026-04-27', '2026-05-04']);
   });
 
   it('generateOccurrenceDates biweekly returns 2 dates (Jan 6, Jan 20)', () => {
     const dates = generateOccurrenceDates(START_DATE, END_DATE, [1], 'biweekly');
-    expect(dates).toEqual(['2025-01-06', '2025-01-20']);
+    expect(dates).toEqual(['2026-04-20', '2026-05-04']);
   });
 
   // ─── DB: create recurring plan ─────────────────────────────────────────────
@@ -133,8 +133,8 @@ maybeDescribe('Recurring Workouts integration', () => {
       .order('scheduled_date', { ascending: true });
 
     expect(instances).toHaveLength(3);
-    expect(instances![0].scheduled_date).toBe('2025-01-06');
-    expect(instances![2].scheduled_date).toBe('2025-01-20');
+    expect(instances![0].scheduled_date).toBe('2026-04-20');
+    expect(instances![2].scheduled_date).toBe('2026-05-04');
     instances!.forEach((i) => expect(i.status).toBe('assigned'));
   });
 
