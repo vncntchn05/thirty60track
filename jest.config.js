@@ -65,11 +65,20 @@ module.exports = {
     'lib/muscleSearch.ts',
     'lib/exerciseDb.ts',
     'lib/generateReportPdf.ts',
+    // New pure-function libs with direct-import tests
+    'lib/workoutGrading.ts',
+    'lib/calorieEstimation.ts',
+    'lib/workoutAI.ts',
+    'lib/stripe.ts',
     // hooks — only hooks whose tests import and call exported functions directly
     // (useAssignedWorkouts exports createAssignedWorkout, updateAssignedWorkout, etc.)
     // (useWorkouts exports createWorkoutWithSets)
     'hooks/useWorkouts.ts',
     'hooks/useAssignedWorkouts.ts',
+    // New hooks with direct-import tests (exported standalone functions)
+    'hooks/useRecurringPlans.ts',
+    'hooks/usePersonalRecords.ts',
+    'hooks/useClientLinks.ts',
     // constants
     'constants/workoutTemplates.ts',
     // Excluded hooks (tests simulate logic inline, 0% file coverage):
