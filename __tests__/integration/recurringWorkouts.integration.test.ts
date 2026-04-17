@@ -10,6 +10,13 @@
 
 import 'dotenv/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+// useRecurringPlans imports the supabase singleton at module level; mock it so
+// the module can be loaded even when env vars are absent (CI without .env.local).
+jest.mock('@/lib/supabase', () => ({
+  supabase: { from: jest.fn(), auth: { onAuthStateChange: jest.fn() } },
+}));
+
 import { generateOccurrenceDates } from '@/hooks/useRecurringPlans';
 
 const SUPABASE_URL      = process.env.EXPO_PUBLIC_SUPABASE_URL;
