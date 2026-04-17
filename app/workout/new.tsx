@@ -612,6 +612,8 @@ export default function NewWorkoutScreen() {
         onSelect={handleSelectTemplate}
         onClose={() => setShowTemplatePicker(false)}
         clientIntake={intake}
+        clientId={singleClientId}
+        client={targetClient}
       />
     );
   }

@@ -408,17 +408,32 @@ export type ClientCredits = {
   updated_at: string;
 };
 
-export type CreditReason = 'grant' | 'session_deduct' | 'session_refund' | 'manual';
+export type CreditReason = 'grant' | 'session_deduct' | 'session_refund' | 'manual' | 'purchase';
 
 export type CreditTransaction = {
   id: string;
   client_id: string;
-  trainer_id: string;
+  trainer_id: string | null; // null for client self-purchases
   session_id: string | null;
   amount: number; // positive = added, negative = deducted
   reason: CreditReason;
   note: string | null;
   created_at: string;
+};
+
+// ─── Stripe (Migration 038) ───────────────────────────────────
+
+export type StripePaymentStatus = 'pending' | 'completed' | 'cancelled' | 'expired';
+
+export type StripePaymentSession = {
+  id: string;
+  client_id: string;
+  stripe_session_id: string | null;
+  credits: number;
+  amount_cents: number;
+  status: StripePaymentStatus;
+  created_at: string;
+  fulfilled_at: string | null;
 };
 
 export type InsertTrainerAvailability = Omit<TrainerAvailability, 'id' | 'created_at'>;

@@ -8,6 +8,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - **TypeScript** strict mode
 - **Supabase** — Postgres, Auth, Realtime, Storage, Edge Functions
 - **Anthropic Claude** — AI-generated fitness trends + personalised nutrition guides + meal plans + AI chat for clients and trainers (all via Supabase Edge Functions)
+- **Stripe** — credit purchase checkout (built and feature-flagged; disabled by default)
 - **Victory Native XL** — progress and volume charts
 - **React Native StyleSheet** — luxury minimalist dark/light theme
 
@@ -22,7 +23,8 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - **Personal Records** — all-time best weight and reps per client per exercise; visible on the client's Progress tab; a congratulatory popup appears automatically when a workout is saved with any new PR
 - Assign workout programs with scheduled dates and prescribed rest durations per exercise
 - **Recurring workout series** — schedule a workout template on selected days of the week (weekly or biweekly), with optional indefinite scheduling; cancel the entire series or individual instances
-- Workout template library: 36 clinical templates across 5 speciality splits (Metabolic & Chronic Disease, Musculoskeletal & Orthopedic, Postural Deviations, Neurological & Mental Health, Special Populations)
+- **Workout template library** — 40+ pre-built clinical templates across 6 splits; template picker has three tabs: Suggested (matched to client health conditions), All Templates, and **Generate** (AI-personalised)
+- **AI Workout Generator** — template picker's Generate tab analyses a client's past workouts, goals, training frequency, and injury profile to suggest two personalised workout templates; each can be saved directly to the template library or loaded into the session immediately; runs in mock mode by default (no API key required)
 - Weekly availability management + session scheduling
 - Grant or deduct session credits for any client (not limited to own clients)
 - **Family account linking** — link two or more client accounts into a family group; all members can view and edit each other's progress, workouts, nutrition, and credits
@@ -38,6 +40,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Pending assigned workouts with one-tap execution
 - Log workouts and manage nutrition for linked family members
 - Book sessions from trainer's availability slots
+- **Buy Credits** — Credits tab shows a "Buy Credits" button opening a Stripe Checkout modal with 5/10/20-credit packages at $1/credit; displays as "Coming Soon" until payments are enabled
 - **AI Nutrition Assistant** — pinned at the top of the Messages tab; ask for meal ideas, fast food picks, snack suggestions, recipe ideas, supplement guidance, workout recommendations, and exercise tips; answers are personalised to macro targets, dietary restrictions, and actual workout history (recent sessions, muscle group frequency, personal records); cheat meal tracker shows a banner when a cheat meal is due
 - **Check-in QR code** — personal QR code on the Profile tab; show it to the trainer to log a gym visit
 - Community feed: post, react, comment; attach exercises or workouts to posts
@@ -70,6 +73,8 @@ components/
     QRScannerModal          — full-screen camera scanner; validates payload, records check-in
     WebCameraView.web.tsx   — web-only camera (getUserMedia + BarcodeDetector)
     WebCameraView.tsx       — native stub (returns null)
+  credits/
+    BuyCreditsModal.tsx     — Stripe credit purchase modal (5/10/20 packages; "Coming Soon" when disabled)
   feed/                     — PostCard, PostComposer, CommentSheet, TrendCard
   feed/FeedScreen           — shared Community + Trends screen (trainer + client)
   messaging/                — MessagesScreen, ConversationCard, AttachmentPickerModal,
@@ -87,6 +92,8 @@ components/
   charts/                   — VolumeChart, ExerciseProgressChart
   workout/
     WorkoutGradeCard        — A+–F letter grade card with score bars and PR callout
+    GenerateTemplateModal   — AI workout generator panel (loading → 2 results → save/use)
+    TemplatePicker          — template picker with Suggested / All Templates / Generate tabs
   ui/
     FeaturesModal           — role-aware feature guide modal (trainer / client content)
     UnsavedChangesModal     — cross-platform dirty-state back navigation popup
@@ -104,6 +111,7 @@ hooks/
   useTrends.ts              — useTodayTrend, useRecentTrends
   useSchedule.ts            — availability, sessions, booking
   useCredits.ts             — client credits + transactions
+  useStripePayments.ts      — useCreditPurchase(clientId): create_session → redirect → verify lifecycle
   useRecipes.ts             — recipe CRUD
   useFeatureGuide.ts        — AsyncStorage-backed per-user toggle for the Feature Guide button
   useAssignedWorkouts.ts
@@ -119,19 +127,28 @@ lib/
   trainerAI.ts              — getTrainerAIChatResponse, getTrainerMockResponse;
                               TrainerAIContext type; mock responses for training topics +
                               nutrition (reuses NUTRITION_AI_ENABLED flag)
+  workoutAI.ts              — generateWorkouts(context): WORKOUT_AI_ENABLED flag; mock logic
+                              branches on detected goal (muscle/fat loss/strength/general),
+                              filters injury-contraindicated exercises, factors in training
+                              frequency and least-trained muscles from recent history
+  stripe.ts                 — STRIPE_PAYMENTS_ENABLED flag; CREDIT_PACKAGES; initiateCreditPurchase(),
+                              openCheckoutUrl(), checkSessionStatus()
   calorieEstimation.ts      — estimateSetKcal / estimateBlockKcal
   workoutGrading.ts         — pure grading logic: gradeWorkout(currentSets, pastWorkouts) → WorkoutGradeResult
 supabase/
-  schema.sql                — source-of-truth DDL (all migrations inline, M001–M038)
+  schema.sql                — source-of-truth DDL (all migrations inline, M001–M039)
   seed.sql                  — exercise library (200+ exercises across all muscle groups)
   functions/
     generate-trend/         — Deno Edge Function: calls Anthropic API, returns trend JSON
     nutrition-ai/           — guide + meal plan + client chat + trainer chat
                               (deploy when NUTRITION_AI_ENABLED=true)
+    stripe-checkout/        — Deno Edge Function: create_session, check_session, webhook handler
+                              (deploy when STRIPE_PAYMENTS_ENABLED=true)
 types/
   database.ts               — manual TS types mirroring schema
 constants/
   theme.ts                  — color, spacing, typography tokens + useTheme()
+render.yaml                 — Render static-site config: build command, publish path, SPA rewrite rule
 ```
 
 ## Getting Started
@@ -160,7 +177,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` for the exercise library.
 
-`schema.sql` includes all migrations in sequence (M001–M038):
+`schema.sql` includes all migrations in sequence (M001–M039):
 
 | Migration | Description |
 |---|---|
@@ -187,6 +204,7 @@ Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` f
 | M036 | Meal plans — `meal_plans` table; daily or weekly structured plans (JSONB) |
 | M037 | Nutrition chat + settings — `nutrition_chat_messages` table; `client_nutrition_settings` table |
 | M038 | Trainer AI chat — `trainer_ai_messages` table; RLS: only the owning trainer can read/write |
+| M039 | Stripe credit purchases — `stripe_payment_sessions` table; `credit_transactions.trainer_id` made nullable; `'purchase'` added to reason check constraint |
 
 Create a public storage bucket named `feed-images` in the Supabase dashboard.
 
@@ -202,6 +220,9 @@ supabase functions deploy generate-trend --no-verify-jwt
 # AI nutrition + chat (client + trainer) — deploy now, enable via flag when ready
 supabase functions deploy nutrition-ai --no-verify-jwt
 
+# Stripe checkout — deploy now, enable via flag when ready
+supabase functions deploy stripe-checkout --no-verify-jwt
+
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -215,16 +236,17 @@ npx expo start
 
 ## AI Features
 
-The app has three AI-powered features, all gated by a single flag:
+The app has three AI-powered features, all gated by feature flags:
 
-| Feature | Who | Entry point |
-|---|---|---|
-| **AI Nutrition Assistant** | Clients | Messages tab → AI Nutrition Assistant |
-| **AI Training Assistant** | Trainers | Messages tab → AI Training Assistant |
-| **Nutrition Guide + Meal Plan generation** | Trainers | Client detail → Nutrition → Guide / Plan |
-| **AI Fitness Trends** | Everyone | Feed tab → Trends segment |
+| Feature | Who | Entry point | Flag |
+|---|---|---|---|
+| **AI Nutrition Assistant** | Clients | Messages tab → AI Nutrition Assistant | `NUTRITION_AI_ENABLED` |
+| **AI Training Assistant** | Trainers | Messages tab → AI Training Assistant | `NUTRITION_AI_ENABLED` |
+| **Nutrition Guide + Meal Plan generation** | Trainers | Client detail → Nutrition → Guide / Plan | `NUTRITION_AI_ENABLED` |
+| **AI Workout Generator** | Trainers | Template picker → Generate tab | `WORKOUT_AI_ENABLED` |
+| **AI Fitness Trends** | Everyone | Feed tab → Trends segment | `AI_TRENDS_ENABLED` |
 
-AI chat features work in **mock (demo) mode** by default — all UI is fully functional without any API calls. Mock responses cover nutrition, workouts, exercise, fast food, supplements (client), and program design, progressive overload, splits, warm-up, recovery, deload, client retention, macros, and cut/bulk phases (trainer).
+All AI features work in **mock (demo) mode** by default — all UI is fully functional without any API calls.
 
 ### Enabling AI chat and guide generation
 
@@ -262,9 +284,28 @@ Confirm `ANTHROPIC_API_KEY` is set. The function will return a `500` error (logg
 
 ---
 
-### Enabling AI Fitness Trends
+### Enabling AI Workout Generator
 
-The Trends tab is separately controlled.
+The Generate tab in the template picker is separately controlled.
+
+**Step 1 — Flip the flag** in `lib/workoutAI.ts`:
+
+```ts
+export const WORKOUT_AI_ENABLED = true;
+```
+
+**Step 2 — Deploy the Edge Function:**
+
+```bash
+supabase functions deploy workout-ai --no-verify-jwt
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+When disabled, the generator runs deterministic mock logic locally — no API call is made. The mock branches on goal detection (muscle / fat loss / strength / general), filters injury-contraindicated exercises, and factors in training frequency and least-trained muscle groups from the client's history.
+
+---
+
+### Enabling AI Fitness Trends
 
 **Step 1 — Flip the flag** in `lib/anthropic.ts`:
 
@@ -285,6 +326,95 @@ To regenerate today's summary (e.g. after updating the function):
 
 ```sql
 DELETE FROM trend_summaries WHERE date = CURRENT_DATE;
+```
+
+---
+
+## AI Workout Generator
+
+The **Generate** tab in the template picker analyses a client's data and returns two tailored workout suggestions.
+
+**What it uses:**
+- Goals and goal timeframe from the client intake form
+- Current and past injuries (filters out contraindicated exercises)
+- Training frequency per week (determines split: Upper/Lower for 4+ days, Full Body for 3 or fewer)
+- Last 20 workouts — muscle group frequency used to identify under-trained areas
+- Personal records — available to the live AI for progressive overload guidance
+
+**Goal detection:** Keywords in the goals field map to four strategies:
+
+| Detected goal | Split | Logic |
+|---|---|---|
+| muscle / bulk / hypertrophy | Upper/Lower (4+ days) or Full Body | Balanced push/pull; posterior chain emphasis |
+| fat loss / cut / tone | Fat Loss | HIIT circuit + metabolic strength pair |
+| strength / powerlifting | PPL | Heavy compound push + pull pair |
+| general / unspecified | Full Body | Least-trained muscles highlighted |
+
+**Each generated workout card shows:**
+- Name, split, and subgroup badges
+- A gold-accented rationale explaining the choices
+- Numbered exercise list
+- **Save as Template** — saves directly to the `workout_templates` table via `useWorkoutTemplates`; button turns to "Saved to Templates" on success
+- **Use Now** — immediately loads the exercises into the active workout session
+- Regenerate button to get a fresh pair
+
+**Implementation:** `lib/workoutAI.ts` (pure generation logic + Edge Function delegate), `components/workout/GenerateTemplateModal.tsx` (UI), `components/workout/TemplatePicker.tsx` (host with three-tab bar).
+
+---
+
+## Credit Purchases (Stripe)
+
+Clients can purchase session credits directly from the **Credits** tab on their profile. The full Stripe integration is built and feature-flagged — it shows a "Coming Soon" state until enabled.
+
+**Packages (all at $1.00 / credit):**
+
+| Package | Credits | Price |
+|---|---|---|
+| Starter | 5 | $5.00 |
+| Standard | 10 | $10.00 |
+| Value | 20 | $20.00 |
+
+**Flow:**
+1. Client taps **Buy Credits** on the Credits tab
+2. `BuyCreditsModal` opens showing the three packages
+3. Tapping a package calls the `stripe-checkout` Edge Function (`create_session` action)
+4. The function creates a hosted Stripe Checkout Session and saves a pending row to `stripe_payment_sessions`
+5. The app opens the Stripe-hosted payment URL (same tab on web, system browser on native)
+6. On successful payment, Stripe sends a `checkout.session.completed` webhook to the Edge Function
+7. The webhook handler verifies the signature, upserts the client's balance, records a `'purchase'` transaction, and marks the session as completed
+
+**Idempotency:** The webhook handler checks `stripe_payment_sessions.status` before crediting — replayed events are silently skipped.
+
+**Credit refunds:** Trainer-cancelled confirmed sessions continue to refund credits automatically (existing behaviour, `reason = 'session_refund'`).
+
+### Enabling Stripe payments
+
+**Step 1 — Run Migration 039** in the Supabase SQL Editor (adds `stripe_payment_sessions` table, makes `trainer_id` nullable on `credit_transactions`, adds `'purchase'` to the reason check constraint).
+
+**Step 2 — Set Edge Function secrets:**
+
+```bash
+supabase secrets set \
+  STRIPE_SECRET_KEY=sk_live_... \
+  STRIPE_WEBHOOK_SECRET=whsec_... \
+  APP_URL=https://thirty60track.onrender.com
+```
+
+**Step 3 — Deploy the Edge Function:**
+
+```bash
+supabase functions deploy stripe-checkout --no-verify-jwt
+```
+
+**Step 4 — Register the webhook** in the Stripe Dashboard → Developers → Webhooks:
+
+- **URL:** `https://<project-ref>.supabase.co/functions/v1/stripe-checkout`
+- **Event:** `checkout.session.completed`
+
+**Step 5 — Flip the flag** in `lib/stripe.ts`:
+
+```ts
+export const STRIPE_PAYMENTS_ENABLED = true;
 ```
 
 ---
@@ -504,6 +634,34 @@ Reference tab covering macronutrients, vitamins, minerals, and specialty supplem
 
 > **AI guide and meal plan generation is disabled by default.** See [Enabling AI chat and guide generation](#enabling-ai-chat-and-guide-generation) above.
 
+## Deployment
+
+The app is deployed as a static site on [Render](https://render.com) at `https://thirty60track.onrender.com`.
+
+`render.yaml` at the repo root configures the service:
+
+```yaml
+services:
+  - type: web
+    name: thirty60track
+    env: static
+    buildCommand: npx expo export --platform web
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+```
+
+The `routes` rewrite ensures that deep links (e.g. `/client/abc123`) and page refreshes are handled by the Expo Router SPA rather than returning a 404. `public/_redirects` provides the same rule as a Netlify-compatible fallback.
+
+To trigger a new deploy after pushing changes, Render auto-deploys from the connected Git branch. To build locally:
+
+```bash
+npm run build   # runs: npx expo export --platform web
+# output in dist/
+```
+
 ## Testing
 
 ```bash
@@ -514,8 +672,15 @@ Unit tests cover `lib/anthropic.ts` and `hooks/useFeed.ts`. The Supabase client 
 
 ## Environment Variables
 
-| Variable | Required | Description |
+| Variable | Where | Description |
 |---|---|---|
-| `EXPO_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon key |
-| `ANTHROPIC_API_KEY` | Edge Function only | Set via `supabase secrets set` — used by both `nutrition-ai` and `generate-trend` |
+| `EXPO_PUBLIC_SUPABASE_URL` | `.env.local` | Supabase project URL |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `.env.local` | Supabase anon key |
+| `EXPO_PUBLIC_USDA_API_KEY` | `.env.local` | USDA FoodData Central API key (food search) |
+| `EXPO_PUBLIC_SPOONACULAR_API_KEY` | `.env.local` | Spoonacular API key (barcode fallback) |
+| `EXPO_PUBLIC_ANTHROPIC_API_KEY` | `.env.local` | Anthropic key for client-side trend generation (move to Edge Function for production) |
+| `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `.env.local` | Stripe publishable key (safe to bundle; used for Stripe.js on web) |
+| `ANTHROPIC_API_KEY` | Supabase secret | Used by `nutrition-ai` and `generate-trend` Edge Functions |
+| `STRIPE_SECRET_KEY` | Supabase secret | Used by `stripe-checkout` Edge Function — never expose in the bundle |
+| `STRIPE_WEBHOOK_SECRET` | Supabase secret | Stripe webhook signature verification — `whsec_...` from Stripe Dashboard |
+| `APP_URL` | Supabase secret | Base URL for Stripe return redirects (e.g. `https://thirty60track.onrender.com`) |

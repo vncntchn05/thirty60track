@@ -6,12 +6,15 @@ import { useFavourites } from '@/hooks/useFavourites';
 import { type WorkoutTemplate } from '@/constants/workoutTemplates';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { getSuggestedSplits } from '@/constants/conditionKeywords';
-import type { ClientIntake } from '@/types';
+import { GenerateTemplateModal } from '@/components/workout/GenerateTemplateModal';
+import type { Client, ClientIntake } from '@/types';
 
 type Props = {
   onSelect: (template: WorkoutTemplate) => void;
   onClose: () => void;
   clientIntake?: ClientIntake | null;
+  clientId?: string;
+  client?: Client | null;
 };
 
 // ─── Display ordering ────────────────────────────────────────
@@ -176,7 +179,7 @@ function TemplateCard({
 
 // ─── Component ────────────────────────────────────────────────
 
-export function TemplatePicker({ onSelect, onClose, clientIntake }: Props) {
+export function TemplatePicker({ onSelect, onClose, clientIntake, clientId, client }: Props) {
   const t = useTheme();
   const { templates, loading, error } = useWorkoutTemplates();
   const { favouriteTemplateIds, toggleFavourite } = useFavourites();
@@ -185,7 +188,7 @@ export function TemplatePicker({ onSelect, onClose, clientIntake }: Props) {
   const matchedKeys = intakeText ? getSuggestedSplits(intakeText) : new Set<string>();
   const hasSuggestions = matchedKeys.size > 0;
 
-  const [tab, setTab] = useState<'all' | 'suggested'>(hasSuggestions ? 'suggested' : 'all');
+  const [tab, setTab] = useState<'all' | 'suggested' | 'generate'>(hasSuggestions ? 'suggested' : 'all');
 
   const suggestedTemplates = templates.filter((tmpl) => {
     const key = `${tmpl.split ?? ''}|||${tmpl.subgroup ?? ''}`;
@@ -206,11 +209,11 @@ export function TemplatePicker({ onSelect, onClose, clientIntake }: Props) {
         <View style={styles.closeBtn} />
       </View>
 
-      {/* Tab bar — only show when there are suggestions */}
-      {hasSuggestions && (
-        <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+      {/* Tab bar — always shown */}
+      <View style={[styles.tabBar, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+        {hasSuggestions && (
           <TouchableOpacity
-            style={[styles.tab, tab === 'suggested' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+            style={[styles.tab, tab === 'suggested' && styles.tabActive]}
             onPress={() => setTab('suggested')}
             activeOpacity={0.7}
           >
@@ -223,19 +226,41 @@ export function TemplatePicker({ onSelect, onClose, clientIntake }: Props) {
               Suggested ({suggestedTemplates.length})
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, tab === 'all' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-            onPress={() => setTab('all')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.tabLabel, { color: tab === 'all' ? colors.primary : t.textSecondary }]}>
-              All Templates
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
+        <TouchableOpacity
+          style={[styles.tab, tab === 'all' && styles.tabActive]}
+          onPress={() => setTab('all')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabLabel, { color: tab === 'all' ? colors.primary : t.textSecondary }]}>
+            All Templates
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'generate' && styles.tabActive]}
+          onPress={() => setTab('generate')}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="sparkles"
+            size={13}
+            color={tab === 'generate' ? colors.primary : (t.textSecondary as string)}
+          />
+          <Text style={[styles.tabLabel, { color: tab === 'generate' ? colors.primary : t.textSecondary }]}>
+            Generate
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-      {loading ? (
+      {tab === 'generate' ? (
+        /* ── Generate view ── */
+        <GenerateTemplateModal
+          clientId={clientId}
+          client={client}
+          intake={clientIntake}
+          onTemplateSelect={onSelect}
+        />
+      ) : loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
       ) : error ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
@@ -330,6 +355,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginRight: spacing.xs,
+  },
+  tabActive: {
+    borderBottomColor: colors.primary,
+    borderBottomWidth: 2,
   },
   tabLabel: { ...typography.bodySmall, fontWeight: '600' },
 

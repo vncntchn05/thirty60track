@@ -2976,3 +2976,69 @@ CREATE POLICY "tam_trainer_all" ON trainer_ai_messages
   FOR ALL TO authenticated
   USING  (trainer_id = auth.uid())
   WITH CHECK (trainer_id = auth.uid());
+
+
+-- ============================================================
+-- Migration 039 — Stripe Credit Purchases
+-- ============================================================
+-- Enables clients to buy credits via Stripe Checkout.
+-- Run this in the Supabase SQL editor before enabling
+-- STRIPE_PAYMENTS_ENABLED = true in lib/stripe.ts.
+
+-- 1. Allow 'purchase' as a credit transaction reason
+--    (drop the old check constraint, add the new one)
+ALTER TABLE credit_transactions
+  DROP CONSTRAINT IF EXISTS credit_transactions_reason_check;
+
+ALTER TABLE credit_transactions
+  ADD CONSTRAINT credit_transactions_reason_check
+  CHECK (reason IN ('grant', 'session_deduct', 'session_refund', 'manual', 'purchase'));
+
+-- 2. Make trainer_id nullable so client self-purchases have no trainer owner
+ALTER TABLE credit_transactions
+  ALTER COLUMN trainer_id DROP NOT NULL;
+
+-- 3. Track Stripe Checkout Sessions
+CREATE TABLE IF NOT EXISTS stripe_payment_sessions (
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id          UUID        NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  stripe_session_id  TEXT        UNIQUE,
+  credits            INT         NOT NULL CHECK (credits > 0),
+  amount_cents       INT         NOT NULL CHECK (amount_cents > 0),
+  status             TEXT        NOT NULL DEFAULT 'pending'
+                                   CHECK (status IN ('pending', 'completed', 'cancelled', 'expired')),
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  fulfilled_at       TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS sps_client_created_idx
+  ON stripe_payment_sessions (client_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS sps_stripe_session_idx
+  ON stripe_payment_sessions (stripe_session_id);
+
+-- 4. RLS
+ALTER TABLE stripe_payment_sessions ENABLE ROW LEVEL SECURITY;
+
+-- Trainers can view any payment session for their clients
+CREATE POLICY "sps_trainer_select" ON stripe_payment_sessions
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM clients c
+      WHERE c.id = stripe_payment_sessions.client_id
+        AND c.trainer_id = auth.uid()
+    )
+  );
+
+-- Clients can view their own payment sessions
+CREATE POLICY "sps_client_select" ON stripe_payment_sessions
+  FOR SELECT TO authenticated
+  USING (
+    client_id IN (
+      SELECT id FROM clients WHERE auth_user_id = auth.uid()
+    )
+  );
+
+-- Only the service role (Edge Function) can insert / update sessions
+-- (no client/trainer INSERT policy — the Edge Function uses the service role key)

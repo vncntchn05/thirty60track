@@ -23,6 +23,7 @@ import ReportCardButton from '@/components/client/ReportCardButton';
 import { NutritionTab } from '@/components/nutrition/NutritionTab';
 import { useCheckins } from '@/hooks/useCheckins';
 import type { ClientCheckin } from '@/types';
+import { BuyCreditsModal } from '@/components/credits/BuyCreditsModal';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
@@ -328,6 +329,7 @@ export default function ClientDetailScreen() {
           creditsLoading={creditsLoading}
           onRefresh={() => { refetchCredits(); refetchTransactions(); }}
           readOnly={isLinkedClientViewer}
+          canBuyCredits={isLinkedClientViewer}
           t={t}
         />
       )}
@@ -486,14 +488,17 @@ type CreditsTabProps = {
   creditsLoading: boolean;
   onRefresh: () => void;
   readOnly?: boolean;
+  /** Show "Buy Credits" button — true for clients viewing their own credits. */
+  canBuyCredits?: boolean;
   t: Theme;
 };
 
-function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading, onRefresh, readOnly = false, t }: CreditsTabProps) {
+function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading, onRefresh, readOnly = false, canBuyCredits = false, t }: CreditsTabProps) {
   const [grantAmount, setGrantAmount] = useState('');
   const [grantNote, setGrantNote] = useState('');
   const [granting, setGranting] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
+  const [showBuyModal, setShowBuyModal] = useState(false);
 
   async function handleGrant() {
     const amount = parseInt(grantAmount, 10);
@@ -511,6 +516,7 @@ function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading
     if (reason === 'manual')         return 'Adjusted';
     if (reason === 'session_deduct') return 'Session';
     if (reason === 'session_refund') return 'Refund';
+    if (reason === 'purchase')       return 'Purchase';
     return 'Manual';
   }
 
@@ -531,6 +537,27 @@ function CreditsTab({ clientId, trainerId, balance, transactions, creditsLoading
             </>
         }
       </View>
+
+      {/* Buy Credits — visible to clients viewing their own credits */}
+      {canBuyCredits && (
+        <>
+          <TouchableOpacity
+            style={[creditsStyles.buyBtn, { backgroundColor: colors.primary }]}
+            onPress={() => setShowBuyModal(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="card-outline" size={18} color="#fff" />
+            <Text style={creditsStyles.buyBtnText}>Buy Credits</Text>
+          </TouchableOpacity>
+          <BuyCreditsModal
+            visible={showBuyModal}
+            clientId={clientId}
+            currentBalance={balance}
+            onClose={() => setShowBuyModal(false)}
+            onPurchased={() => { setShowBuyModal(false); onRefresh(); }}
+          />
+        </>
+      )}
 
       {/* Adjust credits — hidden for linked-client viewers */}
       {!readOnly && <View style={[creditsStyles.grantCard, { backgroundColor: t.surface, borderColor: t.border }]}>
@@ -803,6 +830,12 @@ const creditsStyles = StyleSheet.create({
   txNote: { ...typography.bodySmall },
   txDate: { ...typography.bodySmall },
   txAmount: { ...typography.body, fontWeight: '700', minWidth: 40, textAlign: 'right' },
+  buyBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.xs, borderRadius: radius.full,
+    paddingVertical: spacing.sm + 2,
+  },
+  buyBtnText: { ...typography.body, color: '#fff', fontWeight: '700' },
 });
 
 // ─── Client info card (view + inline edit, includes intake fields) ─
