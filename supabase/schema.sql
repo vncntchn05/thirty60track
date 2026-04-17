@@ -3041,4 +3041,4 @@ CREATE POLICY "sps_client_select" ON stripe_payment_sessions
   );
 
 -- Only the service role (Edge Function) can insert / update sessions
--- (no client/trainer INSERT policy — the Edge Function uses the service role key)
+-- (no client/trainer INSERT policy — the Edge Function uses the service role key )
