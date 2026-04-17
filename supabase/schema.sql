@@ -6,6 +6,16 @@
 -- ─── Extensions ──────────────────────────────────────────────
 -- gen_random_uuid() is available by default in Supabase.
 
+-- ─── Migration tracking ──────────────────────────────────────
+-- Created by migrate.sh; records every discrete migration file applied.
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version    TEXT        PRIMARY KEY,
+  name       TEXT        NOT NULL,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  checksum   TEXT,
+  applied_by TEXT        DEFAULT current_user
+);
+
 -- ─── Trainers ────────────────────────────────────────────────
 -- One row per gym staff member. Linked 1-to-1 with auth.users.
 CREATE TABLE trainers (

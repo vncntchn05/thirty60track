@@ -89,6 +89,20 @@ jobs:
           chmod +x scripts/create-test-users.sh
           ./scripts/create-test-users.sh
 
+      - name: Apply pending migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          chmod +x scripts/migrate.sh
+          ./scripts/migrate.sh
+
+      - name: Log migration status
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          chmod +x scripts/check-migrations.sh
+          ./scripts/check-migrations.sh
+
       - name: Seed test database
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
