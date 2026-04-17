@@ -219,16 +219,16 @@ describe('getMockGeneratedWorkouts — least-trained muscle note', () => {
       training_frequency_per_week: 3,
       recent_workouts: [
         {
-          id: 'w1', performed_at: '2024-01-01',
-          exercise_count: 5, total_sets: 15, total_volume_kg: 5000,
-          muscle_groups: ['Chest', 'Back'],  // Chest + Back are most-trained
-          average_rpe: null,
+          performed_at: '2024-01-01',
+          total_sets: 15, estimated_volume_kg: 5000,
+          muscle_groups: ['Chest', 'Back'],
+          exercises: [],
         },
         {
-          id: 'w2', performed_at: '2024-01-08',
-          exercise_count: 5, total_sets: 15, total_volume_kg: 5000,
+          performed_at: '2024-01-08',
+          total_sets: 15, estimated_volume_kg: 5000,
           muscle_groups: ['Chest', 'Back'],
-          average_rpe: null,
+          exercises: [],
         },
       ],
     }));

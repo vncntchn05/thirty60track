@@ -174,7 +174,7 @@ maybeDescribe('Recurring Workouts integration', () => {
       .eq('recurring_plan_id', planId);
 
     // All future instances should be cancelled (test dates are in the past, so all qualify)
-    instances?.filter((i) => i.scheduled_date >= today)
+    instances?.filter((_i) => true)
       .forEach((i) => expect(i.status).toBe('cancelled'));
   });
 

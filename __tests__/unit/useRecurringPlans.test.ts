@@ -108,7 +108,7 @@ describe('createRecurringPlan', () => {
         exercise_id: 'ex-1',
         order_index: 0,
         superset_group: null,
-        sets: [{ set_number: 1, reps: '10', weight_kg: 100, unit: 'kg' }],
+        sets: [{ set_number: 1, reps: 10, weight_kg: 100, duration_seconds: null, notes: null }],
       },
     ],
   };
