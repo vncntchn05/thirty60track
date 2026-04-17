@@ -19,6 +19,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Client detail: info, body metrics, progress charts, workout history
 - **Nutrition & Diet System** — generate a personalised nutrition guide per client (calories, macros, meal timing, foods to prioritise/avoid, supplements); generate a structured weekly meal plan with per-meal macro breakdowns and a supplement schedule; configure each client's cheat meal cadence
 - Log workouts (multi-exercise builder with sets/reps/weight) with per-set rest timer, estimated calorie burn per exercise, workout summary popup (total time, rest time, time under tension, total kcal), and new PR detection
+- **Import from Notes** — tap "Import from Notes" in the workout builder to paste free-form text notes (e.g. "Bench Press 3×8 185lbs, Squat 4×5 225kg"); the AI pre-populates all exercise blocks and set data for editing before saving
 - **Workout grade** — each logged workout receives an A+–F letter grade based on total volume vs the client's all-time best, percentage of exercises where a new weight PR was set, and volume vs the rolling 4-session average; displayed as a card at the top of the workout detail screen with score bars and a PR callout
 - **Personal Records** — all-time best weight and reps per client per exercise; visible on the client's Progress tab; a congratulatory popup appears automatically when a workout is saved with any new PR
 - Assign workout programs with scheduled dates and prescribed rest durations per exercise
@@ -135,15 +136,30 @@ lib/
                               openCheckoutUrl(), checkSessionStatus()
   calorieEstimation.ts      — estimateSetKcal / estimateBlockKcal
   workoutGrading.ts         — pure grading logic: gradeWorkout(currentSets, pastWorkouts) → WorkoutGradeResult
+  workoutNotesAI.ts         — parseWorkoutNotes(text): WORKOUT_NOTES_AI_ENABLED flag;
+                              calls parse-workout-notes Edge Function when enabled;
+                              regex-based mock parser handles common shorthand offline
 supabase/
-  schema.sql                — source-of-truth DDL (all migrations inline, M001–M039)
+  schema.sql                — source-of-truth DDL (all migrations inline, M001–M039);
+                              includes schema_migrations tracking table at the top
   seed.sql                  — exercise library (200+ exercises across all muscle groups)
+  migrations/               — discrete SQL migration files (001, 001b, 012–022)
+  migration_*.sql           — standalone migration files (016, 029–033)
   functions/
     generate-trend/         — Deno Edge Function: calls Anthropic API, returns trend JSON
     nutrition-ai/           — guide + meal plan + client chat + trainer chat
                               (deploy when NUTRITION_AI_ENABLED=true)
+    parse-workout-notes/    — Deno Edge Function: parses free-form workout text via Claude Haiku;
+                              returns structured exercises + sets JSON
+                              (deploy when WORKOUT_NOTES_AI_ENABLED=true)
     stripe-checkout/        — Deno Edge Function: create_session, check_session, webhook handler
                               (deploy when STRIPE_PAYMENTS_ENABLED=true)
+scripts/
+  migrate.sh                — discovers all migration files, applies pending ones in version order,
+                              logs each to schema_migrations; supports --dry-run
+  check-migrations.sh       — read-only report of all applied migrations with timestamps
+  create-test-users.sh      — creates CI/CD test auth users via Supabase Admin API
+  fetch-youtube-ids.js      — generates migration_029c_youtube_urls.sql from YouTube Data API
 types/
   database.ts               — manual TS types mirroring schema
 constants/
@@ -175,7 +191,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 ### 3. Set up the database
 
-Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` for the exercise library.
+Run `supabase/schema.sql` in the Supabase SQL Editor (this creates all tables including `schema_migrations`), then `supabase/seed.sql` for the exercise library.
 
 `schema.sql` includes all migrations in sequence (M001–M039):
 
@@ -208,7 +224,30 @@ Run `supabase/schema.sql` in the Supabase SQL Editor, then `supabase/seed.sql` f
 
 Create a public storage bucket named `feed-images` in the Supabase dashboard.
 
-### 4. Deploy the Edge Functions
+### 4. Apply migrations and verify schema
+
+The `scripts/migrate.sh` script tracks which discrete migration files have been applied to a database and applies any pending ones in version order. Run it once after initial setup and after each deployment:
+
+```bash
+SUPABASE_DB_URL='postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres' \
+  ./scripts/migrate.sh
+```
+
+Use `--dry-run` to preview pending migrations without applying them:
+
+```bash
+SUPABASE_DB_URL='...' ./scripts/migrate.sh --dry-run
+```
+
+To check current migration status at any time:
+
+```bash
+SUPABASE_DB_URL='...' ./scripts/check-migrations.sh
+```
+
+> `SUPABASE_DB_URL` must be the **Session Pooler** (IPv4) URL from Supabase Dashboard → Settings → Database → Connection Pooling. The direct connection URL is IPv6-only and unreachable from most CI environments.
+
+### 5. Deploy the Edge Functions
 
 ```bash
 supabase login
@@ -220,13 +259,16 @@ supabase functions deploy generate-trend --no-verify-jwt
 # AI nutrition + chat (client + trainer) — deploy now, enable via flag when ready
 supabase functions deploy nutrition-ai --no-verify-jwt
 
+# Workout notes parser — deploy now, enable via flag when ready
+supabase functions deploy parse-workout-notes --no-verify-jwt
+
 # Stripe checkout — deploy now, enable via flag when ready
 supabase functions deploy stripe-checkout --no-verify-jwt
 
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-### 5. Run the app
+### 6. Run the app
 
 ```bash
 npx expo start
@@ -244,6 +286,7 @@ The app has three AI-powered features, all gated by feature flags:
 | **AI Training Assistant** | Trainers | Messages tab → AI Training Assistant | `NUTRITION_AI_ENABLED` |
 | **Nutrition Guide + Meal Plan generation** | Trainers | Client detail → Nutrition → Guide / Plan | `NUTRITION_AI_ENABLED` |
 | **AI Workout Generator** | Trainers | Template picker → Generate tab | `WORKOUT_AI_ENABLED` |
+| **AI Workout Notes Import** | Trainers + Clients | Log Workout → Import from Notes | `WORKOUT_NOTES_AI_ENABLED` |
 | **AI Fitness Trends** | Everyone | Feed tab → Trends segment | `AI_TRENDS_ENABLED` |
 
 All AI features work in **mock (demo) mode** by default — all UI is fully functional without any API calls.
@@ -359,6 +402,56 @@ The **Generate** tab in the template picker analyses a client's data and returns
 - Regenerate button to get a fresh pair
 
 **Implementation:** `lib/workoutAI.ts` (pure generation logic + Edge Function delegate), `components/workout/GenerateTemplateModal.tsx` (UI), `components/workout/TemplatePicker.tsx` (host with three-tab bar).
+
+---
+
+### Enabling AI Workout Notes Import
+
+The "Import from Notes" button in the workout builder is separately controlled.
+
+**Step 1 — Flip the flag** in `lib/workoutNotesAI.ts`:
+
+```ts
+export const WORKOUT_NOTES_AI_ENABLED = true;
+```
+
+**Step 2 — Deploy the Edge Function:**
+
+```bash
+supabase functions deploy parse-workout-notes --no-verify-jwt
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+When disabled, a local regex parser handles the most common shorthand formats — the button is fully functional without any API key.
+
+---
+
+## AI Workout Notes Import
+
+The **Import from Notes** button appears below "Add Exercise" and "Use Template" in the workout builder (both Log Now and Assign for Later modes).
+
+Tap it to open a slide-up sheet where you can type or paste free-form workout notes in any natural format:
+
+```
+Bench Press 3x8 185lbs
+Squat 4x5 @ 225kg
+Romanian Deadlift 3 sets of 10 reps 135lbs
+Plank 3x60sec
+```
+
+Tapping **Parse Workout** sends the text to Claude Haiku, which:
+- Identifies each exercise and cleans up the name
+- Expands set counts — "3×8" becomes 3 separate set rows each pre-filled with reps and weight
+- Detects units (lbs / kg / secs) from context; converts minutes to seconds for timed exercises
+- Preserves any per-set notes the user wrote
+
+The returned exercise names are matched against your exercise library using the same fuzzy normalisation as the template picker. Unmatched exercises are reported in an alert — you can add them manually. If the workout builder already has exercises, you're prompted to confirm before replacing them.
+
+All pre-populated blocks and sets remain fully editable — the AI output is a starting point, not a final submission.
+
+**When AI is disabled**, a built-in regex parser handles formats like `"Bench Press 3x8 @ 185lbs"`, `"Squat 4 sets of 5 reps 225kg"`, and `"Plank 3x60sec"` without any network call.
+
+**Implementation:** `lib/workoutNotesAI.ts` (feature flag + Edge Function call + regex mock), `supabase/functions/parse-workout-notes/index.ts` (Claude Haiku prompt + JSON extraction), `app/workout/new.tsx` (`handleParseNotes`, modal UI, exercise matching).
 
 ---
 
@@ -662,6 +755,24 @@ npm run build   # runs: npx expo export --platform web
 # output in dist/
 ```
 
+## Migration Tracking
+
+The `schema_migrations` table (created at the top of `schema.sql`) records every discrete migration file applied to a database:
+
+| Column | Description |
+|---|---|
+| `version` | Version string extracted from the filename (e.g. `001`, `029b`) — primary key |
+| `name` | Full filename without `.sql` extension |
+| `applied_at` | Timestamp when the migration was applied |
+| `checksum` | SHA-256 of the file contents at apply time |
+| `applied_by` | Postgres `current_user` at apply time |
+
+`scripts/migrate.sh` discovers all migration files in `supabase/migrations/` and `supabase/migration_*.sql`, sorts them by version using `sort -V` (handles `029 < 029b < 029c < 030` correctly), skips already-applied versions, and logs each new migration after execution.
+
+CI runs `migrate.sh` then `check-migrations.sh` automatically before seeding the test database — the migration status is visible in every CI run's logs.
+
+**Backfilling an existing database** — run `migrate.sh` once against any DB that already has the schema applied. It will log all discrete migration files without re-executing them (since the files are idempotent via `IF NOT EXISTS` / `ON CONFLICT DO NOTHING` guards).
+
 ## Testing
 
 ```bash
@@ -669,6 +780,8 @@ npm test
 ```
 
 Unit tests cover `lib/anthropic.ts` and `hooks/useFeed.ts`. The Supabase client and Edge Function invocations are mocked.
+
+Integration tests run against the live Supabase database. CI applies pending migrations and checks migration status before seeding, ensuring the schema is always up to date before tests run.
 
 ## Environment Variables
 
@@ -680,7 +793,7 @@ Unit tests cover `lib/anthropic.ts` and `hooks/useFeed.ts`. The Supabase client 
 | `EXPO_PUBLIC_SPOONACULAR_API_KEY` | `.env.local` | Spoonacular API key (barcode fallback) |
 | `EXPO_PUBLIC_ANTHROPIC_API_KEY` | `.env.local` | Anthropic key for client-side trend generation (move to Edge Function for production) |
 | `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `.env.local` | Stripe publishable key (safe to bundle; used for Stripe.js on web) |
-| `ANTHROPIC_API_KEY` | Supabase secret | Used by `nutrition-ai` and `generate-trend` Edge Functions |
+| `ANTHROPIC_API_KEY` | Supabase secret | Used by `generate-trend`, `nutrition-ai`, and `parse-workout-notes` Edge Functions |
 | `STRIPE_SECRET_KEY` | Supabase secret | Used by `stripe-checkout` Edge Function — never expose in the bundle |
 | `STRIPE_WEBHOOK_SECRET` | Supabase secret | Stripe webhook signature verification — `whsec_...` from Stripe Dashboard |
 | `APP_URL` | Supabase secret | Base URL for Stripe return redirects (e.g. `https://thirty60track.onrender.com`) |

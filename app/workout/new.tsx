@@ -17,6 +17,7 @@ import { useAuth } from '@/lib/auth';
 import { useClientIntake } from '@/hooks/useClientIntake';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { estimateBlockKcal } from '@/lib/calorieEstimation';
+import { parseWorkoutNotes } from '@/lib/workoutNotesAI';
 import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal';
 import type { Exercise, NewPR } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
@@ -239,6 +240,12 @@ export default function NewWorkoutScreen() {
   const [pendingExercise, setPendingExercise] = useState<Exercise | null>(null);
   const [injuryWarning, setInjuryWarning] = useState<{ message: string; isCurrent: boolean } | null>(null);
 
+  // ── Notes parser state ────────────────────────────────────────
+  const [showNotesPicker, setShowNotesPicker] = useState(false);
+  const [notesText, setNotesText] = useState('');
+  const [parsingNotes, setParsingNotes] = useState(false);
+  const [notesParseError, setNotesParseError] = useState<string | null>(null);
+
   // ── Rest timer state ──────────────────────────────────────────
   const [defaultRestSecs, setDefaultRestSecs] = useState(120);
   const [showRestPicker, setShowRestPicker] = useState(false);
@@ -417,6 +424,85 @@ export default function NewWorkoutScreen() {
       );
     } else {
       apply();
+    }
+  }
+
+  async function handleParseNotes() {
+    if (!notesText.trim()) return;
+    setParsingNotes(true);
+    setNotesParseError(null);
+
+    const { exercises, error } = await parseWorkoutNotes(notesText);
+    setParsingNotes(false);
+
+    if (error) { setNotesParseError(error); return; }
+
+    if (exercises.length === 0) {
+      setNotesParseError('No exercises found. Try: "Bench Press 3×8 185lbs, Squat 4×5 225kg"');
+      return;
+    }
+
+    const matched: ExerciseBlock[] = [];
+    const unmatched: string[] = [];
+
+    for (const parsed of exercises) {
+      const parsedNorm = parsed.exercise_name.trim().toLowerCase();
+      const found = allExercises.find((e) => {
+        const norm = normalizeExerciseName(e.name);
+        return norm === parsedNorm || norm.includes(parsedNorm) || parsedNorm.includes(norm);
+      });
+
+      if (found) {
+        const sets: SetRow[] = parsed.sets.map((s) => ({
+          reps: s.reps != null ? String(s.reps) : '',
+          amount: s.amount,
+          notes: s.notes,
+        }));
+        matched.push({
+          exercise: found,
+          sets: sets.length > 0 ? sets : [{ ...EMPTY_SET }],
+          linkedToNext: false,
+          unit: parsed.sets[0]?.unit ?? 'lbs',
+          restSecs: defaultRestSecs,
+        });
+      } else {
+        unmatched.push(parsed.exercise_name);
+      }
+    }
+
+    if (matched.length === 0) {
+      setNotesParseError(
+        `None matched your exercise library:\n${unmatched.join(', ')}\n\nCheck spelling or add them manually.`,
+      );
+      return;
+    }
+
+    const applyBlocks = () => {
+      setIsDirty(true);
+      setBlocks(matched);
+      setShowNotesPicker(false);
+      setNotesText('');
+      setNotesParseError(null);
+      if (unmatched.length > 0) {
+        Alert.alert(
+          'Some exercises not found',
+          `These weren't in your library:\n\n${unmatched.join('\n')}\n\nYou can add them manually.`,
+          [{ text: 'OK' }],
+        );
+      }
+    };
+
+    if (blocks.length > 0) {
+      Alert.alert(
+        'Replace current workout?',
+        `This will replace the ${blocks.length} exercise${blocks.length !== 1 ? 's' : ''} already added.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Replace', style: 'destructive', onPress: applyBlocks },
+        ],
+      );
+    } else {
+      applyBlocks();
     }
   }
 
@@ -1069,6 +1155,14 @@ export default function NewWorkoutScreen() {
             <Text style={styles.addExerciseBtnText}>Use Template</Text>
           </TouchableOpacity>
         </View>
+        <TouchableOpacity
+          style={[styles.fromNotesBtn, { borderColor: colors.primary }]}
+          onPress={() => setShowNotesPicker(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="sparkles" size={18} color={colors.primary} />
+          <Text style={styles.addExerciseBtnText}>Import from Notes</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       <TouchableOpacity
@@ -1128,6 +1222,71 @@ export default function NewWorkoutScreen() {
         onSave={() => { setShowUnsavedModal(false); (mode === 'log' ? handleSave : handleAssign)(); }}
         onKeepEditing={() => setShowUnsavedModal(false)}
       />
+
+      {/* ── Notes parser modal ───────────────────────────────── */}
+      <Modal
+        transparent
+        animationType="slide"
+        visible={showNotesPicker}
+        onRequestClose={() => { setShowNotesPicker(false); setNotesText(''); setNotesParseError(null); }}
+      >
+        <View style={styles.notesOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => { setShowNotesPicker(false); setNotesText(''); setNotesParseError(null); }}
+          />
+          <View style={[styles.notesSheet, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <View style={[styles.notesSheetHeader, { borderBottomColor: t.border }]}>
+              <Ionicons name="sparkles" size={18} color={colors.primary} />
+              <Text style={[styles.notesSheetTitle, { color: t.textPrimary }]}>Import from Notes</Text>
+              <TouchableOpacity
+                onPress={() => { setShowNotesPicker(false); setNotesText(''); setNotesParseError(null); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={22} color={t.textSecondary as string} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.notesSheetHint, { color: t.textSecondary }]}>
+              Describe your workout in plain text — the AI will pre-fill the log for you to edit.
+            </Text>
+            <Text style={[styles.notesSheetExample, { color: t.textSecondary }]}>
+              e.g. "Bench Press 3×8 185lbs, Squat 4×5 @ 225kg, Plank 3×60sec"
+            </Text>
+            <TextInput
+              style={[
+                styles.notesSheetInput,
+                { borderColor: notesParseError ? colors.error : t.border, color: t.textPrimary, backgroundColor: t.background },
+              ]}
+              placeholder="Type or paste your workout notes here..."
+              placeholderTextColor={t.textSecondary}
+              value={notesText}
+              onChangeText={(v) => { setNotesText(v); if (notesParseError) setNotesParseError(null); }}
+              multiline
+              textAlignVertical="top"
+              autoFocus
+            />
+            {notesParseError ? (
+              <Text style={[styles.notesSheetError, { color: colors.error }]}>{notesParseError}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={[styles.notesSheetParseBtn, (!notesText.trim() || parsingNotes) && styles.saveBtnDisabled]}
+              onPress={handleParseNotes}
+              disabled={!notesText.trim() || parsingNotes}
+              activeOpacity={0.85}
+            >
+              {parsingNotes ? (
+                <ActivityIndicator color={colors.textInverse} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={16} color={colors.textInverse} />
+                  <Text style={styles.notesSheetParseBtnText}>Parse Workout</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Rest complete toast ───────────────────────────────── */}
       {restToast && (
@@ -1539,4 +1698,40 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md, alignItems: 'center',
   },
   summaryDoneBtnText: { ...typography.body, color: colors.textInverse, fontWeight: '700' },
+
+  // ── From Notes button ──
+  fromNotesBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    marginHorizontal: spacing.md, paddingVertical: spacing.sm,
+    borderRadius: radius.md, borderWidth: 1, borderStyle: 'dashed', gap: spacing.xs,
+  },
+
+  // ── Notes parser modal ──
+  notesOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end',
+  },
+  notesSheet: {
+    borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg,
+    borderWidth: 1, borderBottomWidth: 0,
+    padding: spacing.lg, gap: spacing.sm,
+  },
+  notesSheetHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  notesSheetTitle: { ...typography.heading3, flex: 1 },
+  notesSheetHint: { ...typography.body },
+  notesSheetExample: { ...typography.label, fontStyle: 'italic' },
+  notesSheetInput: {
+    borderWidth: 1, borderRadius: radius.md,
+    padding: spacing.md, minHeight: 130,
+    ...typography.body,
+  },
+  notesSheetError: { ...typography.bodySmall },
+  notesSheetParseBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.xs, paddingVertical: spacing.md,
+    backgroundColor: colors.primary, borderRadius: radius.md, marginTop: spacing.xs,
+  },
+  notesSheetParseBtnText: { ...typography.body, fontWeight: '700', color: colors.textInverse },
 });
