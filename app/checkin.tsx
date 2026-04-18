@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 360,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.xl,
     alignItems: 'center',
