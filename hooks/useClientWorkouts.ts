@@ -17,7 +17,7 @@ export function useClientWorkouts(clientId: string): UseClientWorkoutsResult {
   const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!clientId) return;
+    if (!clientId) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     const { data, error: err } = await supabase

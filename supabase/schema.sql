@@ -3052,3 +3052,99 @@ CREATE POLICY "sps_client_select" ON stripe_payment_sessions
 
 -- Only the service role (Edge Function) can insert / update sessions
 -- (no client/trainer INSERT policy — the Edge Function uses the service role key )
+
+-- ============================================================
+-- Migration 040 — Guest demo client
+-- Marks one client row as a public demo and adds read-only
+-- SELECT policies so any authenticated user (including
+-- anonymous guest sessions) can view that client's data.
+-- ============================================================
+
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS is_demo_client BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Mark the demo client
+UPDATE clients
+  SET is_demo_client = TRUE
+  WHERE id = 'df9f2ee4-4b84-4d52-bda2-3bc562a9011c';
+
+-- ── clients ──────────────────────────────────────────────────
+CREATE POLICY "clients_demo_select" ON clients
+  FOR SELECT TO authenticated
+  USING (is_demo_client = TRUE);
+
+-- ── workouts ─────────────────────────────────────────────────
+CREATE POLICY "workouts_demo_select" ON workouts
+  FOR SELECT TO authenticated
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+-- ── workout_sets ─────────────────────────────────────────────
+CREATE POLICY "workout_sets_demo_select" ON workout_sets
+  FOR SELECT TO authenticated
+  USING (
+    workout_id IN (
+      SELECT w.id FROM workouts w
+      JOIN clients c ON c.id = w.client_id
+      WHERE c.is_demo_client = TRUE
+    )
+  );
+
+-- ── personal_records ─────────────────────────────────────────
+CREATE POLICY "personal_records_demo_select" ON personal_records
+  FOR SELECT TO authenticated
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+-- ── assigned_workouts ────────────────────────────────────────
+CREATE POLICY "assigned_workouts_demo_select" ON assigned_workouts
+  FOR SELECT TO authenticated
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+-- ── assigned_workout_exercises ───────────────────────────────
+CREATE POLICY "assigned_workout_exercises_demo_select" ON assigned_workout_exercises
+  FOR SELECT TO authenticated
+  USING (
+    assigned_workout_id IN (
+      SELECT aw.id FROM assigned_workouts aw
+      JOIN clients c ON c.id = aw.client_id
+      WHERE c.is_demo_client = TRUE
+    )
+  );
+
+-- ── assigned_workout_sets ────────────────────────────────────
+CREATE POLICY "assigned_workout_sets_demo_select" ON assigned_workout_sets
+  FOR SELECT TO authenticated
+  USING (
+    assigned_workout_exercise_id IN (
+      SELECT awe.id FROM assigned_workout_exercises awe
+      JOIN assigned_workouts aw ON aw.id = awe.assigned_workout_id
+      JOIN clients c ON c.id = aw.client_id
+      WHERE c.is_demo_client = TRUE
+    )
+  );
+
+-- ── client_credits ───────────────────────────────────────────
+CREATE POLICY "client_credits_demo_select" ON client_credits
+  FOR SELECT TO authenticated
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+-- ── scheduled_sessions ───────────────────────────────────────
+CREATE POLICY "scheduled_sessions_demo_select" ON scheduled_sessions
+  FOR SELECT TO authenticated
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+-- ── client_intake ────────────────────────────────────────────
+CREATE POLICY "client_intake_demo_select" ON client_intake
+  FOR SELECT TO authenticated
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );

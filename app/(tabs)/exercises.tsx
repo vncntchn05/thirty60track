@@ -18,6 +18,7 @@ import { EQUIPMENT_TYPES } from '@/types';
 import { BodyMap } from '@/components/ui/BodyMap';
 import { EncyclopediaPanel } from '@/components/exercises/EncyclopediaPanel';
 import { WorkoutGuides } from '@/components/exercises/WorkoutGuides';
+import { GuestLock } from '@/components/ui/GuestLock';
 import { useAuth } from '@/lib/auth';
 
 const CATEGORIES: ExerciseCategory[] = ['strength', 'cardio', 'flexibility', 'stretch', 'other'];
@@ -65,7 +66,7 @@ export default function ExercisesScreen() {
   const t = useTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { role } = useAuth();
+  const { role, isGuest } = useAuth();
   const isTrainer = role === 'trainer';
   const { exercises, loading, error, createExercise } = useExercises();
   const { favouriteExerciseIds, toggleFavourite } = useFavourites();
@@ -232,6 +233,13 @@ export default function ExercisesScreen() {
   }
 
   if (showTemplateEditor) {
+    if (isGuest) {
+      return (
+        <GuestLock message="Sign up to view and manage workout templates">
+          <TemplateEditor onClose={() => setShowTemplateEditor(false)} />
+        </GuestLock>
+      );
+    }
     return <TemplateEditor onClose={() => setShowTemplateEditor(false)} />;
   }
 
@@ -590,36 +598,58 @@ export default function ExercisesScreen() {
                 }
               />
           ) : rightTab === 'encyclopedia' ? (
-            <EncyclopediaPanel
-              selectedMuscle={muscleFilter}
-              onSelectMuscle={setMuscleFilter}
-              isTrainer={isTrainer}
-              scrollHeader={isVertical ? (
-                <View style={[styles.bodyMapRow, { borderBottomColor: t.border }]}>
-                  <View style={styles.bodyMapRowInner}>
-                    <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+            isGuest ? (
+              <GuestLock message="Sign up to access the full exercise encyclopedia">
+                <EncyclopediaPanel
+                  selectedMuscle={muscleFilter}
+                  onSelectMuscle={setMuscleFilter}
+                  isTrainer={false}
+                />
+              </GuestLock>
+            ) : (
+              <EncyclopediaPanel
+                selectedMuscle={muscleFilter}
+                onSelectMuscle={setMuscleFilter}
+                isTrainer={isTrainer}
+                scrollHeader={isVertical ? (
+                  <View style={[styles.bodyMapRow, { borderBottomColor: t.border }]}>
+                    <View style={styles.bodyMapRowInner}>
+                      <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+                    </View>
                   </View>
-                </View>
-              ) : undefined}
-            />
+                ) : undefined}
+              />
+            )
           ) : (
-            <WorkoutGuides
-              selectedMuscle={muscleFilter}
-              onSelectMuscle={setMuscleFilter}
-              isTrainer={isTrainer}
-              initialTopicKey={topicParam ?? null}
-              onExercisePress={(name) => {
-                const match = exercises.find((e) => e.name.toLowerCase() === name.toLowerCase());
-                if (match) router.push(`/exercise/${match.id}` as never);
-              }}
-              scrollHeader={isVertical ? (
-                <View style={[styles.bodyMapRow, { borderBottomColor: t.border }]}>
-                  <View style={styles.bodyMapRowInner}>
-                    <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+            isGuest ? (
+              <GuestLock message="Sign up to access workout guides and training programs">
+                <WorkoutGuides
+                  selectedMuscle={muscleFilter}
+                  onSelectMuscle={setMuscleFilter}
+                  isTrainer={false}
+                  initialTopicKey={topicParam ?? null}
+                  onExercisePress={() => {}}
+                />
+              </GuestLock>
+            ) : (
+              <WorkoutGuides
+                selectedMuscle={muscleFilter}
+                onSelectMuscle={setMuscleFilter}
+                isTrainer={isTrainer}
+                initialTopicKey={topicParam ?? null}
+                onExercisePress={(name) => {
+                  const match = exercises.find((e) => e.name.toLowerCase() === name.toLowerCase());
+                  if (match) router.push(`/exercise/${match.id}` as never);
+                }}
+                scrollHeader={isVertical ? (
+                  <View style={[styles.bodyMapRow, { borderBottomColor: t.border }]}>
+                    <View style={styles.bodyMapRowInner}>
+                      <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+                    </View>
                   </View>
-                </View>
-              ) : undefined}
-            />
+                ) : undefined}
+              />
+            )
           )}
         </View>
       </View>

@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { useConversations } from '@/hooks/useMessaging';
 import { ConversationCard } from './ConversationCard';
 import { NewConversationModal } from './NewConversationModal';
+import { GuestLock } from '@/components/ui/GuestLock';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
 type Props = {
@@ -18,13 +19,35 @@ type Props = {
 export function MessagesScreen({ role }: Props) {
   const router = useRouter();
   const t = useTheme();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const { conversations, loading, error, refetch } = useConversations();
   const [modalVisible, setModalVisible] = useState(false);
 
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+  useFocusEffect(useCallback(() => { if (!isGuest) refetch(); }, [refetch, isGuest]));
 
-  if (!user) return null;
+  if (!user && !isGuest) return null;
+
+  if (isGuest) {
+    return (
+      <View style={[styles.container, { backgroundColor: t.background }]}>
+        {/* AI Assistant card — visible but not tappable for guests */}
+        <View style={[styles.aiRow, { backgroundColor: t.surface, borderBottomColor: t.border }, styles.aiRowDisabled]}>
+          <View style={[styles.aiAvatar, { backgroundColor: colors.primary + '20' }]}>
+            <Ionicons name="nutrition-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={styles.aiBody}>
+            <Text style={[styles.aiName, { color: t.textPrimary }]}>AI Nutrition Assistant</Text>
+            <Text style={[styles.aiSub, { color: t.textSecondary }]}>
+              Ask about meals, recipes, supplements & workouts
+            </Text>
+          </View>
+          <Ionicons name="lock-closed-outline" size={18} color={t.textSecondary as string} />
+        </View>
+        {/* Locked conversation area */}
+        <GuestLock message="Sign up to message your trainer and use the AI assistant" />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
@@ -150,6 +173,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  aiRowDisabled: { opacity: 0.55 },
   aiAvatar: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,

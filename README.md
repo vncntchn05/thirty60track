@@ -38,9 +38,12 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 
 ### Guest
 - **Continue as Guest** — tap the link on the login screen to enter a read-only client view without creating an account
-- Sees the full client UI (Progress, Workouts, Nutrition, Feed, Messages, Profile tabs) with empty states (no Supabase session; RLS blocks all reads)
-- Cannot add, edit, or log anything — all DB writes are blocked
+- Signs in via Supabase anonymous auth (`signInAnonymously()`), giving a real JWT with the `authenticated` role
+- All RLS `SELECT` policies scoped to `authenticated` (exercises, feed posts, workout guides, fitness trends, etc.) pass — guests see real public content
+- All RLS write policies require a matching `trainer_id` or `client_id` — none exist for the anon user, so all inserts/updates/deletes are blocked at the DB level
+- Client-specific data (workouts, nutrition, assigned programs) returns empty — no `client_id` is linked to the anon session
 - Profile tab shows a **"Ready to get started?"** sign-up prompt with a direct link to the client signup screen and a sign-in link
+- Signing out clears the anon session; anonymous auth must be enabled in the Supabase dashboard (Authentication → Providers → Anonymous)
 
 ### Client
 - Home screen shows linked family members (avatar, workout count, last session) with tap-through to their full profile
@@ -227,6 +230,7 @@ Run `supabase/schema.sql` in the Supabase SQL Editor (this creates all tables in
 | M037 | Nutrition chat + settings — `nutrition_chat_messages` table; `client_nutrition_settings` table |
 | M038 | Trainer AI chat — `trainer_ai_messages` table; RLS: only the owning trainer can read/write |
 | M039 | Stripe credit purchases — `stripe_payment_sessions` table; `credit_transactions.trainer_id` made nullable; `'purchase'` added to reason check constraint |
+| M040 | Guest demo client — `clients.is_demo_client` boolean; permissive `SELECT` policies on 9 tables so anonymous guest sessions can read the demo client's data without matching `auth_user_id` |
 
 Create a public storage bucket named `feed-images` in the Supabase dashboard.
 

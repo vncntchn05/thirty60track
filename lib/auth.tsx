@@ -3,6 +3,9 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Trainer } from '@/types';
 
+/** Client row used as the public demo for guest sessions. */
+export const GUEST_CLIENT_ID = 'df9f2ee4-4b84-4d52-bda2-3bc562a9011c';
+
 export type UserRole = 'trainer' | 'client' | null;
 
 type AuthContextValue = {
@@ -15,7 +18,7 @@ type AuthContextValue = {
   isGuest: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  continueAsGuest: () => void;
+  continueAsGuest: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -47,6 +50,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function detectRole(userId: string) {
     setLoading(true);
+
+    // 0. Anonymous (guest) session — read-only view using the demo client
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser?.is_anonymous) {
+      setIsGuest(true);
+      setRole('client');
+      setTrainer(null);
+      setClientId(GUEST_CLIENT_ID);
+      setLoading(false);
+      return;
+    }
 
     // 1. Check if user is a trainer
     const { data: trainerData } = await supabase
@@ -108,12 +122,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   }
 
-  function continueAsGuest() {
-    setIsGuest(true);
-    setRole('client');
-    setTrainer(null);
-    setClientId(null);
-    setLoading(false);
+  async function continueAsGuest() {
+    setLoading(true);
+    const { error } = await supabase.auth.signInAnonymously();
+    if (error) {
+      // Fallback: local guest state without a session (no read access to DB)
+      setIsGuest(true);
+      setRole('client');
+      setTrainer(null);
+      setClientId(GUEST_CLIENT_ID);
+      setLoading(false);
+    }
+    // On success, onAuthStateChange fires → detectRole detects is_anonymous → sets guest state
   }
 
   return (

@@ -1,8 +1,9 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, TouchableOpacity, View, StyleSheet } from 'react-native';
-import { colors, useTheme } from '@/constants/theme';
+import { Image, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { colors, spacing, typography, useTheme } from '@/constants/theme';
 import { useUnread } from '@/lib/unreadContext';
+import { useAuth } from '@/lib/auth';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -55,13 +56,47 @@ const styles = StyleSheet.create({
     height: 40,
     resizeMode: 'contain',
   },
+  guestBanner: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  guestBannerText: {
+    ...typography.bodySmall,
+    color: colors.textInverse,
+    textAlign: 'center',
+  },
+  guestBannerLink: {
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
 });
+
+function GuestBanner() {
+  const t = useTheme();
+  const router = useRouter();
+  return (
+    <TouchableOpacity
+      style={[styles.guestBanner, { backgroundColor: colors.primary }]}
+      onPress={() => router.push('/(auth)/signup' as never)}
+      activeOpacity={0.85}
+    >
+      <Text style={styles.guestBannerText}>
+        Ready to get started?{' '}
+        <Text style={styles.guestBannerLink}>Sign up now</Text>
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function ClientLayout() {
   const t = useTheme();
   const router = useRouter();
+  const { isGuest } = useAuth();
   return (
-    <Tabs
+    <View style={{ flex: 1 }}>
+      {isGuest && <GuestBanner />}
+      <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: t.textSecondary,
@@ -140,5 +175,6 @@ export default function ClientLayout() {
       />
       <Tabs.Screen name="workout/log" options={{ href: null }} />
     </Tabs>
+    </View>
   );
 }
