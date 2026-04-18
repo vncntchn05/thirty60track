@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Switch } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth';
@@ -10,8 +9,6 @@ import { useFeatureGuide } from '@/hooks/useFeatureGuide';
 import { IntakeForm } from '@/components/client/IntakeForm';
 import { ChangePasswordModal } from '@/components/ui/ChangePasswordModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
-
-const QR_SIZE = 200;
 
 function MetricRow({ label, value }: { label: string; value: string | null }) {
   const t = useTheme();
@@ -32,11 +29,6 @@ export default function ClientProfileScreen() {
   const [editingIntake, setEditingIntake] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const { enabled: guideEnabled, toggle: toggleGuide } = useFeatureGuide(user?.id);
-
-  // QR payload: encode client DB id so trainer scanner can look it up
-  const qrPayload = clientId
-    ? JSON.stringify({ type: 'thirty60_checkin', clientId })
-    : null;
 
   if (isGuest) {
     return (
@@ -74,16 +66,15 @@ export default function ClientProfileScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={styles.scroll}>
-      {/* Check-in QR code */}
-      {qrPayload && (
-        <View style={[styles.card, styles.qrCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-          <Text style={[styles.cardTitle, { color: t.textSecondary }]}>Check-In QR Code</Text>
-          <Text style={[styles.qrHint, { color: t.textSecondary }]}>Show this to your trainer to check in</Text>
-          <View style={[styles.qrWrap, { backgroundColor: '#fff' }]}>
-            <QRCode value={qrPayload} size={QR_SIZE} color="#000" backgroundColor="#fff" />
-          </View>
-        </View>
-      )}
+      {/* Gym check-in */}
+      <TouchableOpacity
+        style={[styles.checkinBtn, { backgroundColor: colors.primary }]}
+        onPress={() => router.push('/checkin' as never)}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="checkmark-circle-outline" size={20} color={colors.textInverse} />
+        <Text style={styles.checkinBtnText}>Check In at the Gym</Text>
+      </TouchableOpacity>
 
       {/* Info card */}
       <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
@@ -199,9 +190,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, borderWidth: 1, padding: spacing.md, gap: spacing.sm,
   },
   cardTitle: { ...typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
-  qrCard: { alignItems: 'center', gap: spacing.md },
-  qrHint: { ...typography.bodySmall, textAlign: 'center' },
-  qrWrap: { padding: spacing.md, borderRadius: radius.md },
+  checkinBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.sm, borderRadius: radius.md,
+    paddingVertical: spacing.md,
+  },
+  checkinBtnText: { ...typography.body, fontWeight: '700', color: colors.textInverse },
   readOnlyNote: { ...typography.bodySmall, fontStyle: 'italic', marginBottom: spacing.xs },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   editLink: { ...typography.bodySmall, fontWeight: '600' },

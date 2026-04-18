@@ -77,6 +77,7 @@ function RootNavigator() {
       <Stack.Screen name="messages/[id]" options={{ ...sharedHeaderOptions, headerShown: true, title: 'Message' }} />
       <Stack.Screen name="messages/ai"         options={{ ...sharedHeaderOptions, headerShown: true, title: 'AI Assistant' }} />
       <Stack.Screen name="messages/ai-trainer" options={{ ...sharedHeaderOptions, headerShown: true, title: 'AI Assistant' }} />
+      <Stack.Screen name="checkin"             options={{ headerShown: false }} />
     </Stack>
   );
 }

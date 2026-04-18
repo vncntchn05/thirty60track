@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Switch } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useAuth } from '@/lib/auth';
 import { useTrainers } from '@/hooks/useTrainers';
 import { useFeatureGuide } from '@/hooks/useFeatureGuide';
 import { ChangePasswordModal } from '@/components/ui/ChangePasswordModal';
-import { QRScannerModal } from '@/components/checkin/QRScannerModal';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { Trainer } from '@/types';
+
+const CHECKIN_URL = 'https://thirty60track.onrender.com/checkin';
 
 function initials(name: string) {
   return name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -32,7 +34,6 @@ export default function ProfileScreen() {
   const { trainers, loading: trainersLoading, error: trainersError } = useTrainers();
   const t = useTheme();
   const [changingPassword, setChangingPassword] = useState(false);
-  const [scannerOpen, setScannerOpen] = useState(false);
   const { enabled: guideEnabled, toggle: toggleGuide } = useFeatureGuide(user?.id);
 
   return (
@@ -86,14 +87,17 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Check-in scanner */}
-      <TouchableOpacity
-        style={[styles.scanButton, { backgroundColor: t.surface, borderColor: t.border }]}
-        onPress={() => setScannerOpen(true)}
-      >
-        <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
-        <Text style={[styles.scanText, { color: colors.primary }]}>Scan Client Check-In</Text>
-      </TouchableOpacity>
+      {/* Master check-in QR */}
+      <View style={[styles.qrCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+        <Text style={[styles.qrCardTitle, { color: t.textSecondary }]}>GYM CHECK-IN QR CODE</Text>
+        <Text style={[styles.qrCardSub, { color: t.textSecondary }]}>
+          Print this and display it at the gym. Clients scan it to check in automatically.
+        </Text>
+        <View style={[styles.qrWrap, { backgroundColor: '#fff' }]}>
+          <QRCode value={CHECKIN_URL} size={200} color="#000" backgroundColor="#fff" />
+        </View>
+        <Text style={[styles.qrUrl, { color: t.textSecondary }]}>{CHECKIN_URL}</Text>
+      </View>
 
       <TouchableOpacity
         style={[styles.resetButton, { backgroundColor: t.surface, borderColor: t.border }]}
@@ -111,14 +115,6 @@ export default function ProfileScreen() {
         email={trainer?.email ?? ''}
         onClose={() => setChangingPassword(false)}
       />
-
-      {trainer?.id && (
-        <QRScannerModal
-          visible={scannerOpen}
-          trainerId={trainer.id}
-          onClose={() => setScannerOpen(false)}
-        />
-      )}
     </ScrollView>
   );
 }
@@ -187,13 +183,14 @@ const styles = StyleSheet.create({
   toggleInfo: { flex: 1 },
   toggleLabel: { ...typography.body, fontWeight: '600' },
   toggleSub: { ...typography.bodySmall, marginTop: 1 },
-  scanButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: spacing.sm,
-    borderRadius: radius.md, borderWidth: 1,
-    paddingVertical: spacing.md,
+  qrCard: {
+    borderRadius: radius.lg, borderWidth: 1,
+    padding: spacing.lg, alignItems: 'center', gap: spacing.sm,
   },
-  scanText: { ...typography.body, fontWeight: '600' },
+  qrCardTitle: { ...typography.label, letterSpacing: 0.8 },
+  qrCardSub: { ...typography.bodySmall, textAlign: 'center', lineHeight: 18 },
+  qrWrap: { padding: spacing.md, borderRadius: radius.md, marginVertical: spacing.sm },
+  qrUrl: { ...typography.label, fontSize: 10 },
   resetButton: {
     borderRadius: radius.md,
     borderWidth: 1,

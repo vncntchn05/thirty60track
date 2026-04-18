@@ -29,7 +29,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Weekly availability management + session scheduling
 - Grant or deduct session credits for any client (not limited to own clients)
 - **Family account linking** — link two or more client accounts into a family group; all members can view and edit each other's progress, workouts, nutrition, and credits
-- **QR check-in scanner** — scan a client's QR code to instantly log a timestamped gym visit; view full check-in history on the client's Check-ins tab
+- **Master check-in QR code** — trainer Profile tab displays a single master QR code (encodes the app's `/checkin` URL) to print and post at the gym; all client visits appear on the client's Check-ins tab with a "Self" badge
 - Community feed: post, react, comment; delete any post; attach exercises, workouts, assigned workouts, or guides to any post
 - AI fitness trends tab with daily summaries and article links
 - **AI Training Assistant** — pinned at the top of the Messages tab; answers questions about program design, progressive overload, splits (PPL / upper-lower / full body), warm-up protocols, deload weeks, exercise substitutions, client retention, and nutrition for clients; backed by the same `nutrition-ai` Edge Function
@@ -52,7 +52,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Book sessions from trainer's availability slots
 - **Buy Credits** — Credits tab shows a "Buy Credits" button opening a Stripe Checkout modal with 5/10/20-credit packages at $1/credit; displays as "Coming Soon" until payments are enabled
 - **AI Nutrition Assistant** — pinned at the top of the Messages tab; ask for meal ideas, fast food picks, snack suggestions, recipe ideas, supplement guidance, workout recommendations, and exercise tips; answers are personalised to macro targets, dietary restrictions, and actual workout history (recent sessions, muscle group frequency, personal records); cheat meal tracker shows a banner when a cheat meal is due
-- **Check-in QR code** — personal QR code on the Profile tab; show it to the trainer to log a gym visit
+- **Gym check-in** — "Check In at the Gym" button on the Profile tab (or scan the master QR with a phone camera) opens the `/checkin` screen and records a self-check-in instantly
 - Community feed: post, react, comment; attach exercises or workouts to posts
 - AI fitness trends tab
 - **Video calls** — tap video icon in any conversation to generate a shareable call link
@@ -80,7 +80,7 @@ components/
   ai/
     TrainerAIChat.tsx       — trainer AI chat UI (barbell avatar, 8 quick prompts, message history)
   checkin/
-    QRScannerModal          — full-screen camera scanner; validates payload, records check-in
+    QRScannerModal          — full-screen camera scanner (retained; unused by default)
     WebCameraView.web.tsx   — web-only camera (getUserMedia + BarcodeDetector)
     WebCameraView.tsx       — native stub (returns null)
   credits/
@@ -168,7 +168,9 @@ scripts/
                               logs each to schema_migrations; supports --dry-run
   check-migrations.sh       — read-only report of all applied migrations with timestamps
   create-test-users.sh      — creates CI/CD test auth users via Supabase Admin API
-  fetch-youtube-ids.js      — generates migration_029c_youtube_urls.sql from YouTube Data API
+  fetch-youtube-ids.js      — generates migration_029c_youtube_urls.sql from YouTube Data API;
+                              supports --max-searches N to stay within free-tier quota;
+                              resumes from existing SQL output on re-runs (skips already-processed exercises)
 types/
   database.ts               — manual TS types mirroring schema
 constants/
@@ -221,6 +223,7 @@ Run `supabase/schema.sql` in the Supabase SQL Editor (this creates all tables in
 | M028 | Recurring workout plans — `recurring_plans` table; `assigned_workouts` gains `recurring_plan_id` and `'cancelled'` status |
 | M029 | Exercise enrichment — `exercise_alternatives` join table; `muscle_group`, `equipment`, `form_notes`, and `help_url` populated for all 280+ exercises |
 | M030 | Client check-ins — `client_checkins` table; QR-code-based gym visit log |
+| M041 | Master QR check-in — `trainer_id` made nullable; `is_self_checkin` column added; client self-insert RLS policy; trainer SELECT policy covers all client check-ins |
 | M031 | Personal records — `personal_records` table (UNIQUE per client+exercise); auto-upserted when a workout is saved |
 | M032 | Fat Loss workout templates — 4 templates (HIIT Circuit A/B, Metabolic Strength A/B) |
 | M033 | Feed post attachments — `attachment_type`, `attachment_id`, `attachment_title`, `attachment_subtitle` columns on `feed_posts` |
@@ -654,17 +657,23 @@ The `personal_records` table stores the all-time best weight and best reps per c
 
 **Post-save popup** — if any PR was broken, the Workout Summary sheet highlights it with the previous best and new value.
 
-## Client Check-In (QR Code)
+## Client Check-In (Master QR Code)
 
-Trainers scan a client's QR code at the gym to log a timestamped visit.
+A single master QR code is shared across the whole gym — print it once and post it at the front desk or entrance.
 
-**Client side** — the **Profile** tab displays a personal QR code encoding `{ type: "thirty60_checkin", clientId }`.
+**Trainer side** — the trainer **Profile** tab displays the master QR code (encodes `https://thirty60track.onrender.com/checkin`). Tap and hold or screenshot to export for printing. No scanning is required from the trainer.
 
-**Trainer side** — the **Profile** tab has a **Scan Client Check-In** button that opens a full-screen camera view. On native it uses `expo-camera`; on mobile web it uses a custom `WebCameraView` component built on `navigator.mediaDevices.getUserMedia` and `BarcodeDetector`. A gold targeting reticle guides the scan; a flip-camera button lets the trainer switch between front and rear.
+**Client side — web** — the client points their phone camera at the gym's master QR. The phone opens the app URL at `/checkin`. If the client is already logged in, they tap **Check In** and the visit is recorded instantly.
 
-**Check-ins tab** — each client's detail screen has a **Check-ins** tab showing a reverse-chronological list of every logged visit.
+**Client side — app** — the client taps **Check In at the Gym** on their Profile tab, which navigates to the `/checkin` screen and records the visit with one tap.
 
-**RLS:** trainers have full access to check-in rows they created; clients can read their own rows only.
+**Check-ins tab** — each client's detail screen has a **Check-ins** tab showing a reverse-chronological list of every visit. Self-initiated check-ins display a gold **Self** badge; any trainer-recorded check-ins (via `recordCheckin`) show a green checkmark.
+
+**RLS (M041):**
+- `trainer_id` is nullable — `NULL` indicates a client self-check-in
+- Trainers can SELECT all check-ins for any of their clients (including self check-ins)
+- Clients can INSERT their own check-ins (`is_self_checkin = TRUE`, `trainer_id = NULL`)
+- Clients retain read-only access to their own rows
 
 ## Video Calls in Messaging
 
@@ -687,14 +696,23 @@ Migration M029 enriched all 280+ exercises with muscle group, equipment, form no
 #### Verifying / refreshing YouTube links
 
 ```bash
-# 1. Clear unverified URLs
+# 1. Export the current exercise table as CSV from the Supabase SQL editor:
+#    SELECT * FROM exercises  →  download as CSV
+#    (The script reads the CSV to know which exercises already have help_url set.)
+
+# 2. Clear unverified URLs (optional, first run only)
 #    Run supabase/migration_029c_clear_bad_urls.sql in the Supabase SQL editor
 
-# 2. Re-fetch verified links (requires a free YouTube Data API v3 key)
-node scripts/fetch-youtube-ids.js <YOUR_API_KEY>
+# 3. Re-fetch verified links (requires a free YouTube Data API v3 key)
+#    --max-searches limits how many YouTube search.list calls are made (100 units each).
+#    The script resumes from the existing migration_029c_youtube_urls.sql on re-runs,
+#    so you can run it in batches without re-searching already-processed exercises.
+node scripts/fetch-youtube-ids.js <YOUR_API_KEY> --max-searches 100
 
-# 3. Apply the generated SQL
+# 4. Apply the generated SQL
 #    Run supabase/migration_029c_youtube_urls.sql in the Supabase SQL editor
+
+# 5. Repeat steps 1 and 3 until "exercises need a new search" reaches 0.
 ```
 
 ### Clinical Workout Templates
@@ -712,7 +730,7 @@ node scripts/fetch-youtube-ids.js <YOUR_API_KEY>
 
 ## Nutrition & Diet System
 
-The **Nutrition** tab on every client detail screen has four segments: **Log | Guide | Plan | Ref**.
+The **Nutrition** tab on every client detail screen has five segments: **Log | Guide | Plan | Chat | Ref**.
 
 ### Extended Client Intake
 

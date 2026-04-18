@@ -462,15 +462,21 @@ function CheckinsTab({ checkins, loading, onRefresh, t }: CheckinsTabProps) {
               <Text style={[styles.checkinNote, { color: t.textSecondary }]}>{item.note}</Text>
             ) : null}
           </View>
-          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+          {item.is_self_checkin ? (
+            <View style={[styles.selfBadge, { backgroundColor: colors.primary + '1A', borderColor: colors.primary + '44' }]}>
+              <Text style={[styles.selfBadgeText, { color: colors.primary }]}>Self</Text>
+            </View>
+          ) : (
+            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+          )}
         </View>
       )}
       ListEmptyComponent={
         <View style={styles.emptyState}>
-          <Ionicons name="qr-code-outline" size={44} color={t.textSecondary as string} />
+          <Ionicons name="fitness-outline" size={44} color={t.textSecondary as string} />
           <Text style={[styles.emptyTitle, { color: t.textSecondary }]}>No check-ins yet</Text>
           <Text style={[styles.emptyBody, { color: t.textSecondary }]}>
-            Ask the client to show their QR code from their Profile tab
+            The client can check in by scanning the master QR code at the gym.
           </Text>
         </View>
       }
@@ -1620,6 +1626,11 @@ const styles = StyleSheet.create({
   },
   checkinTime: { ...typography.body, fontWeight: '600' },
   checkinNote: { ...typography.bodySmall, marginTop: 2 },
+  selfBadge: {
+    borderWidth: 1, borderRadius: radius.full,
+    paddingHorizontal: spacing.sm, paddingVertical: 2,
+  },
+  selfBadgeText: { ...typography.label, fontSize: 10, fontWeight: '700' },
   emptyState: { alignItems: 'center', paddingTop: 80, gap: spacing.sm, paddingHorizontal: spacing.xl },
   emptyTitle: { ...typography.heading3 },
   emptyBody: { ...typography.bodySmall, textAlign: 'center' },

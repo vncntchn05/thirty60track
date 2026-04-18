@@ -35,13 +35,28 @@ export async function recordCheckin(params: {
   const { data, error } = await supabase
     .from('client_checkins')
     .insert({
-      client_id:  params.clientId,
-      trainer_id: params.trainerId,
-      note:       params.note ?? null,
+      client_id:       params.clientId,
+      trainer_id:      params.trainerId,
+      note:            params.note ?? null,
+      is_self_checkin: false,
     })
     .select()
     .single();
 
   if (error) return { data: null, error: error.message };
   return { data, error: null };
+}
+
+/** Called by the client when they scan the master gym QR code. */
+export async function selfCheckin(clientId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('client_checkins')
+    .insert({
+      client_id:       clientId,
+      trainer_id:      null,
+      is_self_checkin: true,
+    });
+
+  if (error) return { error: error.message };
+  return { error: null };
 }

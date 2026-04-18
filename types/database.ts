@@ -636,9 +636,10 @@ export type InsertRecurringPlan = {
 export type ClientCheckin = {
   id: string;
   client_id: string;
-  trainer_id: string;
+  trainer_id: string | null;
   checked_in_at: string;
   note: string | null;
+  is_self_checkin: boolean;
 };
 
 // ─── Personal Records (Migration 031) ────────────────────────

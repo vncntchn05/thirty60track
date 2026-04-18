@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useClients } from '@/hooks/useClients';
 import { useAuth } from '@/lib/auth';
@@ -24,7 +24,6 @@ export default function ClientsScreen() {
   const [guideOpen, setGuideOpen] = useState(false);
   const { enabled: guideEnabled } = useFeatureGuide(user?.id);
 
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   const filtered = query.trim()
     ? clients.filter((c) =>

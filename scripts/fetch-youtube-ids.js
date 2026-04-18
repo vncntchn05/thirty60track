@@ -237,20 +237,33 @@ function buildQuery(name, muscleGroup) {
   }
 
   console.log(`\n${keepList.length} URLs are already correct.`);
-  console.log(`${searchQueue.length} exercises need a new search.`);
+
+  // 4. Load already-processed IDs from previous SQL output (if any)
+  const outPath = path.join(__dirname, '..', 'supabase', 'migration_029c_youtube_urls.sql');
+  const alreadyDone = new Set();
+  if (fs.existsSync(outPath)) {
+    const existing = fs.readFileSync(outPath, 'utf8');
+    for (const m of existing.matchAll(/WHERE id = '([0-9a-f-]{36})'/g)) {
+      alreadyDone.add(m[1]);
+    }
+  }
+
+  const remainingQueue = searchQueue.filter(e => !alreadyDone.has(e.id));
+
+  console.log(`${remainingQueue.length} exercises need a new search${alreadyDone.size ? ` (${alreadyDone.size} already done from previous run)` : ''}.`);
   console.log(`Search limit: --max-searches ${maxSearches}  (100 units each, ${maxSearches * 100} units total)\n`);
 
-  // 4. Run searches
+  // 5. Run searches
   const newResults = [];
   let searchCount = 0;
 
-  for (const e of searchQueue) {
+  for (const e of remainingQueue) {
     if (searchCount >= maxSearches) {
       console.log(`\n⚠️  Search limit (${maxSearches}) reached. Re-run to continue remaining exercises.`);
       break;
     }
     const query = buildQuery(e.name, e.muscleGroup);
-    process.stdout.write(`[${searchCount + 1}/${Math.min(searchQueue.length, maxSearches)}] "${e.name}"… `);
+    process.stdout.write(`[${searchCount + 1}/${Math.min(remainingQueue.length, maxSearches)}] "${e.name}"… `);
     try {
       const hit = await searchYouTube(query);
       if (hit) {
@@ -294,13 +307,12 @@ function buildQuery(name, muscleGroup) {
     lines.push('');
   }
 
-  const outPath = path.join(__dirname, '..', 'supabase', 'migration_029c_youtube_urls.sql');
   fs.writeFileSync(outPath, lines.join('\n'), 'utf8');
 
   const kept    = keepList.length;
   const added   = newResults.length;
   const total   = allUpdates.length;
-  const remaining = searchQueue.length - searchCount;
+  const remaining = remainingQueue.length - searchCount;
 
   console.log(`\n✓ Done.`);
   console.log(`  ${kept} existing URLs verified and kept`);
