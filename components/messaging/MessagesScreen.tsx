@@ -121,7 +121,7 @@ export function MessagesScreen({ role }: Props) {
           renderItem={({ item }) => (
             <ConversationCard
               conversation={item}
-              currentUserId={user.id}
+              currentUserId={user!.id}
               onPress={() => router.push(`/messages/${item.id}` as never)}
             />
           )}
@@ -141,7 +141,7 @@ export function MessagesScreen({ role }: Props) {
 
       <NewConversationModal
         visible={modalVisible}
-        currentUserId={user.id}
+        currentUserId={user!.id}
         role={role}
         onClose={() => setModalVisible(false)}
         onConversationReady={(convId) => {
