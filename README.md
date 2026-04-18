@@ -36,6 +36,12 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - **Video calls** — generate an instant video call link from any conversation
 - **Feature Guide** — compass-icon button at the top of the home screen opens a categorised modal listing every feature with descriptions and direct navigation links
 
+### Guest
+- **Continue as Guest** — tap the link on the login screen to enter a read-only client view without creating an account
+- Sees the full client UI (Progress, Workouts, Nutrition, Feed, Messages, Profile tabs) with empty states (no Supabase session; RLS blocks all reads)
+- Cannot add, edit, or log anything — all DB writes are blocked
+- Profile tab shows a **"Ready to get started?"** sign-up prompt with a direct link to the client signup screen and a sign-in link
+
 ### Client
 - Home screen shows linked family members (avatar, workout count, last session) with tap-through to their full profile
 - Pending assigned workouts with one-tap execution

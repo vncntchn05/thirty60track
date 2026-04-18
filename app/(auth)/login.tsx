@@ -15,7 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
 export default function LoginScreen() {
-  const { signIn } = useAuth();
+  const { signIn, continueAsGuest } = useAuth();
   const router = useRouter();
   const t = useTheme();
   const [email, setEmail] = useState('');
@@ -86,6 +86,10 @@ export default function LoginScreen() {
             <Text style={styles.toggleLink}>Sign up</Text>
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity onPress={continueAsGuest} style={styles.guestRow}>
+          <Text style={[styles.guestText, { color: t.textSecondary }]}>Continue as Guest</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -117,4 +121,6 @@ const styles = StyleSheet.create({
   toggleRow: { alignItems: 'center', marginTop: spacing.xs },
   toggleText: { ...typography.bodySmall, textAlign: 'center' },
   toggleLink: { color: colors.primary, fontWeight: '600' },
+  guestRow: { alignItems: 'center', marginTop: spacing.sm, paddingVertical: spacing.xs },
+  guestText: { ...typography.bodySmall, textDecorationLine: 'underline' },
 });

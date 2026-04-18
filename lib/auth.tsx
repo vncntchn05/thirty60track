@@ -12,8 +12,10 @@ type AuthContextValue = {
   role: UserRole;
   clientId: string | null;  // populated when role === 'client'
   loading: boolean;
+  isGuest: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  continueAsGuest: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -24,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange((event, s) => {
@@ -34,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTrainer(null);
         setRole(null);
         setClientId(null);
+        setIsGuest(false);
         setLoading(false);
       }
     });
@@ -100,12 +104,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
+    setIsGuest(false);
     await supabase.auth.signOut();
+  }
+
+  function continueAsGuest() {
+    setIsGuest(true);
+    setRole('client');
+    setTrainer(null);
+    setClientId(null);
+    setLoading(false);
   }
 
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, trainer, role, clientId, loading, signIn, signOut }}
+      value={{ session, user: session?.user ?? null, trainer, role, clientId, loading, isGuest, signIn, signOut, continueAsGuest }}
     >
       {children}
     </AuthContext.Provider>

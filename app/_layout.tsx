@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
 });
 
 function RootNavigator() {
-  const { session, role, loading } = useAuth();
+  const { session, role, loading, isGuest } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const t = useTheme();
@@ -46,8 +46,10 @@ function RootNavigator() {
     const inTabsGroup = seg === '(tabs)';
     const inClientGroup = seg === '(client)';
 
-    if (!session && !inAuthGroup) {
+    if (!session && !isGuest && !inAuthGroup) {
       router.replace('/(auth)/login');
+    } else if (isGuest && inAuthGroup) {
+      router.replace('/(client)' as never);
     } else if (session && role === 'trainer' && (inAuthGroup || inClientGroup)) {
       router.replace('/(tabs)' as never);
     } else if (session && role === 'client' && (inAuthGroup || inTabsGroup)) {

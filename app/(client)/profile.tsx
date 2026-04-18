@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Switch } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { useClientProfile } from '@/hooks/useClientProfile';
 import { useClientIntake } from '@/hooks/useClientIntake';
@@ -24,7 +25,8 @@ function MetricRow({ label, value }: { label: string; value: string | null }) {
 
 export default function ClientProfileScreen() {
   const t = useTheme();
-  const { signOut, clientId, user } = useAuth();
+  const { signOut, clientId, user, isGuest } = useAuth();
+  const router = useRouter();
   const { client, loading, refresh } = useClientProfile();
   const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const [editingIntake, setEditingIntake] = useState(false);
@@ -35,6 +37,32 @@ export default function ClientProfileScreen() {
   const qrPayload = clientId
     ? JSON.stringify({ type: 'thirty60_checkin', clientId })
     : null;
+
+  if (isGuest) {
+    return (
+      <View style={[styles.centered, { backgroundColor: t.background, padding: spacing.lg }]}>
+        <Ionicons name="person-outline" size={64} color={t.textSecondary} style={{ marginBottom: spacing.lg }} />
+        <Text style={[styles.guestHeading, { color: t.textPrimary }]}>Ready to get started?</Text>
+        <Text style={[styles.guestSub, { color: t.textSecondary }]}>
+          Create an account to track your progress, view assigned workouts, and connect with your trainer.
+        </Text>
+        <TouchableOpacity
+          style={styles.signUpBtn}
+          onPress={() => router.replace('/(auth)/signup' as never)}
+        >
+          <Text style={styles.signUpBtnText}>Sign Up Now</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.signInLink]}
+          onPress={() => router.replace('/(auth)/login' as never)}
+        >
+          <Text style={[styles.signInLinkText, { color: t.textSecondary }]}>
+            Already have an account? <Text style={{ color: colors.primary }}>Sign in</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -207,4 +235,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md, alignItems: 'center',
   },
   signOutText: { ...typography.body, fontWeight: '600' },
+  guestHeading: { ...typography.heading2, textAlign: 'center', marginBottom: spacing.sm },
+  guestSub: { ...typography.body, textAlign: 'center', marginBottom: spacing.xl, lineHeight: 22 },
+  signUpBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    width: '100%',
+  },
+  signUpBtnText: { ...typography.body, fontWeight: '700', color: colors.textInverse },
+  signInLink: { alignItems: 'center', paddingVertical: spacing.sm },
+  signInLinkText: { ...typography.bodySmall, textAlign: 'center' },
 });
