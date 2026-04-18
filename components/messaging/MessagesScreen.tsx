@@ -25,7 +25,7 @@ export function MessagesScreen({ role }: Props) {
 
   useFocusEffect(useCallback(() => { if (!isGuest) refetch(); }, [refetch, isGuest]));
 
-  if (!user && !isGuest) return null;
+  if (!user) return null;
 
   if (isGuest) {
     return (
