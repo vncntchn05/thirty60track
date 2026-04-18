@@ -30,7 +30,7 @@ function fmtDate(iso: string) {
 export default function ClientDashboard() {
   const router = useRouter();
   const t = useTheme();
-  const { clientId, user } = useAuth();
+  const { clientId, user, isGuest } = useAuth();
   const { client, loading: profileLoading, refresh: refreshProfile } = useClientProfile();
   const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const { workouts, loading, refresh } = useClientWorkouts(clientId ?? '');
@@ -45,7 +45,7 @@ export default function ClientDashboard() {
   // Show intake form until the client submits it.
   // Check both DB flag and intake.completed_at in case the clients UPDATE was blocked by RLS.
   const dbIntakeComplete = client?.intake_completed || !!intake?.completed_at;
-  if (!intakeCompleted && !profileLoading && client && !dbIntakeComplete) {
+  if (!isGuest && !intakeCompleted && !profileLoading && client && !dbIntakeComplete) {
     return (
       <IntakeForm
         client={client}

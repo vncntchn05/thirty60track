@@ -13,6 +13,7 @@ import { PostCard } from '@/components/feed/PostCard';
 import { PostComposer } from '@/components/feed/PostComposer';
 import { CommentSheet } from '@/components/feed/CommentSheet';
 import { TrendCard, TrendArchive } from '@/components/feed/TrendCard';
+import { GuestLock } from '@/components/ui/GuestLock';
 import type { FeedPostWithMeta, ReactionType } from '@/types';
 
 // ─── Segment bar ──────────────────────────────────────────────
@@ -47,7 +48,7 @@ function SegmentBar({ active, onChange }: { active: Segment; onChange: (s: Segme
 
 export function FeedScreen() {
   const t = useTheme();
-  const { user, role, trainer, clientId } = useAuth();
+  const { user, role, trainer, clientId, isGuest } = useAuth();
 
   const [segment, setSegment]     = useState<Segment>('community');
   const [authorName, setAuthorName] = useState('');
@@ -215,7 +216,15 @@ export function FeedScreen() {
     <View style={[styles.screen, { backgroundColor: t.background }]}>
       <SegmentBar active={segment} onChange={setSegment} />
 
-      {segment === 'community' ? renderCommunity() : renderTrends()}
+      {segment === 'community'
+        ? isGuest
+          ? (
+            <GuestLock message="Sign up to post, react, and connect with the community">
+              {renderCommunity()}
+            </GuestLock>
+          )
+          : renderCommunity()
+        : renderTrends()}
 
       {/* Comment sheet */}
       {selectedPost && role ? (

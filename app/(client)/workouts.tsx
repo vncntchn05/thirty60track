@@ -133,7 +133,7 @@ function WorkoutRow({ workout, onPress }: { workout: WorkoutWithTrainer; onPress
 export default function ClientWorkoutsScreen() {
   const router = useRouter();
   const t = useTheme();
-  const { clientId } = useAuth();
+  const { clientId, isGuest } = useAuth();
 
   const [segment, setSegment] = useState<Segment>('workouts');
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
@@ -270,8 +270,8 @@ export default function ClientWorkoutsScreen() {
               )}
               ListHeaderComponent={
                 <>
-                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                  {assignedError ? <Text style={styles.errorText}>{assignedError}</Text> : null}
+                  {!isGuest && error ? <Text style={styles.errorText}>{error}</Text> : null}
+                  {!isGuest && assignedError ? <Text style={styles.errorText}>{assignedError}</Text> : null}
                   {assignedWorkouts.map((item) => (
                     <AssignedWorkoutRow
                       key={item.id}
@@ -294,14 +294,16 @@ export default function ClientWorkoutsScreen() {
             />
           )}
 
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={() => router.push('/(client)/workout/log' as never)}
-            accessibilityLabel="Log new workout"
-          >
-            <Ionicons name="add" size={22} color={colors.textInverse} />
-            <Text style={styles.fabLabel}>Log Workout</Text>
-          </TouchableOpacity>
+          {!isGuest && (
+            <TouchableOpacity
+              style={styles.fab}
+              onPress={() => router.push('/(client)/workout/log' as never)}
+              accessibilityLabel="Log new workout"
+            >
+              <Ionicons name="add" size={22} color={colors.textInverse} />
+              <Text style={styles.fabLabel}>Log Workout</Text>
+            </TouchableOpacity>
+          )}
         </>
       )}
 
@@ -354,7 +356,7 @@ export default function ClientWorkoutsScreen() {
           />
 
           {/* Book Session FAB */}
-          {clientId && (
+          {clientId && !isGuest && (
             <TouchableOpacity style={styles.fab} onPress={() => setBookingOpen(true)}>
               <Ionicons name="add" size={22} color={colors.textInverse} />
               <Text style={styles.fabLabel}>Book Session</Text>

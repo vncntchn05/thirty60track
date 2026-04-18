@@ -7,6 +7,7 @@ import { useRouter, Stack } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal';
+import { GuestLock } from '@/components/ui/GuestLock';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { createWorkoutWithSets } from '@/hooks/useWorkouts';
@@ -31,7 +32,7 @@ function formatDate(iso: string) {
 export default function ClientNewWorkoutScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { user, clientId } = useAuth();
+  const { user, clientId, isGuest } = useAuth();
   const { client } = useClientProfile();
   const t = useTheme();
 
@@ -148,6 +149,49 @@ export default function ClientNewWorkoutScreen() {
     setSaving(false);
     if (error) Alert.alert('Error', error);
     else { setIsDirty(false); router.back(); }
+  }
+
+  const formPreview = (
+    <View style={{ flex: 1 }}>
+      <View style={[styles.header, { backgroundColor: t.surface, borderBottomColor: t.border }]}>
+        <View style={styles.dateTouchable}>
+          <Text style={[styles.dateLabel, { color: t.textPrimary }]}>{formatDate(date)}</Text>
+          <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+        </View>
+        <View style={styles.metricsRow}>
+          <View style={styles.metricCol}>
+            <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Body weight (kg)</Text>
+            <View style={[styles.metricInput, { borderColor: t.border, backgroundColor: t.background }]} />
+          </View>
+          <View style={styles.metricCol}>
+            <Text style={[styles.metricLabel, { color: t.textSecondary }]}>Body fat (%)</Text>
+            <View style={[styles.metricInput, { borderColor: t.border, backgroundColor: t.background }]} />
+          </View>
+        </View>
+      </View>
+      <View style={styles.emptyState}>
+        <Ionicons name="barbell-outline" size={44} color={t.textSecondary} />
+        <Text style={[styles.emptyStateText, { color: t.textSecondary }]}>No exercises added yet</Text>
+      </View>
+      <View style={[styles.addExerciseBtn, { borderColor: colors.primary }]}>
+        <Ionicons name="add" size={20} color={colors.primary} />
+        <Text style={styles.addExerciseBtnText}>Add Exercise</Text>
+      </View>
+      <View style={[styles.saveBtn]}>
+        <Text style={styles.saveBtnText}>Save Workout</Text>
+      </View>
+    </View>
+  );
+
+  if (isGuest) {
+    return (
+      <View style={[styles.container, { backgroundColor: t.background }]}>
+        <Stack.Screen options={{ title: 'Log Workout' }} />
+        <GuestLock message="Sign up to log workouts and track your progress">
+          {formPreview}
+        </GuestLock>
+      </View>
+    );
   }
 
   if (showPicker) {

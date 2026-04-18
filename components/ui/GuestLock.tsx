@@ -7,29 +7,30 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 type Props = {
   children?: ReactNode;
   message?: string;
+  onClose?: () => void;
 };
 
-export function GuestLock({ children, message = 'Sign up to unlock this feature' }: Props) {
+export function GuestLock({ children, message = 'Sign up to unlock this feature', onClose }: Props) {
   const t = useTheme();
   const router = useRouter();
 
   return (
     <View style={styles.wrapper}>
-      {/* Faded content preview — not interactive */}
+      {/* Content renders at full opacity — overlay provides the dimming */}
       {children ? (
         <View style={styles.preview} pointerEvents="none">
           {children}
         </View>
-      ) : (
-        <View style={[styles.preview, { backgroundColor: t.background }]} pointerEvents="none" />
-      )}
+      ) : null}
 
-      {/* Gradient-like fade layer */}
-      <View style={[styles.fade, { backgroundColor: t.background }]} pointerEvents="none" />
-
-      {/* Lock overlay */}
-      <View style={[styles.lockOverlay, { backgroundColor: t.background + 'E6' }]}>
+      {/* Dark semi-transparent overlay dims content and hosts the lock card */}
+      <TouchableOpacity style={styles.lockOverlay} activeOpacity={1} onPress={onClose}>
         <View style={[styles.lockCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+          {onClose && (
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={20} color={t.textSecondary as string} />
+            </TouchableOpacity>
+          )}
           <View style={styles.iconWrap}>
             <Ionicons name="lock-closed" size={28} color={colors.primary} />
           </View>
@@ -50,7 +51,7 @@ export function GuestLock({ children, message = 'Sign up to unlock this feature'
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -62,18 +63,10 @@ const styles = StyleSheet.create({
   },
   preview: {
     flex: 1,
-    opacity: 0.18,
-  },
-  fade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '55%',
-    opacity: 0.7,
   },
   lockOverlay: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
@@ -86,6 +79,11 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
   },
   iconWrap: {
     width: 56,

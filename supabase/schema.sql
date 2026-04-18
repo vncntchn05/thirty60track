@@ -3148,3 +3148,86 @@ CREATE POLICY "client_intake_demo_select" ON client_intake
   USING (
     client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
   );
+
+-- ============================================================
+-- Migration 041 — Guest demo: anon-role read access
+-- When signInAnonymously() is unavailable the Supabase client
+-- falls back to the anon key (no JWT). Add parallel policies
+-- for the anon role so demo data is readable either way.
+-- ============================================================
+
+CREATE POLICY "clients_demo_select_anon" ON clients
+  FOR SELECT TO anon
+  USING (is_demo_client = TRUE);
+
+CREATE POLICY "workouts_demo_select_anon" ON workouts
+  FOR SELECT TO anon
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+CREATE POLICY "workout_sets_demo_select_anon" ON workout_sets
+  FOR SELECT TO anon
+  USING (
+    workout_id IN (
+      SELECT w.id FROM workouts w
+      JOIN clients c ON c.id = w.client_id
+      WHERE c.is_demo_client = TRUE
+    )
+  );
+
+CREATE POLICY "personal_records_demo_select_anon" ON personal_records
+  FOR SELECT TO anon
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+CREATE POLICY "assigned_workouts_demo_select_anon" ON assigned_workouts
+  FOR SELECT TO anon
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+CREATE POLICY "assigned_workout_exercises_demo_select_anon" ON assigned_workout_exercises
+  FOR SELECT TO anon
+  USING (
+    assigned_workout_id IN (
+      SELECT aw.id FROM assigned_workouts aw
+      JOIN clients c ON c.id = aw.client_id
+      WHERE c.is_demo_client = TRUE
+    )
+  );
+
+CREATE POLICY "assigned_workout_sets_demo_select_anon" ON assigned_workout_sets
+  FOR SELECT TO anon
+  USING (
+    assigned_workout_exercise_id IN (
+      SELECT awe.id FROM assigned_workout_exercises awe
+      JOIN assigned_workouts aw ON aw.id = awe.assigned_workout_id
+      JOIN clients c ON c.id = aw.client_id
+      WHERE c.is_demo_client = TRUE
+    )
+  );
+
+CREATE POLICY "client_credits_demo_select_anon" ON client_credits
+  FOR SELECT TO anon
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+CREATE POLICY "scheduled_sessions_demo_select_anon" ON scheduled_sessions
+  FOR SELECT TO anon
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+CREATE POLICY "client_intake_demo_select_anon" ON client_intake
+  FOR SELECT TO anon
+  USING (
+    client_id IN (SELECT id FROM clients WHERE is_demo_client = TRUE)
+  );
+
+-- exercises are a shared library — allow anon read so guest mode can browse them
+CREATE POLICY "exercises_anon_read" ON exercises
+  FOR SELECT TO anon
+  USING (true);

@@ -88,6 +88,7 @@ export default function ExercisesScreen() {
     tabParam === 'guides' ? 'guides' : tabParam === 'encyclopedia' ? 'encyclopedia' : 'exercises'
   );
   const [saving, setSaving] = useState(false);
+  const [guestExerciseLock, setGuestExerciseLock] = useState(false);
 
   // ── External DB ────────────────────────────────────────────────
   const [dbAll, setDbAll] = useState<DbExercise[]>([]);
@@ -350,6 +351,7 @@ export default function ExercisesScreen() {
       </View>
 
       {/* Main area */}
+      <View style={{ flex: 1 }}>
       <View style={[styles.mainRow, isVertical && styles.mainCol]}>
         {/* Body map — desktop side column only; on mobile it lives inside the scroll */}
         {!isVertical && (
@@ -573,6 +575,7 @@ export default function ExercisesScreen() {
                     t={t}
                     isFavourite={favouriteExerciseIds.has(item.id)}
                     onToggleFavourite={() => toggleFavourite('exercise', item.id)}
+                    onPress={isGuest ? () => setGuestExerciseLock(true) : undefined}
                   />
                 )}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -600,11 +603,20 @@ export default function ExercisesScreen() {
           ) : rightTab === 'encyclopedia' ? (
             isGuest ? (
               <GuestLock message="Sign up to access the full exercise encyclopedia">
-                <EncyclopediaPanel
-                  selectedMuscle={muscleFilter}
-                  onSelectMuscle={setMuscleFilter}
-                  isTrainer={false}
-                />
+                <View style={{ flex: 1 }}>
+                  {isVertical && (
+                    <View style={[styles.bodyMapRow, { borderBottomColor: t.border }]}>
+                      <View style={styles.bodyMapRowInner}>
+                        <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+                      </View>
+                    </View>
+                  )}
+                  <EncyclopediaPanel
+                    selectedMuscle={muscleFilter}
+                    onSelectMuscle={setMuscleFilter}
+                    isTrainer={false}
+                  />
+                </View>
               </GuestLock>
             ) : (
               <EncyclopediaPanel
@@ -623,13 +635,22 @@ export default function ExercisesScreen() {
           ) : (
             isGuest ? (
               <GuestLock message="Sign up to access workout guides and training programs">
-                <WorkoutGuides
-                  selectedMuscle={muscleFilter}
-                  onSelectMuscle={setMuscleFilter}
-                  isTrainer={false}
-                  initialTopicKey={topicParam ?? null}
-                  onExercisePress={() => {}}
-                />
+                <View style={{ flex: 1 }}>
+                  {isVertical && (
+                    <View style={[styles.bodyMapRow, { borderBottomColor: t.border }]}>
+                      <View style={styles.bodyMapRowInner}>
+                        <BodyMap selected={muscleFilter} onSelect={setMuscleFilter} />
+                      </View>
+                    </View>
+                  )}
+                  <WorkoutGuides
+                    selectedMuscle={muscleFilter}
+                    onSelectMuscle={setMuscleFilter}
+                    isTrainer={false}
+                    initialTopicKey={topicParam ?? null}
+                    onExercisePress={() => {}}
+                  />
+                </View>
               </GuestLock>
             ) : (
               <WorkoutGuides
@@ -651,7 +672,19 @@ export default function ExercisesScreen() {
               />
             )
           )}
+
         </View>
+      </View>
+
+      {/* Exercise lock — covers body map + list below the tab bar */}
+      {guestExerciseLock && (
+        <View style={StyleSheet.absoluteFillObject}>
+          <GuestLock
+            message="Sign up to view full exercise details, form notes, and video guides"
+            onClose={() => setGuestExerciseLock(false)}
+          />
+        </View>
+      )}
       </View>
 
       {/* FABs — trainers only, exercises tab only */}
@@ -676,16 +709,17 @@ export default function ExercisesScreen() {
 type Theme = ReturnType<typeof useTheme>;
 
 function ExerciseRow({
-  exercise, groupBy, t, isFavourite, onToggleFavourite,
+  exercise, groupBy, t, isFavourite, onToggleFavourite, onPress,
 }: {
   exercise: Exercise; groupBy: GroupBy; t: Theme;
   isFavourite: boolean; onToggleFavourite: () => void;
+  onPress?: () => void;
 }) {
   const router = useRouter();
   return (
     <TouchableOpacity
       style={[styles.row, { backgroundColor: t.surface, borderColor: t.border }]}
-      onPress={() => router.push(`/exercise/${exercise.id}` as never)}
+      onPress={onPress ?? (() => router.push(`/exercise/${exercise.id}` as never))}
     >
       <View style={styles.rowInfo}>
         <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{exercise.name}</Text>
