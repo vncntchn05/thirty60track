@@ -59,6 +59,12 @@ beforeEach(() => {
     authStateCallback = cb;
     return { data: { subscription: { unsubscribe: jest.fn() } } };
   });
+
+  // Default: regular (non-anonymous) user
+  (mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
+    data: { user: { id: 'trainer-uid', is_anonymous: false } },
+    error: null,
+  });
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
