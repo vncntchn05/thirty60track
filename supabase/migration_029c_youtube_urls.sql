@@ -1,6 +1,6 @@
 -- ================================================================
 -- Migration 029c: Verified YouTube help_url links
--- Generated 2026-04-18T19:24:14.369Z
+-- Generated 2026-04-19T17:15:07.263Z
 -- Source CSV: Supabase Snippet Link Client Row to Auth User (3).csv
 -- [KEEP] = existing URL verified correct
 -- [NEW]  = replaced or newly added via YouTube Data API v3 search
@@ -690,299 +690,299 @@ UPDATE exercises SET help_url = 'https://youtu.be/hZb6jTbCLeE' WHERE id = 'b77ed
 -- [KEEP] Mountain Climbers + Air Squats | "How to make progress with your mountain climbers 🔥 #shorts" (LisaFiitt Workouts)
 UPDATE exercises SET help_url = 'https://youtu.be/7W4JEfEKuC4' WHERE id = 'e5736e07-aa10-443e-a6d7-bd7e9278c099';
 
--- [NEW] Deadbug (Weighted) | "Dead Bug Exercise For Core Stability  | Pursuit Physical Therapy" (Pursuit Physical Therapy)
-UPDATE exercises SET help_url = 'https://youtu.be/o4GKiEoYClI' WHERE id = 'b664e58f-b1b8-400f-b3b0-4be5f9d7339a';
+-- [NEW] Plank In and Outs | "✅ The PERFECT Plank" (Andrew Kwong (DeltaBolic))
+UPDATE exercises SET help_url = 'https://youtu.be/xe2MXatLTUw' WHERE id = '85cecc8a-96c3-4237-8e1a-93b20ddf2306';
 
--- [NEW] Step Mill | "The ONLY CORRECT way to use the stair master" (TylerPath)
-UPDATE exercises SET help_url = 'https://youtu.be/6mYp_BNYD5Y' WHERE id = 'ed4488e7-1a31-40c1-83d3-60a3f90b530a';
+-- [NEW] Plank Jacks | "How To Master the Plank Jack Exercise" (Mobility Doc)
+UPDATE exercises SET help_url = 'https://youtu.be/2DnV_uCmILQ' WHERE id = 'c1c9bf20-187d-43be-842d-a6dc81269fde';
 
--- [NEW] Cycling | "Stationary Bike Workout for Beginners | 20 Minute" (Kaleigh Cohen Cycling)
-UPDATE exercises SET help_url = 'https://youtu.be/rEqRmKAQ5xM' WHERE id = '7bc2f8b9-d78d-4b23-b155-37cc23187b10';
+-- [NEW] Plank Modified | "NEVER Do Planks Like This (3 Fixes You Must Make)" (Jeremy Ethier)
+UPDATE exercises SET help_url = 'https://youtu.be/v25dawSzRTM' WHERE id = '5319cd44-2cf7-4a77-8436-c9d4e7201369';
 
--- [NEW] Teapots | "Teapot Stretch" (Eldon Thieu)
-UPDATE exercises SET help_url = 'https://youtu.be/xQOJPUSjLOQ' WHERE id = 'd4dd009c-4867-47b5-b062-5d508479e8b6';
+-- [NEW] Plank Shoulder Taps | "How To Properly Do a Plank with Shoulder Taps - Strength Exercises - Wellen" (Wellen)
+UPDATE exercises SET help_url = 'https://youtu.be/gKA5LBy7WAI' WHERE id = 'e6de318a-043f-4b47-b3ec-621b61b80985';
 
--- [NEW] Pushup | "PUSH UPS FOR BEGINNERS #shorts" (MadFit)
-UPDATE exercises SET help_url = 'https://youtu.be/HHRDXEG1YCU' WHERE id = '38d4d123-5560-4c33-a9d5-28e3b64ea3e6';
+-- [NEW] Plank Taps | "How to Do Plank Shoulder Taps #shorts" (Well+Good)
+UPDATE exercises SET help_url = 'https://youtu.be/eyeuugrpLYA' WHERE id = 'ffa4dd68-fece-452b-867c-73ab1c0f2420';
 
--- [NEW] Forward Leap | "Plyometric Training Workout" (Marcus Rios)
-UPDATE exercises SET help_url = 'https://youtu.be/I_cwsX_95nw' WHERE id = 'fa1381de-be3e-44f5-a7bb-d7b12abdf552';
+-- [NEW] Plank with Knee Taps | "How to Do a Plank with Knee Taps | Abs Workout" (Howcast)
+UPDATE exercises SET help_url = 'https://youtu.be/g57zkyRjYH4' WHERE id = '583e8079-eba2-426e-a59d-14a420c2eef5';
 
--- [NEW] in and out jumps | "HOW TO: JUMPING JACKS #jumpingjacks #cardio #exercise" (Courtneyofitness)
-UPDATE exercises SET help_url = 'https://youtu.be/7Pxr4xOrhNk' WHERE id = '72ef7f60-d21c-4d7c-92a7-d383fc0358e2';
+-- [NEW] Plank with Knee-to-Elbow | "Plank on Knees and Elbows Exercise" (Spine Science Front Desk)
+UPDATE exercises SET help_url = 'https://youtu.be/Y-ff-nkaRxU' WHERE id = '4e7d7975-401f-4b0a-9ee7-982cd5866bfb';
 
--- [NEW] Pushups | "PUSH UPS FOR BEGINNERS #shorts" (MadFit)
-UPDATE exercises SET help_url = 'https://youtu.be/HHRDXEG1YCU' WHERE id = '4e352135-601e-454b-a834-df1ef6decbce';
+-- [NEW] Plank with Row | "Plank Row - Dumbbells" (BEFORM Performance Physical Therapy)
+UPDATE exercises SET help_url = 'https://youtu.be/GfptgUS4QRA' WHERE id = '7f161afa-b02d-4fe1-9628-57ba6c27f793';
 
--- [NEW] isolate leg single leg decline situp | "BULLETPROOF Your Knees With This Exercise!" (Squat University)
-UPDATE exercises SET help_url = 'https://youtu.be/BtQ_S-XRP74' WHERE id = '237564e8-643a-47a8-9f55-417295de2b19';
+-- [NEW] Plank-to-Pushup | "Plank to pushup - upper body/core exercise" (Pat Carr)
+UPDATE exercises SET help_url = 'https://youtu.be/9PMGJqQnrGc' WHERE id = '40860b89-1565-4fb0-84d1-d25fedf5083e';
 
--- [NEW] Lying Stretches | "Day 18 | FREE Abs &amp; Fat Burn Challenge | FULL BODY RECOVERY STRETCH ✨ Muscle Pain Prevention" (Lilly Sabri)
-UPDATE exercises SET help_url = 'https://youtu.be/AUsbthQ9W-I' WHERE id = '33588261-5e0b-4d2a-846b-d37e1914229d';
+-- [NEW] Prone Horizontal Abduction | "Greensboro Orthopaedics: Prone Horizontal Abduction with Michele Erickson, PT, DPT, MS, OCS" (EmergeOrtho | Triad Region)
+UPDATE exercises SET help_url = 'https://youtu.be/AwBGMBEIw3Y' WHERE id = '98fdf3e7-4bed-4a6b-a2d2-61ea6ab24a83';
 
--- [NEW] Suitcase Carry (L/R) | "The Best Core Exercise You&#39;re Not Doing" (Squat University)
-UPDATE exercises SET help_url = 'https://youtu.be/LJaq4BS7KpE' WHERE id = 'abaefc42-4dd6-49c4-8466-17b82d206d33';
+-- [NEW] Prone Y Raise | "Bulletproof Your Shoulders With This Exercise! 🔥" (SaturnoMovement)
+UPDATE exercises SET help_url = 'https://youtu.be/cYLucJwoiFI' WHERE id = '9172a006-ca78-4641-a6c6-83013aad5899';
 
--- [NEW] Vertical Pogos | "Pogo Jumps" (Ashby Smith)
-UPDATE exercises SET help_url = 'https://youtu.be/L_khHgMz9uU' WHERE id = 'fef090a1-328f-4853-8bdb-1705ac83649d';
+-- [NEW] Prone Y-T-W Raises | "Prone Y T W" (The Active Life)
+UPDATE exercises SET help_url = 'https://youtu.be/QdGTI4Lshg4' WHERE id = '3adc179a-2f3a-4b67-8cee-2e0d36619349';
 
--- [NEW] standing rows | "Bent-Over Row | How To Perform It Correctly And Safely | Men&#39;s Health UK" (Men's Health UK)
-UPDATE exercises SET help_url = 'https://youtu.be/UL8ZcK64KxA' WHERE id = 'e0f4535c-3225-4923-a401-21f3548237a2';
+-- [NEW] Steady-State Walking | "🔥30 Min STEADY STATE WALKING for WEIGHT LOSS🔥NO JUMPING🔥Exercise to the Beat🔥🎶" (BurpeeGirl)
+UPDATE exercises SET help_url = 'https://youtu.be/xUhRWqAFbwc' WHERE id = 'f019a8e4-d230-408d-8e97-98267cd7e95a';
 
--- [NEW] Single Leg Pogos | "Pogo Jumps" (Ashby Smith)
-UPDATE exercises SET help_url = 'https://youtu.be/L_khHgMz9uU' WHERE id = '3f1e6431-f623-4924-a936-12ba2382035d';
+-- [NEW] Step-ups 4-inch box | "Step up form for QUADS vs GLUTES 🔥 #shorts" (LISAFIITT)
+UPDATE exercises SET help_url = 'https://youtu.be/8q9LVgN2RD4' WHERE id = '11f77604-504f-4915-b9f0-ce9e3dd70bf5';
 
--- [NEW] Bilateral Hops | "Pogo Jumps" (Ashby Smith)
-UPDATE exercises SET help_url = 'https://youtu.be/L_khHgMz9uU' WHERE id = '186bca06-39e2-4fa7-a339-7001dfdcc046';
+-- [NEW] Reverse Lunges | "How To Perform The Reverse Lunge" (Dr. Carl Baird)
+UPDATE exercises SET help_url = 'https://youtu.be/Ry-wqegeKlE' WHERE id = '4106887d-13db-4718-9869-d65d91a59352';
 
--- [NEW] Windshields/Alternate Knee Raises | "Leg Raise Windshield Wipers" (Ray Shepler)
-UPDATE exercises SET help_url = 'https://youtu.be/fpPp73LZQ8I' WHERE id = '7f5b3349-43e1-4bb3-8154-eca99c102e76';
+-- [NEW] Push-up (Weighted) | "The Only Push Up Guide You Will Ever Need" (Stozfit)
+UPDATE exercises SET help_url = 'https://youtu.be/pKZ-lkKKMws' WHERE id = 'a1a657b5-56c0-4893-8adb-85beefda7df9';
 
--- [NEW] Bodyweight Squats | "How to squat ✅" (Oliver Sjostrom)
-UPDATE exercises SET help_url = 'https://youtu.be/eFEVKmp3M4g' WHERE id = '0ce2b0b1-ddfc-46e2-b48d-cacd2360dce0';
+-- [NEW] Quad Sets | "Quad Sets" (Baptist Health)
+UPDATE exercises SET help_url = 'https://youtu.be/IF5eDfb8afM' WHERE id = '3dcf793e-69a4-4ea6-add3-2c673647e05d';
 
--- [NEW] Clamshells | "Mastering the Clamshell Exercise: Fixing Back, Hip, and Core Issues the Right Way!" (VIGEO)
-UPDATE exercises SET help_url = 'https://youtu.be/lp-VUWbFrYg' WHERE id = '4db3e876-7940-4ccf-a39f-af41365c156e';
+-- [NEW] Reverse Crunch | "How to Do Reverse Crunches Right | Deep Core Exercise ✅ #postpartum #workout #crunches #homeworkout" (Anastasia Vlassov)
+UPDATE exercises SET help_url = 'https://youtu.be/I-qRngqd2wY' WHERE id = '3597e96d-5c01-4e83-9e44-97f96f7df448';
 
--- [NEW] Deadbugs | "Dead Bug Exercise For Core Stability  | Pursuit Physical Therapy" (Pursuit Physical Therapy)
-UPDATE exercises SET help_url = 'https://youtu.be/o4GKiEoYClI' WHERE id = '7484fdbf-c56e-4a23-b291-efb688ed9136';
+-- [NEW] Glute Bridges | "The Right Way to Do a Glute Bridge" (AARP Answers)
+UPDATE exercises SET help_url = 'https://youtu.be/R6n608M3czU' WHERE id = '53146476-0b60-4c4a-a4cd-b7bc5f0d9662';
 
--- [NEW] Hamstring Curl | "Leg Curl Form Tips (DO THIS!)" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/_lgE0gPvbik' WHERE id = '6d0fcc06-23dc-4dd1-bf76-60cfb8726416';
+-- [NEW] Bird-Dog | "Bird Dog Exercise 🏋️‍♀️" (Spine Center & Orthopaedics Atlanta)
+UPDATE exercises SET help_url = 'https://youtu.be/Yap7kqAFHYo' WHERE id = 'a9facd2c-08cc-41ae-ae28-4896ee35d7dd';
 
--- [NEW] Single-Arm Dumbbell Row | "How to Single Arm Dumbbell Row" (TylerPath)
-UPDATE exercises SET help_url = 'https://youtu.be/qN54-QNO1eQ' WHERE id = '00d89f12-af2c-43b1-841c-3d28a88dc554';
+-- [NEW] Reverse Wrist Curls | "Do THESE to Build BIGGER Forearms!" (Andrew Kwong (DeltaBolic))
+UPDATE exercises SET help_url = 'https://youtu.be/sKXqNO2KQp8' WHERE id = 'ee5702fb-6f97-4ef0-be76-4c599ac77012';
 
--- [NEW] Barbell Row | "🔥 Best Barbell Row Tutorial ! #backworkout" (MIND WITH MUSCLE)
-UPDATE exercises SET help_url = 'https://youtu.be/MXfyuB6DjWE' WHERE id = 'fff3711b-38a4-487e-93d0-7c52efdbe890';
+-- [NEW] Rope Ladder Broad Jumps | "Beginner to Advanced Plyometrics for Runners" (Matthew Choi)
+UPDATE exercises SET help_url = 'https://youtu.be/iCuglFclkUM' WHERE id = '2ae30a39-96dc-4784-aed7-4a790b2585be';
 
--- [NEW] Bench Press | "How To Bench Press With Perfect Technique (5 Steps)" (Jeff Nippard)
-UPDATE exercises SET help_url = 'https://youtu.be/hWbUlkb5Ms4' WHERE id = '2fa2d1d3-4ea2-420a-a514-fd0800e0d90f';
+-- [NEW] Russian Twists | "Russian Twist for Beginners #beginnerworkout #obliqueworkout #coreworkouts #russiantwist" (Claire DeFitt)
+UPDATE exercises SET help_url = 'https://youtu.be/C3RauLi8FNw' WHERE id = 'f1f645b2-6f47-4be7-ac21-e47da17a6d4c';
 
--- [NEW] Dumbbell Squat and Press | "Dumbbell Squat and Overhead Press - Bikini Body Now Workout" (3v)
-UPDATE exercises SET help_url = 'https://youtu.be/7JtzNydMIJ8' WHERE id = '31b86a08-c898-4703-9da4-aa980254d32c';
+-- [NEW] Scapular Pull-up | "Drastically Improve Your Pull-Ups" (FitnessFAQs)
+UPDATE exercises SET help_url = 'https://youtu.be/WqCXcFrA1Iw' WHERE id = '09d71782-eda9-429b-ab6f-8f5079d7a75b';
 
--- [NEW] seated high row | "How to do a seated row" (Nuffield Health)
-UPDATE exercises SET help_url = 'https://youtu.be/DHA7QGDa2qg' WHERE id = '363cc770-2a65-40f8-a2d2-b652e96564bb';
+-- [NEW] Scapular Push-ups | "Scap Push ups" (The Active Life)
+UPDATE exercises SET help_url = 'https://youtu.be/NKekqeudgWs' WHERE id = '0489f8f0-fadc-4f5f-b429-33025dc5c590';
 
--- [NEW] Barbell Curl | "The Perfect Barbell Bicep Curl (DO THIS!)" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/54x2WF1_Suc' WHERE id = '0f4d1d9b-8cbb-47e3-8193-dd6b72d38707';
+-- [NEW] Scapular Setting | "Standing Scapular Setting" (MGHOrthopaedics)
+UPDATE exercises SET help_url = 'https://youtu.be/3X57B3y39EY' WHERE id = '0a6aee87-de52-4acf-9330-91a572218a78';
 
--- [NEW] Hamstring curl | "Leg Curl Form Tips (DO THIS!)" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/_lgE0gPvbik' WHERE id = 'dd429076-07dc-48c4-8661-2971840c4090';
+-- [NEW] Scapular Squeezes | "Shoulder exercise - scapular squeeze" (www.sportsinjuryclinic.net)
+UPDATE exercises SET help_url = 'https://youtu.be/QN1oZVMMRjE' WHERE id = 'acd81997-2123-41d2-9017-c2b9bc8f5cb0';
 
--- [NEW] DB Incline Press | "Incline DB Bench 🔥 BEST Guide Ever Made" (Davis Diley)
-UPDATE exercises SET help_url = 'https://youtu.be/ou6s32mJgjU' WHERE id = '3153bf6c-a798-47b4-87eb-92b2fb654c99';
+-- [NEW] Seated Medicine Ball Twists | "How to Do Seated Medicine Ball Twists" (Eat This, Not That!)
+UPDATE exercises SET help_url = 'https://youtu.be/VDvlA5opvuk' WHERE id = '37eb424a-02a1-4b1c-babe-1bb1311438ed';
 
--- [NEW] Bulgarian Split Squat | "How to Bulgarian Split Squat | 3 Simple Steps" (Davis Diley)
-UPDATE exercises SET help_url = 'https://youtu.be/uODWo4YqbT8' WHERE id = '439217d5-a4f5-4bc5-bf30-8f55d4abe58e';
+-- [NEW] Shadow Boxing | "Quick Shadow Boxing Tutorial by Olympian" (Tony Jeffries)
+UPDATE exercises SET help_url = 'https://youtu.be/J4j3AOVWuHE' WHERE id = '38a8d92d-4f3e-4ffd-92fe-6349e5eceb27';
 
--- [NEW] RDL | "RDL Tutorial: 3 Simple Steps" (Davis Diley)
-UPDATE exercises SET help_url = 'https://youtu.be/5rIqP63yWFg' WHERE id = 'af7adb56-80a5-471f-9609-9263f6a1e0d7';
+-- [NEW] Short Foot Exercise | "How to Short Foot" (Dan Ginader)
+UPDATE exercises SET help_url = 'https://youtu.be/D9qjQWqVIlI' WHERE id = '369a8104-5ee6-43a1-a3e4-7c0f6aa5c387';
 
--- [NEW] flat bench press | "How To Bench Press With Perfect Technique (5 Steps)" (Jeff Nippard)
-UPDATE exercises SET help_url = 'https://youtu.be/hWbUlkb5Ms4' WHERE id = '607f9637-4ba5-48cc-8034-736b22b5d04e';
+-- [NEW] Shuttle Runs (yd) | "3 Tips to blaze the 5-10-5 Shuttle Run 🔥💨" (Pick 6 Athletics)
+UPDATE exercises SET help_url = 'https://youtu.be/yZeJX_zTwys' WHERE id = 'fe1dfc4c-2fe5-427a-9f22-08a9e12d251a';
 
--- [NEW] Cable Pullover | "How to do the CABLE LAT PULLOVER! | 2 Minute Tutorial" (Max Euceda)
-UPDATE exercises SET help_url = 'https://youtu.be/32auHIqgEoM' WHERE id = 'd8f7ec36-03ff-411d-a9b4-ed64773a3845';
+-- [NEW] Side Plank Dips | "Side Plank with Hip Dips: 3 ways to make it work for you 🤍" (Tasha Franken)
+UPDATE exercises SET help_url = 'https://youtu.be/Pnd6UMYjwWE' WHERE id = '75f526c1-c4a9-4fbc-a5b0-bfa09a336ac7';
 
--- [NEW] high row | "Why you’re doing the machine high row wrong" (TylerPath)
-UPDATE exercises SET help_url = 'https://youtu.be/_Jqhs5V1aJg' WHERE id = '96d2129b-2b8b-4284-b565-146fef29e5a3';
+-- [NEW] Side Plank Weak Side | "Fix your side plank FAST #fitnesstips" (Zac Cupples)
+UPDATE exercises SET help_url = 'https://youtu.be/wP7xBF-LZxs' WHERE id = 'b5962ed2-7b90-46fa-a8be-48d45472faf2';
 
--- [NEW] DB Overhead Press | "Dumbbell Overhead Press - How To" (Bobby Maximus)
-UPDATE exercises SET help_url = 'https://youtu.be/Did01dFR3Lk' WHERE id = 'e4f70e4e-b998-4289-b2ba-8fd80d1d386e';
+-- [NEW] Side Plank with Hip Dip | "Side Plank with Hip Dips: 3 ways to make it work for you 🤍" (Tasha Franken)
+UPDATE exercises SET help_url = 'https://youtu.be/Pnd6UMYjwWE' WHERE id = '8714a5d7-d974-4a27-a7a3-b95a74ee56be';
 
--- [NEW] Face Pull | "4 Facepull Mistakes You Need to FIX!" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/IeOqdw9WI90' WHERE id = 'bbf96dcd-7134-4afb-bd56-5ccd28737a24';
+-- [NEW] Step-ups Low Step | "Step Up Exercise | Osteoarthritis Physiotherapy" (Cornerstone Physiotherapy)
+UPDATE exercises SET help_url = 'https://youtu.be/wfhXnLILqdk' WHERE id = 'dd3a14b4-fefb-43d1-9c91-348a01be34ee';
 
--- [NEW] Romanian Deadlift | "RDL Tutorial: 3 Simple Steps" (Davis Diley)
-UPDATE exercises SET help_url = 'https://youtu.be/5rIqP63yWFg' WHERE id = '425f37e1-c2eb-4995-9cb9-f74793a0f397';
+-- [NEW] Step-ups Slow and Controlled | "Step Up Exercise | Osteoarthritis Physiotherapy" (Cornerstone Physiotherapy)
+UPDATE exercises SET help_url = 'https://youtu.be/wfhXnLILqdk' WHERE id = '69ae53b7-b8ae-4bc8-a6ee-aaf1607a1976';
 
--- [NEW] isolated seated row | "How to do a seated row" (Nuffield Health)
-UPDATE exercises SET help_url = 'https://youtu.be/DHA7QGDa2qg' WHERE id = '38d791b3-ce58-42e0-a1fb-445e0f5bd0f3';
+-- [NEW] Wrist Curls | "Do THESE to Build BIGGER Forearms!" (Andrew Kwong (DeltaBolic))
+UPDATE exercises SET help_url = 'https://youtu.be/sKXqNO2KQp8' WHERE id = '7ce900b5-5445-40a7-9095-25865e3a99be';
 
--- [NEW] Calf Raise | "You&#39;re Doing Calf Raises WRONG | The Correct Way Taught By Physical Therapist" (Rehab and Revive)
-UPDATE exercises SET help_url = 'https://youtu.be/CtyIVeJH6lI' WHERE id = 'e89a3b3a-1f94-45b6-b8ac-a04051d6e3fe';
+-- [NEW] Wrist Extensions | "Dumbbell Wrist Extension Curl" (Kraken Fitness)
+UPDATE exercises SET help_url = 'https://youtu.be/xENVg7RX_O8' WHERE id = '8076053c-60b5-4b92-9bf8-c8db99bbef33';
 
--- [NEW] Rear Delt Dly | "The PERFECT Dumbbell Rear Delt Fly (DO THIS!)" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/LsT-bR_zxLo' WHERE id = '742ee1d0-6919-4fa3-9abe-a610b1e38ce8';
+-- [NEW] Side Planks | "How To Do A Side Plank | The Right Way | Well+Good" (Well+Good)
+UPDATE exercises SET help_url = 'https://youtu.be/XeN4pEZZJNI' WHERE id = '529499ad-6e6e-4ff6-a584-43fa9d0ec611';
 
--- [NEW] Walking Lunges | "Proper Lunge Technique" (Fundamentals Physiotherapy & Wellness Clinic)
-UPDATE exercises SET help_url = 'https://youtu.be/1cS-6KsJW9g' WHERE id = '045eb133-8e12-4aea-9e56-a6615a477d0f';
+-- [NEW] Side-Lying Hip Abduction | "Side Lying Hip Abduction" (Baptist Health)
+UPDATE exercises SET help_url = 'https://youtu.be/g9FtnmsIYgI' WHERE id = '706dc6a8-fade-4244-945d-6349c0ec0b89';
 
--- [NEW] cable pullover | "How to do the CABLE LAT PULLOVER! | 2 Minute Tutorial" (Max Euceda)
-UPDATE exercises SET help_url = 'https://youtu.be/32auHIqgEoM' WHERE id = 'e54ceba1-10c3-45a1-871f-e432d8fd1467';
+-- [NEW] Side-Lying Leg Lifts | "Pelvic health education Side lying leg lift" (Sheffield Teaching Hospitals NHS Foundation Trust)
+UPDATE exercises SET help_url = 'https://youtu.be/pNismoYr1Fg' WHERE id = '0e123587-9e8a-49a8-b028-24633bc97efb';
 
--- [NEW] knee raises | "Wake Up &amp; Burn Fat: 100 High Knees, 100 Knee Raises, 100 Squats = Flat Stomach" (Fitness and Fitness)
-UPDATE exercises SET help_url = 'https://youtu.be/j9rj0LvQ0so' WHERE id = '73392c4a-fd48-440b-94dd-22e66616b11f';
+-- [NEW] Side-to-Side Step Touches | "Side Step Exercise" (Whzan Digital Health)
+UPDATE exercises SET help_url = 'https://youtu.be/C0kFihNtCtA' WHERE id = 'fefbbfae-a768-4c46-b762-393b11b8d532';
 
--- [NEW] Cable Face Pulls | "4 Facepull Mistakes You Need to FIX!" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/IeOqdw9WI90' WHERE id = 'f6f05350-3435-48ba-af10-d377d0c08941';
+-- [NEW] Single Leg Decline | "Single Leg Decline Squat" (American Family Physician)
+UPDATE exercises SET help_url = 'https://youtu.be/JBvdaCsU3_4' WHERE id = '418eb9b8-086d-4b22-92ee-3b4928e2faf7';
 
--- [NEW] Lat Pulldown | "Beginner&#39;s Guide: Lat Pulldown" (SilverSneakers)
-UPDATE exercises SET help_url = 'https://youtu.be/AOpi-p0cJkc' WHERE id = '07f6c3d0-1757-4f0c-8e81-d3629fb35b9b';
+-- [NEW] Single Leg Heel Raise | "How to do Single Leg Heel Raise - Strength Exercise - Wellen" (Wellen)
+UPDATE exercises SET help_url = 'https://youtu.be/kZSJlG6ntWg' WHERE id = '475bd195-f663-4800-943f-7ea92ce80346';
 
--- [NEW] Smith Flat Bench Press | "❌ 5 Smith Machine Bench Press Mistakes (Fix These!)" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/gQ3afio08V8' WHERE id = '0c96823a-ec35-42f0-86be-baa13b2fb2fc';
+-- [NEW] Single-Leg Balance | "Single Leg Balance Exercise" (Coury & Buehler Physical Therapy)
+UPDATE exercises SET help_url = 'https://youtu.be/7SF7AYh2_Yw' WHERE id = '7d936185-2990-4de3-8ebc-b1058379c669';
 
--- [NEW] Bird Dog | "Bird Dog Exercise 🏋️‍♀️" (Spine Center & Orthopaedics Atlanta)
-UPDATE exercises SET help_url = 'https://youtu.be/Yap7kqAFHYo' WHERE id = 'e84b7379-b5b8-4604-804a-825da7b60dd9';
+-- [NEW] Single-Leg Balance Eyes Closed | "Bulletproof Fitness: Single Leg Stance (Eyes Closed)" (KIME Performance Physical Therapy)
+UPDATE exercises SET help_url = 'https://youtu.be/T2WwK2JT2d0' WHERE id = 'b86cd0e2-2138-49c6-b8e7-c37595748556';
 
--- [NEW] Hammer Curl | "How To Perform HAMMER CURLS | Biceps Exercise Tutorial" (Buff Dudes Workouts)
-UPDATE exercises SET help_url = 'https://youtu.be/BRVDS6HVR9Q' WHERE id = '8aed8c66-0166-490d-9a1b-a18c0b50e68b';
+-- [NEW] Single-Leg Balance Eyes Open | "Bulletproof Fitness: Single Leg Stance (Eyes Closed)" (KIME Performance Physical Therapy)
+UPDATE exercises SET help_url = 'https://youtu.be/T2WwK2JT2d0' WHERE id = '6778486c-45d6-4a52-9e18-2660e442cec3';
 
--- [NEW] Bent Over Barbell Row | "Bent-Over Row | How To Perform It Correctly And Safely | Men&#39;s Health UK" (Men's Health UK)
-UPDATE exercises SET help_url = 'https://youtu.be/UL8ZcK64KxA' WHERE id = '0a51bc2e-6b1e-4931-a080-2c5fb572aa31';
+-- [NEW] Single-Leg Balance Wall Support | "Single Leg Balance Exercise" (Coury & Buehler Physical Therapy)
+UPDATE exercises SET help_url = 'https://youtu.be/7SF7AYh2_Yw' WHERE id = 'f4cf7722-e52a-4a5f-873a-881d2cc4f9ab';
 
--- [NEW] Hip Thrust | "How To Perform Hip Thrusts  | An Advanced Glute Bridge Progression" (Dr. Carl Baird)
-UPDATE exercises SET help_url = 'https://youtu.be/4z_2oHvIvkA' WHERE id = '3db09c4d-0239-4be4-80a5-cd7fe9e8cc2c';
+-- [NEW] Single-Leg Bridge | "Strengthening Exercise for ACL: Single Leg Bridge" (MedStar Health)
+UPDATE exercises SET help_url = 'https://youtu.be/AVAXhy6pl7o' WHERE id = '17d74828-4bea-4f19-9083-0b774b6b4011';
 
--- [NEW] Skull Crusher | "How to do the SKULLCRUSHER! | 2 Minute Tutorial" (Max Euceda)
-UPDATE exercises SET help_url = 'https://youtu.be/S0fmDR60X-o' WHERE id = '232e88d9-30ff-4b5c-9c86-f99974b4ac68';
+-- [NEW] Single-Leg Heel Raises | "How to do Single Leg Heel Raise - Strength Exercise - Wellen" (Wellen)
+UPDATE exercises SET help_url = 'https://youtu.be/kZSJlG6ntWg' WHERE id = '1e219531-ff5c-4f40-a06b-e23ce8a62eb8';
 
--- [NEW] Push-Up | "Learn How To Do a Push-Up" (Kayla Itsines)
-UPDATE exercises SET help_url = 'https://youtu.be/P3D2PPMYWjk' WHERE id = '41e6d3c5-8866-4cf9-bf8d-2052b11d9ff5';
+-- [NEW] Single-Leg Hops | "Single Leg Hop/Absorb" (Austin Longevity Clinic)
+UPDATE exercises SET help_url = 'https://youtu.be/nekKEq-6FiY' WHERE id = '79f83991-5d2b-431c-9385-56df5141bd35';
 
--- [NEW] decline press | "❌ Decline Bench Press Mistake (AVOID THIS!)" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/a-UFQE4oxWY' WHERE id = '2acc0a31-fc0a-4c2b-ba5d-8a7d7f0213f3';
+-- [NEW] Single-Leg RDL Bodyweight | "This Bodyweight Exercise CANNOT Be Ignored" (ATHLEAN-X™)
+UPDATE exercises SET help_url = 'https://youtu.be/Iq1LP6dnf1U' WHERE id = '9907be9f-e091-4974-ac42-f614ec45dd14';
 
--- [NEW] pullover | "How to Get a Pullover | Pullover Drills" (Coach Christa)
-UPDATE exercises SET help_url = 'https://youtu.be/gvFFX5cD_og' WHERE id = 'a95c5e14-e5dc-4d9d-9670-646dd14d8c00';
+-- [NEW] Single-Leg Step-Up | "Step up form for QUADS vs GLUTES 🔥 #shorts" (LISAFIITT)
+UPDATE exercises SET help_url = 'https://youtu.be/8q9LVgN2RD4' WHERE id = 'c94364c0-3438-44bd-9ab3-8a8312b66e93';
 
--- [NEW] Pallof Press | "How to perform the pallof press (core exercise)" (Beyond Measure Fitness Training)
-UPDATE exercises SET help_url = 'https://youtu.be/5aZ0IhJS8O8' WHERE id = 'db4a6e75-2b25-4eab-9b3c-6a6c36e14898';
+-- [NEW] Sit-to-Stand Chair | "Chair Sit to Stand or Chair Squat" (Precision Human Performance)
+UPDATE exercises SET help_url = 'https://youtu.be/cUz_TSy7_fw' WHERE id = '9cbea061-72b4-4b01-bedf-7cd272ac83bc';
 
--- [NEW] Hanging Leg Raises | "Hanging Leg Raise | HOW-TO" (ATHLEAN-X™)
-UPDATE exercises SET help_url = 'https://youtu.be/Pr1ieGZ5atk' WHERE id = '143eff06-5ce2-4a69-9191-2686cc9b90b7';
+-- [NEW] Sit-to-Stand Controlled | "Sit to Stand" (Baptist Health)
+UPDATE exercises SET help_url = 'https://youtu.be/ITv-_BkcrD0' WHERE id = '5c7b94e7-270c-418a-b353-e93b97d4ec1d';
 
--- [NEW] Bicycle Crunches | "Strengthening the core: Bicycle Crunch" (UCLA Health)
-UPDATE exercises SET help_url = 'https://youtu.be/eqg47ZuGZXQ' WHERE id = 'e42fbdc9-2ae5-4813-9df9-1947777346f4';
+-- [NEW] Skater Jumps | "Skater Jumps" (Athletic Institute)
+UPDATE exercises SET help_url = 'https://youtu.be/qM5jviFhw9U' WHERE id = '86b55fbe-0338-4668-928e-a936cf008270';
 
--- [NEW] Forearm Plank | "How to do a forearm plank | proper plank form #shorts #short #plank" (Active Annie)
-UPDATE exercises SET help_url = 'https://youtu.be/UQ78pw0WNZI' WHERE id = '2196cfb8-1303-4c49-b4af-2ab4c22dc9d2';
+-- [NEW] Slow Lateral Weight Shifts | "Lateral Weight Shift" (SPECTRUM Performance)
+UPDATE exercises SET help_url = 'https://youtu.be/sbONN-LVLsg' WHERE id = '02804692-55fd-4d62-8440-6f59453afb10';
 
--- [NEW] Cable Lateral Raise | "Stop Messing Up Lateral Raises (Easy Fix)" (Jeff Nippard)
-UPDATE exercises SET help_url = 'https://youtu.be/f_OGBg2KxgY' WHERE id = '6b049a6a-af28-4904-82c9-bec0646b0cdc';
+-- [NEW] Speed Skaters | "Speed Skaters Exercise (Skater Hops): Proper Form" (BuiltLean®)
+UPDATE exercises SET help_url = 'https://youtu.be/9_jLW6VkU8A' WHERE id = '8be6b32c-9190-40e9-bb55-b38745111384';
 
--- [NEW] Cable Row | "Seated Cable Row – Full Video Tutorial &amp; Exercise Guide" (Fit Father Project - Fitness For Busy Fathers)
-UPDATE exercises SET help_url = 'https://youtu.be/CsROhQ1onAg' WHERE id = '6db3aa53-12f5-4a74-a7cd-96124061f812';
+-- [NEW] Spiderman Push-ups | "Spider Push Up: Proper Form" (BuiltLean®)
+UPDATE exercises SET help_url = 'https://youtu.be/qG2oWGqXSdw' WHERE id = '9bd9cd53-72a5-40c2-921b-4399e6c95fda';
 
--- [NEW] Seated Row | "How to do a seated row" (Nuffield Health)
-UPDATE exercises SET help_url = 'https://youtu.be/DHA7QGDa2qg' WHERE id = 'f1a139a6-c8bf-4973-a6a5-760e6a766fc7';
+-- [NEW] Squat Thrusts | "Squat Thrusts Exercise — (HOW TO DO A SQUAT THRUST)" (Fit Father Project - Fitness For Busy Fathers)
+UPDATE exercises SET help_url = 'https://youtu.be/F1kVWDpH6co' WHERE id = '35d0d9ac-ddbd-478e-b977-e4a04d5db2f6';
 
--- [NEW] Glute Bridge | "How to Perform the Perfect Glute Bridge" (Airrosti Rehab Centers)
-UPDATE exercises SET help_url = 'https://youtu.be/OUgsJ8-Vi0E' WHERE id = '08e94c1d-f306-4734-9610-387b5626b503';
+-- [NEW] Squat to Box | "How to Box Squat PROPERLY!" (Misfit Athletics)
+UPDATE exercises SET help_url = 'https://youtu.be/nBc_2Jyp3tM' WHERE id = 'b6d43425-5081-4c28-9f59-b8b856c5ca83';
 
--- [NEW] Barbell Ab Rollout | "Barbell Rollout" (The Active Life)
-UPDATE exercises SET help_url = 'https://youtu.be/3C1TRMJveXo' WHERE id = 'ca50548c-d937-4474-991b-cf8afa17ebba';
+-- [NEW] Standing Side Leg Lifts | "Hip Strengthening Exercise: Standing Side Leg Lift" (Penn State Health)
+UPDATE exercises SET help_url = 'https://youtu.be/l_U2uoePtS4' WHERE id = '9a74a00d-5917-4735-a16c-143e50a0e916';
 
--- [NEW] Standing Single-Arm Press | "How to PROPERLY Single Arm Dumbbell Shoulder Press ✅ (TRY THIS)" (Colossus Fitness)
-UPDATE exercises SET help_url = 'https://youtu.be/KLSYjgShghk' WHERE id = '29a3c98a-7878-454c-95ff-5e8f0af75eca';
+-- [NEW] Step-ups/Weighted | "How To: Weighted Step Ups" (Forty Steps)
+UPDATE exercises SET help_url = 'https://youtu.be/PzDbmqL6qo8' WHERE id = 'e6e1e12b-85fc-4b93-a8d0-f4b074a9af3d';
 
--- [NEW] leg extension | "How to do a Leg Extension (Alternate Exercise): Health e-University" (Health e-University)
-UPDATE exercises SET help_url = 'https://youtu.be/TeWSOxCRU1c' WHERE id = '71df72e3-8ced-4795-a005-b7a7671b04d8';
+-- [NEW] Straight Leg Raises | "Straight Leg Raises" (Baptist Health)
+UPDATE exercises SET help_url = 'https://youtu.be/U4L_6JEv9Jg' WHERE id = '92967ee3-b77a-4e8a-bd33-c0a0c27c1a53';
 
--- [NEW] Smith Incline Press | "Easiest Way to Set Up Incline Smith Machine Bench Press (in Less than 1 Minute)" (TylerPath)
-UPDATE exercises SET help_url = 'https://youtu.be/ohRa_YRmVCk' WHERE id = '8d669b2a-4e11-42c8-9603-1eb66fbaca6a';
+-- [NEW] T-Pushups | "PUSH UPS FOR BEGINNERS #shorts" (MadFit)
+UPDATE exercises SET help_url = 'https://youtu.be/HHRDXEG1YCU' WHERE id = '78a71cf1-dcf8-46c8-a312-185a17defedf';
 
--- [NEW] Leg Press | "How To Leg Press With Perfect Technique" (Jeff Nippard)
-UPDATE exercises SET help_url = 'https://youtu.be/nDh_BlnLCGc' WHERE id = '412295da-9c4c-4be5-9912-ec06c1a2ad5c';
+-- [NEW] Tandem Stance | "Tandem Stance - Ask Doctor Jo" (AskDoctorJo)
+UPDATE exercises SET help_url = 'https://youtu.be/ra7tzlPxnsQ' WHERE id = 'e93de60f-6a29-45a9-9190-2ea992b180af';
 
--- [NEW] Cable Fly | "Do Cable Flyes LIKE THIS for a BIGGER CHEST" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/tGXIQR89-JE' WHERE id = 'b3cf51a0-28e6-4669-8764-384cd46702fc';
+-- [NEW] Tandem Walk | "Tandem walk" (ALTA Physical Therapy & Pilates)
+UPDATE exercises SET help_url = 'https://youtu.be/deJzbPpJtLI' WHERE id = '5da6a637-8b14-4f08-a146-06d2d6c49dbe';
 
--- [NEW] DB Bench Press | "Best Dumbbell Bench Press Tutorial Ever Made" (Davis Diley)
-UPDATE exercises SET help_url = 'https://youtu.be/1V3vpcaxRYQ' WHERE id = 'bcd106ef-4d81-4360-8d5d-096f8d712a25';
+-- [NEW] Tempo Push-ups | "Tempo Push-Ups: Instructional Video" (Good Life Health and Wellness )
+UPDATE exercises SET help_url = 'https://youtu.be/0cKBHNJZWlQ' WHERE id = 'c20bf8f0-c03e-4fc9-b86c-aee93292ac64';
 
--- [NEW] Smith Machine Decline Press | "How to perform a Decline Bench Press in the Smith Machine for Bigger Lower Chest Gains" (Ryan Sapstead Coaching)
-UPDATE exercises SET help_url = 'https://youtu.be/ZZZLtgOKqfk' WHERE id = '32737aab-5a3d-454a-8cd4-5900559d8cd7';
+-- [NEW] Toe Raises | "Toe Raises - Ask Doctor Jo" (AskDoctorJo)
+UPDATE exercises SET help_url = 'https://youtu.be/enJ6yYJerVw' WHERE id = 'a4121562-b1db-4743-815d-fbbca22f21fb';
 
--- [NEW] RDL (Dumbbells) | "The Dumbbell Romanian Deadlift - Form Guide (Safest Way to Do Them)" (David Iglesias)
-UPDATE exercises SET help_url = 'https://youtu.be/vnEANU7BqqY' WHERE id = '582b987a-2e58-488a-963b-0695161e7fc4';
+-- [NEW] Toe Taps | "Pilates Toe Taps, Single" (FitnessBlender)
+UPDATE exercises SET help_url = 'https://youtu.be/A5H4t2ZMos8' WHERE id = 'a76ddae3-6024-4cda-8726-85f6babdbaa6';
 
--- [NEW] Face Pulls | "4 Facepull Mistakes You Need to FIX!" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/IeOqdw9WI90' WHERE id = '1a80be7b-ae64-4277-bf0d-1351715219df';
+-- [NEW] Towel Curls | "Towel Curls" (Baptist Health)
+UPDATE exercises SET help_url = 'https://youtu.be/RVbYKwWwauU' WHERE id = '1591a55a-e7ea-4466-a883-5bf5ea44396c';
 
--- [NEW] DB Goblet Squat | "📌HOW TO DO A GOBLET SQUAT" (SquatCouple)
-UPDATE exercises SET help_url = 'https://youtu.be/lRYBbchqxtI' WHERE id = '065a0722-2eb1-4a19-81f0-7d9f0cf918a4';
+-- [NEW] Towel Grip Row | "TOWEL ROW FOR MAXIMUM GAINS" (Peter Edwards`)
+UPDATE exercises SET help_url = 'https://youtu.be/FVxT8QuAU-0' WHERE id = 'b8d5cc32-1f67-4346-bcfa-c7702fff89d1';
 
--- [NEW] Overhead Tricep Extension | "HOW TO: Overhead Triceps Extension (BEST EXERCISE FOR HUGE TRICEPS) || PERFECT FORM (POWERBOMB)" (ScottHermanFitness)
-UPDATE exercises SET help_url = 'https://youtu.be/fYqswDVbJDg' WHERE id = '910a5603-6f71-464a-950c-912ceda653c0';
+-- [NEW] Towel Toe Scrunches | "Toe Towel Crunch" (Hope Physical Therapy and Aquatics)
+UPDATE exercises SET help_url = 'https://youtu.be/RoEmHev3KZ8' WHERE id = 'e471ec62-b3b2-42ee-98d3-cfa37cfe6d44';
 
--- [NEW] Alternate Incline Dumbbell Curl | "How to do the Incline Dumbbell Curl Correctly" (TylerPath)
-UPDATE exercises SET help_url = 'https://youtu.be/XhIsIcjIbCw' WHERE id = '02e7f245-0725-4261-97f4-0179712feccb';
+-- [NEW] Treadmill Run | "20-Minute Treadmill Workout for Weight Loss - [Quick &amp; Effective HIIT🔥]" (AbundantYou with Dr Kevin)
+UPDATE exercises SET help_url = 'https://youtu.be/eGZ_3MbXAnM' WHERE id = '1b5ba032-c8e9-4b79-b430-7f62d65ac976';
 
--- [NEW] triceps rope extensions | "Triceps Rope Extensions Setup in 10 Seconds ✅" (Aakash Wadhwani)
-UPDATE exercises SET help_url = 'https://youtu.be/6Dh8sD6aNQE' WHERE id = 'dcc2bc2c-8436-4029-be41-f16d955ace31';
+-- [NEW] Treadmill Walking | "Beginner Treadmill Walking Workout - Interval Incline | 20 Minutes" (Sunny Health & Fitness)
+UPDATE exercises SET help_url = 'https://youtu.be/vdsaHSr1H_E' WHERE id = '4a02dd14-58fe-468a-8c4e-16c23bb4761c';
 
--- [NEW] squat dumbbell | "#howto Dumbbell Squats 🏋🏾‍♀️ Best Beginner leg exercise for strength #ulissesworld #legday #gym" (Ulisses World)
-UPDATE exercises SET help_url = 'https://youtu.be/OTyb4YUDYYY' WHERE id = '466b9aa8-8659-4964-9a53-43404ada9965';
+-- [NEW] V-Ups | "Exercise Tutorial - V-Up" (XHIT Daily)
+UPDATE exercises SET help_url = 'https://youtu.be/iP2fjvG0g3w' WHERE id = '70f5b749-7517-4270-8ecf-70b04596b80e';
 
--- [NEW] wood chopper | "How To Do A Dumbbell Woodchop | The Right Way | Well+Good" (Well+Good)
-UPDATE exercises SET help_url = 'https://youtu.be/b65s5BtdOEc' WHERE id = '85dfe48f-985c-4d70-a2d3-d4afb5f7a95f';
+-- [NEW] V-Ups/Knee Raises | "V-Up Exercise #abs #workouttips #vup #lowerabs" (Claire DeFitt)
+UPDATE exercises SET help_url = 'https://youtu.be/BNIPC_HaXWQ' WHERE id = 'e98e284a-04ce-4e5e-8da6-23e27b6d1642';
 
--- [NEW] Lateral Raise | "The Perfect Lateral Raise (DO THIS!)" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/Kl3LEzQ5Zqs' WHERE id = '15024e35-53be-4f6c-8641-ef99ef0d5783';
+-- [NEW] Walking | "Walking Exercise with the SUPER Coaches! | Walk at Home" (Walk at Home)
+UPDATE exercises SET help_url = 'https://youtu.be/AdqrTg_hpEQ' WHERE id = '2da180dc-5062-4bc2-b901-e5c3896e6b66';
 
--- [NEW] Box Squat | "Box Squat Movement Demo" (The Active Life)
-UPDATE exercises SET help_url = 'https://youtu.be/rMEPHwNhQfo' WHERE id = 'b6e39f07-c69d-4a85-8d00-114466ab6e12';
+-- [NEW] Wall Dead Bug | "Wall Deadbugs" (Daily Workout Builder)
+UPDATE exercises SET help_url = 'https://youtu.be/_ikKLR2FyYM' WHERE id = 'd2c02b0b-4447-4e05-8834-c08db3bd06c7';
 
--- [NEW] Deadlift | "How to Deadlift: 5 Simple Steps" (Davis Diley)
-UPDATE exercises SET help_url = 'https://youtu.be/vfKwjT5-86k' WHERE id = '300ee56b-df67-4e5e-aff8-51ce6416e171';
+-- [NEW] Wall Push-ups | "6: Push-ups against a wall" (Sunnybrook Hospital)
+UPDATE exercises SET help_url = 'https://youtu.be/5NPvv40gd3Q' WHERE id = 'c7adffb4-c0a0-4ea7-96e7-fefa828f42ee';
 
--- [NEW] Incline Bench Press | "The Perfect Incline Bench Press‼️" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/98HWfiRonkE' WHERE id = 'ef3cb3d8-f697-463a-b77e-a4692e2c9c01';
+-- [NEW] Wall Sits Partial Depth | "How to do a wall sit" (YOGABODY)
+UPDATE exercises SET help_url = 'https://youtu.be/mDdLC-yKudY' WHERE id = '59171879-4320-4a26-8184-9cb27c13bc5f';
 
--- [NEW] decline DB press | "❌ Decline Bench Press Mistake (AVOID THIS!)" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/a-UFQE4oxWY' WHERE id = '45d918fa-d696-48ae-9554-89761ec98837';
+-- [NEW] Wall Slides | "Wall Slides" (Daily Workout Builder)
+UPDATE exercises SET help_url = 'https://youtu.be/i_0zLUcE-zk' WHERE id = 'da697fcc-3659-48b9-b41d-e3c234cf466a';
 
--- [NEW] flat bench | "How To Bench Press With Perfect Technique (5 Steps)" (Jeff Nippard)
-UPDATE exercises SET help_url = 'https://youtu.be/hWbUlkb5Ms4' WHERE id = '2be4ff68-fb19-42cc-afbf-beee30488728';
+-- [NEW] Warm-Up Walking | "3 best walking warm up exercises to walk easier ✅" (Alyssa Kuhn, Arthritis Adventure)
+UPDATE exercises SET help_url = 'https://youtu.be/WBhmNTykYiE' WHERE id = '96fc1ad2-b7c1-424c-9f34-905c1a894e12';
 
--- [NEW] Incline bench row narrow | "Setting Up for Chest Supported Dumbbell Rows in 10 Seconds ✅" (Aakash Wadhwani)
-UPDATE exercises SET help_url = 'https://youtu.be/czoQ_ncuqqI' WHERE id = '565ee894-de36-4714-b32b-e3de67484552';
+-- [NEW] Weighted Step-ups | "How To: Weighted Step Ups" (Forty Steps)
+UPDATE exercises SET help_url = 'https://youtu.be/PzDbmqL6qo8' WHERE id = '2c3d09a5-65a2-41ff-9b39-3c8c0f4c7df1';
 
--- [NEW] Standing Cable Wood Chop | "HOW TO: Cable Wood Chop" (Goodlife Health Clubs)
-UPDATE exercises SET help_url = 'https://youtu.be/ZDt4MCvjMAA' WHERE id = '25395c37-9145-4a61-89de-271ae067a7e5';
+-- [NEW] Resistance Band Ankle Inversion | "Ankle Inversion with Theraband" (Hope Physical Therapy and Aquatics)
+UPDATE exercises SET help_url = 'https://youtu.be/3pmV9xXMQJI' WHERE id = 'afe10a07-4325-4da9-9278-4dc5d6e7db83';
 
--- [NEW] Pull-Up | "How To Get Your First Pull Up" (Pierre Dalati)
-UPDATE exercises SET help_url = 'https://youtu.be/RhNyvtK-IaA' WHERE id = 'b1193543-d504-4626-835c-87c47b331a06';
+-- [NEW] Resistance Band Ankle Eversion | "Ankle resistance band exercises to deal with ankle pain" (Athletico)
+UPDATE exercises SET help_url = 'https://youtu.be/QPZDLanJwEk' WHERE id = '64bbdc84-4413-4d3f-a04c-f5f77e7bd005';
 
--- [NEW] Seated Cable Row | "How to do a seated row" (Nuffield Health)
-UPDATE exercises SET help_url = 'https://youtu.be/DHA7QGDa2qg' WHERE id = '7b547802-dc7f-406d-829e-c3c81cd4d6c1';
+-- [NEW] Resistance Band Rows | "How To Do A Resistance Band Row" (Get Healthy U - with Chris Freytag)
+UPDATE exercises SET help_url = 'https://youtu.be/LSkyinhmA8k' WHERE id = 'fa1b7043-8b44-4327-a9f1-8b160c22c80c';
 
--- [NEW] Dead Bug | "Dead Bug Exercise For Core Stability  | Pursuit Physical Therapy" (Pursuit Physical Therapy)
-UPDATE exercises SET help_url = 'https://youtu.be/o4GKiEoYClI' WHERE id = 'a57eabc8-dfa9-42e1-94c8-cedbd98626ab';
+-- [NEW] Resistance Band Bicep Curls | "Resistance Band Bicep Curls" (PERSIST NUTRITION)
+UPDATE exercises SET help_url = 'https://youtu.be/OUrlYlNqipY' WHERE id = '338c0ef4-05df-46e4-8e34-48e137ef0932';
 
--- [NEW] Overhead Press | "Perfect Overhead Press Form (DO THIS!)" (Andrew Kwong (DeltaBolic))
-UPDATE exercises SET help_url = 'https://youtu.be/zoN5EH50Dro' WHERE id = '428141b0-63cf-4467-9514-fb6cbd01ea88';
+-- [NEW] Resistance Band Chest Press | "Resistance Band Standing Chest Press" (LGN Lyfestile)
+UPDATE exercises SET help_url = 'https://youtu.be/T0UJ0W-_yIE' WHERE id = 'f99f050b-565f-4e87-9874-cefb1317e7e8';
 
--- [NEW] Cable Woodchops | "Try This Underrated Oblique Exercise 🔥 #woodchoppers" (adrianleungfit)
-UPDATE exercises SET help_url = 'https://youtu.be/YIU0U_B57rU' WHERE id = 'b1254d46-2f3a-4be9-a649-cfbc86c40e71';
+-- [NEW] Resistance Band Shoulder Press | "Resistance Band Overhead Press" (LGN Lyfestile)
+UPDATE exercises SET help_url = 'https://youtu.be/1-VfJqjYquQ' WHERE id = 'ea4e37ae-e080-4cc5-9d8b-c748ab8c76ca';
 
--- [NEW] Barbell Squat | "Best Squat Tutorial Ever Made" (Davis Diley)
-UPDATE exercises SET help_url = 'https://youtu.be/MLoZuAkIyZI' WHERE id = '62a11aa7-f3cf-4572-87e6-7e1bbf424421';
+-- [NEW] Resistance Band Pull-aparts | "How To Do Banded Pull-Aparts" (Tangelo - Seattle Chiropractor + Rehab)
+UPDATE exercises SET help_url = 'https://youtu.be/stwYTTPXubo' WHERE id = '104f9c50-e87e-4566-94ff-193ef09e952e';
 
--- [NEW] Squat | "How to squat ✅" (Oliver Sjostrom)
-UPDATE exercises SET help_url = 'https://youtu.be/eFEVKmp3M4g' WHERE id = '6289d8f3-8940-4650-be61-28b8a73f15cf';
+-- [NEW] Resistance Band Lat Pulldown | "Lat Pull Down with a resistance band" (Dawn Brooks)
+UPDATE exercises SET help_url = 'https://youtu.be/K59OGC4aeQ4' WHERE id = '168df5ae-09e6-41c9-8ff9-a26a9a717fd3';
 
--- [NEW] Opposite Arm Leg Reach Seated | "Seated Opposite Arm Leg Lift" (Precision Pilates)
-UPDATE exercises SET help_url = 'https://youtu.be/ZEDLwQAuoZ4' WHERE id = '632788b6-bc7a-4d71-a3ee-aa3e6920c53c';
+-- [NEW] Straight Leg Raises with Resistance | "Straight Leg Raises" (Baptist Health)
+UPDATE exercises SET help_url = 'https://youtu.be/U4L_6JEv9Jg' WHERE id = '4638f270-8246-4ef4-83ec-d104b9980c74';
 
--- [NEW] Pelvic Tilts | "Pelvic Tilt" (Baptist Health)
-UPDATE exercises SET help_url = 'https://youtu.be/ZIQjHtghzqw' WHERE id = '655ce464-67d5-4e2d-be73-b942866e644c';
+-- [NEW] Terminal Knee Extension Band | "TKE- what is it and why do we like them so much?!" (Made Possible Personal Training)
+UPDATE exercises SET help_url = 'https://youtu.be/yE7sFjtnmZE' WHERE id = '9fbb7082-720a-4e98-ae4d-b1cddf2efe88';
 
--- [NEW] Pigeon Pose | "Pigeon Pose" (YOGABODY)
-UPDATE exercises SET help_url = 'https://youtu.be/AI5A1PRYX7E' WHERE id = 'dafb2864-870c-49be-8db4-4623fd0154a1';
+-- [NEW] Hamstring Curls Band or Prone | "Standing Mini-band Hamstring Curls" (Daily Workout Builder)
+UPDATE exercises SET help_url = 'https://youtu.be/erpy11GrhsE' WHERE id = '7e7dfcf4-c9f0-48f8-8f62-9b5d6812de68';
 
--- [NEW] Pike Push-ups | "4 Steps To Pike Push-up! 💪📈 #calisthenics #calisthenicsworkout #homeworkout" (C-RAY)
-UPDATE exercises SET help_url = 'https://youtu.be/V6BtY3Lt0Ys' WHERE id = '2a080d5f-b280-4600-b18f-63040f6f67c3';
+-- [NEW] Resistance Band Chest Fly | "Do Cable Flyes LIKE THIS for a BIGGER CHEST" (Andrew Kwong (DeltaBolic))
+UPDATE exercises SET help_url = 'https://youtu.be/tGXIQR89-JE' WHERE id = 'a995d5c8-a588-49b0-a02a-6accb1c13685';
 
--- [NEW] Pinch Grip Hold | "How to Develop a Stronger Pinch Grip for Bouldering and Rock Climbing" (Training4climbing)
-UPDATE exercises SET help_url = 'https://youtu.be/Oc4E02AfQP8' WHERE id = 'ee2b3664-bcc8-4420-b050-2f270692a390';
+-- [NEW] Resistance Band Knee Extension | "TKE- what is it and why do we like them so much?!" (Made Possible Personal Training)
+UPDATE exercises SET help_url = 'https://youtu.be/yE7sFjtnmZE' WHERE id = 'eca8ee41-5e33-4446-8129-1d4810dfe5ca';
 
--- [NEW] Reverse Lunge | "Front vs reverse lunge ✅" (Oliver Sjostrom)
-UPDATE exercises SET help_url = 'https://youtu.be/38xlLGfguz4' WHERE id = '8fa8bcdd-773d-4c03-83ed-4a347cd86050';
+-- [NEW] Resistance Band Work | "10 resistance band exercises you can do at home" (British Heart Foundation)
+UPDATE exercises SET help_url = 'https://youtu.be/fgKHFLe654U' WHERE id = 'b1e39a0d-75b7-4506-9953-9eb481ae39b9';
 
--- [NEW] Plank (Variations) | "22 Plank Variations" (Men's Health)
-UPDATE exercises SET help_url = 'https://youtu.be/k9w2LJAZ1iY' WHERE id = '19a85bcc-f588-476f-bba3-ec6caf15ad34';
+-- [NEW] Med Ball Overhead Hold | "DO THIS, NOT THAT! Med Ball Slams" (Elevate Sports Performance & Healthcare)
+UPDATE exercises SET help_url = 'https://youtu.be/99DLQtHP7jE' WHERE id = '0f5d063a-a312-4514-8130-a6ed3905a4f5';

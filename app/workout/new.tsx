@@ -137,7 +137,7 @@ function getSupersetColor(group: number): string {
 type Mode = 'log' | 'assign';
 type WeightUnit = 'lbs' | 'kg' | 'secs';
 type SetRow = { reps: string; amount: string; notes: string };
-type ExerciseBlock = { exercise: Exercise; sets: SetRow[]; linkedToNext: boolean; unit: WeightUnit; restSecs: number };
+type ExerciseBlock = { exercise: Exercise; sets: SetRow[]; linkedToNext: boolean; unit: WeightUnit; restSecs: number; prevWeightAmounts?: string[] };
 
 const UNITS: WeightUnit[] = ['lbs', 'kg', 'secs'];
 function nextUnit(u: WeightUnit): WeightUnit { return UNITS[(UNITS.indexOf(u) + 1) % UNITS.length]; }
@@ -296,7 +296,39 @@ export default function NewWorkoutScreen() {
 
   function updateBlockUnit(bi: number, unit: WeightUnit) {
     setIsDirty(true);
-    setBlocks((prev) => prev.map((b, i) => i === bi ? { ...b, unit } : b));
+    setBlocks((prev) => prev.map((b, i) => {
+      if (i !== bi) return b;
+      const fromUnit = b.unit;
+
+      // lbs ↔ kg: convert all set amounts
+      if ((fromUnit === 'lbs' && unit === 'kg') || (fromUnit === 'kg' && unit === 'lbs')) {
+        const factor = fromUnit === 'lbs' ? 0.453592 : 2.20462;
+        const newSets = b.sets.map((s) => {
+          const n = parseFloat(s.amount);
+          if (!s.amount.trim() || isNaN(n)) return s;
+          return { ...s, amount: (Math.round(n * factor * 10) / 10).toString() };
+        });
+        return { ...b, unit, sets: newSets };
+      }
+
+      // → secs: save current amounts, default to '0'
+      if (unit === 'secs') {
+        const savedAmounts = b.sets.map((s) => s.amount);
+        const newSets = b.sets.map((s) => ({ ...s, amount: s.amount.trim() ? s.amount : '0' }));
+        return { ...b, unit, sets: newSets, prevWeightAmounts: savedAmounts };
+      }
+
+      // secs → lbs/kg: restore saved amounts
+      if (fromUnit === 'secs' && b.prevWeightAmounts) {
+        const newSets = b.sets.map((s, si) => ({
+          ...s,
+          amount: b.prevWeightAmounts![si] ?? '',
+        }));
+        return { ...b, unit, sets: newSets, prevWeightAmounts: undefined };
+      }
+
+      return { ...b, unit };
+    }));
   }
 
   function updateBlockRestSecs(bi: number, secs: number) {
