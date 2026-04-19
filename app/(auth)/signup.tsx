@@ -33,33 +33,19 @@ export default function SignupScreen() {
   // Call the SECURITY DEFINER RPC to write auth_user_id on the client row,
   // then sign out and back in so detectRole runs cleanly with the link in place.
   async function linkClientAndEnter(emailAddr: string, pwd: string) {
-    // First verify a client row exists for this email (gives a useful error if not)
-    const { data: clientRow } = await supabase
-      .from('clients')
-      .select('id, auth_user_id')
-      .ilike('email', emailAddr)
-      .single();
-
-    if (!clientRow) {
-      await supabase.auth.signOut();
-      setError('No client account found for this email. Ask your trainer to add you first.');
-      return;
-    }
-
-    if (clientRow.auth_user_id) {
-      // Already linked — just re-enter (detectRole will handle it on sign-in)
-      await supabase.auth.signOut();
-      await supabase.auth.signInWithPassword({ email: emailAddr, password: pwd });
-      return;
-    }
-
     // Use SECURITY DEFINER RPC to bypass the RLS catch-22:
-    // auth.uid() = auth_user_id is always false when auth_user_id IS NULL.
+    // A plain SELECT on clients returns null when auth_user_id IS NULL because
+    // neither trainer nor client RLS policy matches — even though the row exists.
     const { data: linkedId, error: rpcErr } = await supabase.rpc('link_client_to_auth_user');
 
     if (rpcErr || !linkedId) {
+      // RPC returns null when no client row matches auth.email() — give actionable error.
       await supabase.auth.signOut();
-      setError('Failed to link your account. Please try again.');
+      if (!linkedId && !rpcErr) {
+        setError('No client account found for this email. Ask your trainer to add you first.');
+      } else {
+        setError('Failed to link your account. Please try again.');
+      }
       return;
     }
 
