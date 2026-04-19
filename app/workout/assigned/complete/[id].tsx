@@ -53,7 +53,8 @@ function formatScheduledDate(iso: string): string {
 }
 
 export default function CompleteAssignedWorkoutScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: rawId } = useLocalSearchParams<{ id: string }>();
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const router = useRouter();
   const t = useTheme();
   const { role } = useAuth();

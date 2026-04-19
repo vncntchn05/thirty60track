@@ -63,7 +63,8 @@ function formatDate(iso: string) {
 }
 
 export default function EditAssignedWorkoutScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: rawId } = useLocalSearchParams<{ id: string }>();
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const router = useRouter();
   const navigation = useNavigation();
   const t = useTheme();

@@ -89,13 +89,14 @@ export function useAssignedWorkoutDetail(id: string) {
   const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!id) { setLoading(false); return; }
+    const resolvedId = Array.isArray(id) ? id[0] : id;
+    if (!resolvedId) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     const { data, error: err } = await supabase
       .from('assigned_workouts')
       .select(ASSIGNED_WORKOUT_SELECT)
-      .eq('id', id)
+      .eq('id', resolvedId)
       .single();
 
     if (err) setError(err.message);
