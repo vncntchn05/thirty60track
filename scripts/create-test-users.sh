@@ -34,9 +34,12 @@ upsert_user() {
 
   echo "  Searching for existing user: $email"
   local list_resp
-  list_resp=$(curl -s "${AUTH_URL}?filter=${email}" \
+  list_resp=$(curl -sf "${AUTH_URL}?filter=${email}" \
     -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
+    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}") || {
+    echo "ERROR: curl failed (exit $?) — check SUPABASE_URL is reachable: ${SUPABASE_URL}" >&2
+    exit 1
+  }
 
   local existing_id
   existing_id=$(echo "$list_resp" | jq -r '.users[0].id // empty' 2>/dev/null || true)

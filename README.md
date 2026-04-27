@@ -10,7 +10,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - **Anthropic Claude** — AI-generated fitness trends + personalised nutrition guides + meal plans + AI chat for clients and trainers (all via Supabase Edge Functions)
 - **Stripe** — credit purchase checkout (built and feature-flagged; disabled by default)
 - **Victory Native XL** — progress and volume charts
-- **React Native StyleSheet** — luxury minimalist dark/light theme
+- **React Native StyleSheet** — luxury minimalist dark/light themes
 
 ## Features
 
