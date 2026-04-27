@@ -11,8 +11,9 @@ import { searchOFF, lookupBarcode } from '@/lib/off';
 import { lookupBarcodeSpoonacular } from '@/lib/spoonacular';
 import { useRecipes, deleteRecipe } from '@/hooks/useRecipes';
 import { RecipeBuilderModal } from './RecipeBuilderModal';
+import { supabase } from '@/lib/supabase';
 import type { UsdaFood } from '@/lib/usda';
-import type { MealType, RecipeWithIngredients } from '@/types';
+import type { MealType, RecipeWithIngredients, NutritionLog } from '@/types';
 import { MEAL_TYPES } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ const EMPTY_FORM: FormState = {
 
 export function AddFoodModal({ visible, initialMealType, clientId, trainerId, onClose, onAdd }: Props) {
   const t = useTheme();
-  const [mode, setMode] = useState<'search' | 'scan' | 'manual' | 'recipes'>('search');
+  const [mode, setMode] = useState<'search' | 'scan' | 'manual' | 'recipes' | 'recent'>('search');
   const [mealType, setMealType] = useState<MealType>(initialMealType);
 
   // Recipes state
@@ -84,6 +85,11 @@ export function AddFoodModal({ visible, initialMealType, clientId, trainerId, on
   const [selectedFood, setSelectedFood] = useState<UsdaFood | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  // Recent items state
+  const [recentItems, setRecentItems] = useState<NutritionLog[]>([]);
+  const [recentLoading, setRecentLoading] = useState(false);
+  const [addingRecentId, setAddingRecentId] = useState<string | null>(null);
 
   // Barcode scanner state
   const [permission, requestPermission] = useCameraPermissions();
@@ -102,6 +108,36 @@ export function AddFoodModal({ visible, initialMealType, clientId, trainerId, on
       lastScannedRef.current = '';
     }
   }, [mode]);
+
+  // Fetch recent log items when modal opens or recent tab is selected
+  useEffect(() => {
+    if (!visible || mode !== 'recent') return;
+    let cancelled = false;
+    (async () => {
+      setRecentLoading(true);
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const { data } = await supabase
+        .from('nutrition_logs')
+        .select('id, food_name, serving_size_g, calories, protein_g, carbs_g, fat_g, fiber_g, usda_food_id, meal_type, created_at')
+        .eq('client_id', clientId)
+        .gte('logged_date', sevenDaysAgo.toISOString().slice(0, 10))
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (!cancelled && data) {
+        // Deduplicate by food_name (case-insensitive), keep most recent
+        const seen = new Set<string>();
+        const unique: NutritionLog[] = [];
+        for (const item of data as NutritionLog[]) {
+          const key = item.food_name.toLowerCase();
+          if (!seen.has(key)) { seen.add(key); unique.push(item); }
+        }
+        setRecentItems(unique);
+      }
+      if (!cancelled) setRecentLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [visible, mode, clientId]);
 
   // Update form macros when serving size changes
   function handleServingChange(text: string) {
@@ -183,7 +219,7 @@ export function AddFoodModal({ visible, initialMealType, clientId, trainerId, on
     setScanError(`No product found for barcode ${data}.\nTry searching by name instead.`);
   }
 
-  function handleSwitchMode(next: 'search' | 'scan' | 'manual' | 'recipes') {
+  function handleSwitchMode(next: 'search' | 'scan' | 'manual' | 'recipes' | 'recent') {
     setMode(next);
     setQuery('');
     setResults([]);
@@ -299,13 +335,14 @@ export function AddFoodModal({ visible, initialMealType, clientId, trainerId, on
               ))}
             </View>
 
-            {/* Mode toggle — Search · Scan · Manual · Recipes */}
+            {/* Mode toggle — Search · Scan · Manual · Recipes · Recent */}
             <View style={[styles.modeToggle, { backgroundColor: t.background, borderColor: t.border }]}>
               {([
                 { key: 'search',  label: 'Search',  icon: 'search-outline' },
                 { key: 'scan',    label: 'Scan',    icon: 'barcode-outline' },
                 { key: 'manual',  label: 'Manual',  icon: 'create-outline' },
                 { key: 'recipes', label: 'Recipes', icon: 'restaurant-outline' },
+                { key: 'recent',  label: 'Recent',  icon: 'time-outline' },
               ] as const).map(({ key, label, icon }) => (
                 <TouchableOpacity
                   key={key}
@@ -520,6 +557,67 @@ export function AddFoodModal({ visible, initialMealType, clientId, trainerId, on
                   ? <ActivityIndicator size="small" color={colors.textInverse} />
                   : <Text style={styles.addBtnText}>Add to {MEAL_LABELS[mealType]}</Text>}
               </TouchableOpacity>
+            )}
+
+            {/* ── Recent mode ── */}
+            {mode === 'recent' && (
+              <View style={styles.section}>
+                {recentLoading ? (
+                  <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.md }} />
+                ) : recentItems.length === 0 ? (
+                  <Text style={[styles.emptyText, { color: t.textSecondary }]}>
+                    No recent items in the last 7 days.
+                  </Text>
+                ) : (
+                  recentItems.map((item) => (
+                    <View
+                      key={item.id}
+                      style={[styles.recentRow, { borderColor: t.border, backgroundColor: t.background }]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.recentName, { color: t.textPrimary }]} numberOfLines={1}>
+                          {item.food_name}
+                        </Text>
+                        <Text style={[styles.recentMeta, { color: t.textSecondary }]}>
+                          {item.serving_size_g}g
+                          {item.calories != null ? ` · ${item.calories} kcal` : ''}
+                          {item.protein_g != null ? ` · P${item.protein_g}` : ''}
+                          {item.carbs_g != null ? ` C${item.carbs_g}` : ''}
+                          {item.fat_g != null ? ` F${item.fat_g}` : ''}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.reAddBtn,
+                          addingRecentId === item.id && styles.btnDisabled,
+                        ]}
+                        disabled={addingRecentId === item.id}
+                        activeOpacity={0.8}
+                        onPress={async () => {
+                          setAddingRecentId(item.id);
+                          await onAdd({
+                            meal_type: mealType,
+                            food_name: item.food_name,
+                            serving_size_g: item.serving_size_g,
+                            calories: item.calories,
+                            protein_g: item.protein_g,
+                            carbs_g: item.carbs_g,
+                            fat_g: item.fat_g,
+                            fiber_g: item.fiber_g,
+                            usda_food_id: item.usda_food_id,
+                          });
+                          setAddingRecentId(null);
+                          resetAndClose();
+                        }}
+                      >
+                        {addingRecentId === item.id
+                          ? <ActivityIndicator size="small" color={colors.textInverse} />
+                          : <Ionicons name="add" size={18} color={colors.textInverse} />}
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+              </View>
             )}
 
             {/* ── Recipes mode ── */}
@@ -836,4 +934,17 @@ const styles = StyleSheet.create({
   },
   weightUnit: { ...typography.body },
   recipeMacroPreview: { ...typography.bodySmall, flex: 1 },
+
+  // ── Recent ────────────────────────────────────────────────────────
+  recentRow: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderRadius: radius.sm,
+    padding: spacing.sm, marginBottom: spacing.xs, gap: spacing.sm,
+  },
+  recentName: { ...typography.body, fontWeight: '600' },
+  recentMeta: { ...typography.bodySmall, marginTop: 2 },
+  reAddBtn: {
+    backgroundColor: colors.primary, borderRadius: radius.sm,
+    width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
+  },
 });
