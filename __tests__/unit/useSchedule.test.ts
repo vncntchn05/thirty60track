@@ -35,16 +35,34 @@ describe('requestSession()', () => {
     availability_id: 'av-1',
   };
 
-  function mockInsertChain(result: { data: unknown; error: unknown }) {
-    const singleMock = jest.fn().mockResolvedValue(result);
-    const selectMock = jest.fn().mockReturnValue({ single: singleMock });
-    const insertMock = jest.fn().mockReturnValue({ select: selectMock });
-    mockFrom.mockReturnValue({ insert: insertMock });
-    return { insertMock, selectMock, singleMock };
+  /**
+   * Sets up the two-phase mock:
+   *   1. client_credits select (balance check) — returns creditBalance
+   *   2. scheduled_sessions insert — returns sessionResult
+   */
+  function mockRequestChain(
+    creditBalance: number,
+    sessionResult: { data: unknown; error: unknown },
+  ) {
+    const singleMock = jest.fn().mockResolvedValue(sessionResult);
+    const sessionSelectMock = jest.fn().mockReturnValue({ single: singleMock });
+    const insertMock = jest.fn().mockReturnValue({ select: sessionSelectMock });
+
+    const creditMaybeSingleMock = jest.fn().mockResolvedValue({ data: { balance: creditBalance }, error: null });
+    const creditEqMock = jest.fn().mockReturnValue({ maybeSingle: creditMaybeSingleMock });
+    const creditSelectMock = jest.fn().mockReturnValue({ eq: creditEqMock });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'client_credits') return { select: creditSelectMock };
+      if (table === 'scheduled_sessions') return { insert: insertMock };
+      return { insert: insertMock }; // fallback for auto-message path
+    });
+
+    return { insertMock };
   }
 
-  it('inserts into scheduled_sessions with status "pending"', async () => {
-    const { insertMock } = mockInsertChain({ data: { id: 'sess-1', status: 'pending' }, error: null });
+  it('inserts into scheduled_sessions with status "pending" when credits sufficient', async () => {
+    const { insertMock } = mockRequestChain(5, { data: { id: 'sess-1', status: 'pending' }, error: null });
 
     await requestSession(PAYLOAD);
 
@@ -58,7 +76,7 @@ describe('requestSession()', () => {
 
   it('returns the created session data on success', async () => {
     const session = { id: 'sess-2', status: 'pending', trainer_id: 't-1', client_id: 'c-1' };
-    mockInsertChain({ data: session, error: null });
+    mockRequestChain(5, { data: session, error: null });
 
     const result = await requestSession(PAYLOAD);
 
@@ -66,8 +84,17 @@ describe('requestSession()', () => {
     expect(result.data).toEqual(session);
   });
 
-  it('returns error message on supabase failure', async () => {
-    mockInsertChain({ data: null, error: { message: 'insert failed' } });
+  it('returns error when client has insufficient credits', async () => {
+    mockRequestChain(0, { data: { id: 'sess-x' }, error: null });
+
+    const result = await requestSession(PAYLOAD); // duration 60 = 2 credits
+
+    expect(result.data).toBeNull();
+    expect(result.error).toContain('Insufficient credits');
+  });
+
+  it('returns error message on supabase insert failure', async () => {
+    mockRequestChain(5, { data: null, error: { message: 'insert failed' } });
 
     const result = await requestSession(PAYLOAD);
 
@@ -76,7 +103,7 @@ describe('requestSession()', () => {
   });
 
   it('sets availability_id to null when not provided', async () => {
-    const { insertMock } = mockInsertChain({ data: { id: 'sess-3' }, error: null });
+    const { insertMock } = mockRequestChain(5, { data: { id: 'sess-3' }, error: null });
 
     await requestSession({ ...PAYLOAD, availability_id: undefined });
 
@@ -85,7 +112,7 @@ describe('requestSession()', () => {
   });
 
   it('sets notes to null when not provided', async () => {
-    const { insertMock } = mockInsertChain({ data: { id: 'sess-4' }, error: null });
+    const { insertMock } = mockRequestChain(5, { data: { id: 'sess-4' }, error: null });
 
     await requestSession({ ...PAYLOAD, notes: undefined });
 

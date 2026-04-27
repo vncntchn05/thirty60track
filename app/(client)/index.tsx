@@ -13,19 +13,11 @@ import { IntakeForm } from '@/components/client/IntakeForm';
 import ReportCardButton from '@/components/client/ReportCardButton';
 import { MediaGallery } from '@/components/client/MediaGallery';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { isoToLocal, fmtDateShort as fmtDate } from '@/lib/dateFormat';
 
 const ProgressSection = lazy(() => import('@/components/charts/ProgressSection'));
 
 type Segment = 'progress' | 'media';
-
-function isoToLocal(iso: string): Date {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function fmtDate(iso: string) {
-  return isoToLocal(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-}
 
 export default function ClientDashboard() {
   const router = useRouter();

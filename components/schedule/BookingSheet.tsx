@@ -7,13 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { useAvailabilityForClient, requestSession } from '@/hooks/useSchedule';
 import { useClientCredits } from '@/hooks/useCredits';
+import { DAY_ABBR, MONTH_ABBR } from '@/lib/dateFormat';
 import type { TrainerAvailability } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
-const DAY_ABBR    = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const MONTH_ABBR  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function fmtTime(h: number, m: number): string {
   const period = h >= 12 ? 'PM' : 'AM';

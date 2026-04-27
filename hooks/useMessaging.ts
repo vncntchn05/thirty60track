@@ -63,8 +63,8 @@ export function useConversations() {
       { data: allMessages },
     ] = await Promise.all([
       supabase.from('conversations').select('*').in('id', convIds),
-      supabase.from('conversation_participants').select('conversation_id, user_id').in('conversation_id', convIds),
-      supabase.from('messages').select('*').in('conversation_id', convIds).order('created_at', { ascending: false }),
+      supabase.from('conversation_participants').select('conversation_id, user_id').in('conversation_id', convIds).limit(200),
+      supabase.from('messages').select('*').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(convIds.length * 2),
     ]);
 
     if (cErr) { setError(cErr.message); setLoading(false); return; }

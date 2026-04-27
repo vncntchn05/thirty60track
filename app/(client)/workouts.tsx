@@ -14,24 +14,14 @@ import { WeekPickerModal } from '@/components/schedule/WeekPickerModal';
 import { SessionSheet } from '@/components/schedule/SessionSheet';
 import { BookingSheet } from '@/components/schedule/BookingSheet';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { isoToLocal, fmtDate, MONTH_ABBR } from '@/lib/dateFormat';
 import type { WorkoutWithTrainer, AssignedWorkoutWithDetails, ScheduledSessionWithDetails } from '@/types';
 import ExercisesScreen from '@/app/(tabs)/exercises';
 
 type Segment   = 'workouts' | 'exercises' | 'schedule';
 type ViewMode  = 'calendar' | 'list';
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-// ─── Helpers ──────────────────────────────────────────────────
-
-function isoToLocal(iso: string): Date {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function fmtDate(iso: string) {
-  return isoToLocal(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-}
+const MONTHS = MONTH_ABBR;
 
 function fmtScheduledDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number);

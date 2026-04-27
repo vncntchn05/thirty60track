@@ -3,8 +3,13 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Trainer } from '@/types';
 
-/** Client row used as the public demo for guest sessions. */
-export const GUEST_CLIENT_ID = 'df9f2ee4-4b84-4d52-bda2-3bc562a9011c';
+/**
+ * Client row used as the public demo for guest (anonymous) sessions.
+ * Override via EXPO_PUBLIC_GUEST_CLIENT_ID in .env.local — the fallback UUID
+ * matches the row inserted by seed_cicd.sql / the guest demo setup script.
+ */
+export const GUEST_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GUEST_CLIENT_ID ?? 'df9f2ee4-4b84-4d52-bda2-3bc562a9011c';
 
 export type UserRole = 'trainer' | 'client' | null;
 

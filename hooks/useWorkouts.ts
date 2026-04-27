@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { WorkoutWithTrainer, WorkoutWithSets, WorkoutGroupPeer, InsertWorkout, InsertWorkoutSet, UpdateWorkout, UpdateClient } from '@/types';
@@ -51,42 +51,78 @@ async function syncGroupWorkouts(primaryWorkoutId: string, groupId: string): Pro
   }
 }
 
+const WORKOUTS_PAGE_SIZE = 50;
+
 type UseWorkoutsResult = {
   workouts: WorkoutWithTrainer[];
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
   refetch: () => void;
+  loadMore: () => void;
 };
 
-/** List workouts for a single client, newest first. */
+const WORKOUT_COLS = 'id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, workout_group_id, logged_by_role, logged_by_user_id, created_at, updated_at, trainer:trainers(full_name)';
+
+/** List workouts for a single client, newest first. Paginates at 50 rows. */
 export function useWorkouts(clientId: string): UseWorkoutsResult {
   const { user } = useAuth();
   const [workouts, setWorkouts] = useState<WorkoutWithTrainer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pageRef = useRef(0);
 
   const fetch = useCallback(async () => {
     if (!user || !clientId) return;
     setLoading(true);
     setError(null);
+    pageRef.current = 0;
     const { data, error: err } = await supabase
       .from('workouts')
-      .select('id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent, workout_group_id, logged_by_role, logged_by_user_id, created_at, updated_at, trainer:trainers(full_name)')
+      .select(WORKOUT_COLS)
       .eq('client_id', clientId)
-      .order('performed_at', { ascending: false });
+      .order('performed_at', { ascending: false })
+      .range(0, WORKOUTS_PAGE_SIZE - 1);
 
     if (err) setError(err.message);
-    else setWorkouts((data ?? []) as unknown as WorkoutWithTrainer[]);
+    else {
+      setWorkouts((data ?? []) as unknown as WorkoutWithTrainer[]);
+      setHasMore((data?.length ?? 0) === WORKOUTS_PAGE_SIZE);
+    }
     setLoading(false);
   }, [user, clientId]);
 
+  const loadMore = useCallback(async () => {
+    if (!user || !clientId || !hasMore || loadingMore) return;
+    setLoadingMore(true);
+    const next = pageRef.current + 1;
+    const { data } = await supabase
+      .from('workouts')
+      .select(WORKOUT_COLS)
+      .eq('client_id', clientId)
+      .order('performed_at', { ascending: false })
+      .range(next * WORKOUTS_PAGE_SIZE, (next + 1) * WORKOUTS_PAGE_SIZE - 1);
+    if (data && data.length > 0) {
+      pageRef.current = next;
+      setWorkouts((prev) => [...prev, ...(data as unknown as WorkoutWithTrainer[])]);
+      setHasMore(data.length === WORKOUTS_PAGE_SIZE);
+    } else {
+      setHasMore(false);
+    }
+    setLoadingMore(false);
+  }, [user, clientId, hasMore, loadingMore]);
+
   useEffect(() => { fetch(); }, [fetch]);
 
-  return { workouts, loading, error, refetch: fetch };
+  return { workouts, loading, loadingMore, hasMore, error, refetch: fetch, loadMore };
 }
 
 /** Fetch a single workout with all its sets and exercise details. */
 export function useWorkoutDetail(workoutId: string) {
+  const { user } = useAuth();
   const [workout, setWorkout] = useState<WorkoutWithSets | null>(null);
   const [groupPeers, setGroupPeers] = useState<WorkoutGroupPeer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,6 +210,10 @@ export function useWorkoutDetail(workoutId: string) {
   }
 
   async function updateWorkout(payload: UpdateWorkout) {
+    if (!user) return { error: 'Not authenticated' };
+    if (workout && workout.trainer_id !== user.id) {
+      return { error: 'You do not have permission to edit this workout.' };
+    }
     const { error: err } = await supabase
       .from('workouts')
       .update(payload)

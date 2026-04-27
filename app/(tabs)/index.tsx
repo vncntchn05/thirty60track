@@ -7,13 +7,9 @@ import { useAuth } from '@/lib/auth';
 import { useFeatureGuide } from '@/hooks/useFeatureGuide';
 import { FeaturesModal } from '@/components/ui/FeaturesModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { isoToLocal } from '@/lib/dateFormat';
 import { clientSlug } from '@/lib/slugify';
 import type { ClientWithStats } from '@/types';
-
-function isoToLocal(iso: string): Date {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
 
 export default function ClientsScreen() {
   const router = useRouter();

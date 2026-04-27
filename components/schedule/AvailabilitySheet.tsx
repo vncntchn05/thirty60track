@@ -7,9 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import { DatePickerModal } from '@/components/ui/DatePickerModal';
 import { useTrainerAvailability } from '@/hooks/useSchedule';
+import { DAY_ABBR as DAYS, fmtDateShort as fmtDate } from '@/lib/dateFormat';
 import type { DayOfWeek, TrainerAvailability } from '@/types';
-
-const DAYS    = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const HOURS   = Array.from({ length: 18 }, (_, i) => i + 6); // 6–23
 const MINUTES = [0, 15, 30, 45];
 
@@ -37,13 +36,6 @@ function parseTime(t: string): { h: number; m: number } {
 function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function fmtDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-  });
 }
 
 type SlotType = 'weekly' | 'specific';

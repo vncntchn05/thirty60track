@@ -4,6 +4,7 @@ import {
   StyleSheet, useWindowDimensions,
 } from 'react-native';
 import { colors, spacing, radius, useTheme } from '@/constants/theme';
+import { DAY_ABBR, MONTH_ABBR as MONTH_ABB } from '@/lib/dateFormat';
 import type { ScheduledSessionWithDetails, TrainerAvailability } from '@/types';
 
 // ─── Grid constants ───────────────────────────────────────────
@@ -11,9 +12,6 @@ const START_HOUR = 8;   // 8 AM
 const END_HOUR   = 20;  // 8 PM (exclusive)
 const NUM_SLOTS  = (END_HOUR - START_HOUR) * 2; // 24 half-hour slots
 const TIME_W     = 44;  // px for time label column
-
-const DAY_ABBR  = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_ABB = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function sessionColor(status: string): string {
   if (status === 'confirmed') return colors.success;

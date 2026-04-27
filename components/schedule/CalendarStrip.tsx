@@ -1,8 +1,7 @@
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors, spacing, typography, radius } from '@/constants/theme';
+import { DAY_ABBR } from '@/lib/dateFormat';
 import type { ScheduledSessionWithDetails } from '@/types';
-
-const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type Props = {
   weekStart: Date;

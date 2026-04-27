@@ -29,7 +29,7 @@ const tabStyles = StyleSheet.create({
     position: 'absolute', top: 0, right: 0,
     width: 9, height: 9, borderRadius: 5,
     backgroundColor: colors.primary,
-    borderWidth: 1.5, borderColor: '#000',
+    borderWidth: 1.5, borderColor: colors.backgroundDark,
   },
 });
 

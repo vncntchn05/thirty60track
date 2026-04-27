@@ -259,6 +259,24 @@ async function getClientAuthUserId(clientId: string): Promise<string | null> {
 export async function requestSession(
   payload: InsertScheduledSession,
 ): Promise<{ data: ScheduledSession | null; error: string | null }> {
+  const creditCost = payload.duration_minutes === 30 ? 1 : 2;
+
+  // Guard: client must have sufficient credits before the session row is created.
+  // Credits are deducted on confirmation, not here — but we enforce the floor upfront
+  // to prevent a client from accumulating unlimited pending sessions.
+  const { data: credits } = await supabase
+    .from('client_credits')
+    .select('balance')
+    .eq('client_id', payload.client_id)
+    .maybeSingle();
+  const balance = credits?.balance ?? 0;
+  if (balance < creditCost) {
+    return {
+      data: null,
+      error: `Insufficient credits. You have ${balance} credit${balance !== 1 ? 's' : ''} but this session costs ${creditCost}.`,
+    };
+  }
+
   const { data, error } = await supabase
     .from('scheduled_sessions')
     .insert({

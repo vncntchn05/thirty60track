@@ -6,6 +6,7 @@ import { Platform, Image, StyleSheet, View, ActivityIndicator } from 'react-nati
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { UnreadProvider } from '@/lib/unreadContext';
 import { SkiaAvailableContext } from '@/lib/skia';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { colors, useTheme } from '@/constants/theme';
 
 
@@ -122,7 +123,9 @@ export default function RootLayout() {
             <style>{`html,body{background:#111111;}`}</style>
           </Head>
           <StatusBar style="light" />
-          <RootNavigator />
+          <ErrorBoundary>
+            <RootNavigator />
+          </ErrorBoundary>
         </UnreadProvider>
       </AuthProvider>
     </SkiaAvailableContext.Provider>

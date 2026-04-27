@@ -10,6 +10,7 @@ import { Video, ResizeMode } from 'expo-av';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { useClientMedia, type ClientMediaWithUrl } from '@/hooks/useClientMedia';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
+import { isoToLocal, fmtDateLong as fmtDate } from '@/lib/dateFormat';
 
 // ─── Constants ────────────────────────────────────────────────────
 
@@ -22,15 +23,6 @@ type UploadAsset = {
   type: 'image' | 'video';
   mimeType: string;
 };
-
-function isoToLocal(iso: string): Date {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function fmtDate(iso: string) {
-  return isoToLocal(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-}
 
 // ─── Thumbnail ────────────────────────────────────────────────────
 

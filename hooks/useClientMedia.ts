@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { ClientMedia, ClientMediaType, UpdateClientMedia } from '@/types';
@@ -13,11 +13,16 @@ type UploadParams = {
   notes: string | null;
 };
 
+const MEDIA_PAGE_SIZE = 50;
+
 type UseClientMediaResult = {
   media: ClientMediaWithUrl[];
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
   refetch: () => void;
+  loadMore: () => void;
   uploadMedia: (params: UploadParams) => Promise<{ error: string | null }>;
   updateMedia: (id: string, payload: UpdateClientMedia) => Promise<{ error: string | null }>;
   deleteMedia: (id: string) => Promise<{ error: string | null }>;
@@ -29,26 +34,54 @@ function getPublicUrl(storagePath: string): string {
   return supabase.storage.from(BUCKET).getPublicUrl(storagePath).data.publicUrl;
 }
 
+const MEDIA_COLS = 'id, client_id, trainer_id, storage_path, media_type, taken_at, notes, created_at, updated_at';
+
 /** Pass uploadTrainerId when the caller is a client user (whose user.id is not a trainer). */
 export function useClientMedia(clientId: string, uploadTrainerId?: string): UseClientMediaResult {
   const { user } = useAuth();
   const [media, setMedia] = useState<ClientMediaWithUrl[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pageRef = useRef(0);
 
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
+    pageRef.current = 0;
     const { data, error: err } = await supabase
       .from('client_media')
-      .select('id, client_id, trainer_id, storage_path, media_type, taken_at, notes, created_at, updated_at')
+      .select(MEDIA_COLS)
       .eq('client_id', clientId)
-      .order('taken_at', { ascending: false });
+      .order('taken_at', { ascending: false })
+      .range(0, MEDIA_PAGE_SIZE - 1);
 
     if (err) { setError(err.message); setLoading(false); return; }
     setMedia((data ?? []).map((item) => ({ ...item, url: getPublicUrl(item.storage_path) })));
+    setHasMore((data?.length ?? 0) === MEDIA_PAGE_SIZE);
     setLoading(false);
   }, [clientId]);
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    const next = pageRef.current + 1;
+    const { data } = await supabase
+      .from('client_media')
+      .select(MEDIA_COLS)
+      .eq('client_id', clientId)
+      .order('taken_at', { ascending: false })
+      .range(next * MEDIA_PAGE_SIZE, (next + 1) * MEDIA_PAGE_SIZE - 1);
+    if (data && data.length > 0) {
+      pageRef.current = next;
+      setMedia((prev) => [...prev, ...data.map((item) => ({ ...item, url: getPublicUrl(item.storage_path) }))]);
+      setHasMore(data.length === MEDIA_PAGE_SIZE);
+    } else {
+      setHasMore(false);
+    }
+    setLoadingMore(false);
+  }, [clientId, hasMore, loadingMore]);
 
   useEffect(() => { fetch(); }, [fetch]);
 
@@ -117,5 +150,5 @@ export function useClientMedia(clientId: string, uploadTrainerId?: string): UseC
     return { error: null };
   }
 
-  return { media, loading, error, refetch: fetch, uploadMedia, updateMedia, deleteMedia };
+  return { media, loading, loadingMore, hasMore, error, refetch: fetch, loadMore, uploadMedia, updateMedia, deleteMedia };
 }
