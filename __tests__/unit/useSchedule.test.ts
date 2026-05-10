@@ -16,7 +16,11 @@ import {
 import type { InsertScheduledSession } from '@/types';
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: jest.fn(), auth: { onAuthStateChange: jest.fn() } },
+  supabase: {
+    from: jest.fn(),
+    auth: { onAuthStateChange: jest.fn() },
+    functions: { invoke: jest.fn().mockResolvedValue({ data: null, error: null }) },
+  },
 }));
 
 const mockFrom = supabase.from as jest.Mock;
@@ -174,6 +178,15 @@ describe('confirmSession()', () => {
           }),
         };
       }
+      if (table === 'trainers') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: { full_name: 'Test Trainer' }, error: null }),
+            }),
+          }),
+        };
+      }
       return {};
     });
   }
@@ -237,6 +250,15 @@ describe('confirmSession()', () => {
           select: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
               single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === 'trainers') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: { full_name: 'Test Trainer' }, error: null }),
             }),
           }),
         };

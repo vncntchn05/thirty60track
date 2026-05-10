@@ -61,6 +61,9 @@ export function createSupabaseMock(
           getPublicUrl: jest.fn(() => ({ data: { publicUrl: 'https://example.com/file.jpg' } })),
         })),
       },
+      functions: {
+        invoke: jest.fn().mockResolvedValue({ data: null, error: null }),
+      },
     },
     fromMock,
     onAuthStateChangeMock,

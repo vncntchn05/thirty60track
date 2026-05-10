@@ -23,7 +23,10 @@ import { createQueryMock } from '@/__tests__/helpers/supabase-mock';
 // ─── Module mock ──────────────────────────────────────────────────────────────
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: jest.fn() },
+  supabase: {
+    from: jest.fn(),
+    functions: { invoke: jest.fn().mockResolvedValue({ data: null, error: null }) },
+  },
 }));
 
 const mockFrom = supabase.from as jest.Mock;

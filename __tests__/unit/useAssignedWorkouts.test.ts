@@ -24,6 +24,7 @@ jest.mock('@/lib/supabase', () => ({
       onAuthStateChange: jest.fn(),
       signOut: jest.fn(),
     },
+    functions: { invoke: jest.fn().mockResolvedValue({ data: null, error: null }) },
   },
 }));
 

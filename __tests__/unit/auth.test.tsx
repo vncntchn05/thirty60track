@@ -26,7 +26,9 @@ jest.mock('@/lib/supabase', () => ({
       getUser: jest.fn(),
       onAuthStateChange: jest.fn(),
     },
+    functions: { invoke: jest.fn().mockResolvedValue({ data: null, error: null }) },
   },
+  pingCicdDatabase: jest.fn(),
 }));
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
