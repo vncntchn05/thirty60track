@@ -36,9 +36,23 @@ function buildClient() {
   });
 }
 
-// Fixed dates: 2025-01-06 (Monday) to 2025-01-20 (Monday) — 3 Mondays
-const START_DATE = '2026-04-20'; // Monday
-const END_DATE   = '2026-05-04'; // Monday (+2 weeks) → 3 Mondays total
+// Dynamic dates: always 3 Mondays starting at least 2 weeks from now.
+// Computed at module load so cancelRecurringPlan's .gte('scheduled_date', today) filter always matches.
+function toIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function nextMondayAfter(daysFromNow: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
+  return d;
+}
+const _startObj = nextMondayAfter(14);
+const _midObj   = new Date(_startObj); _midObj.setDate(_startObj.getDate() + 7);
+const _endObj   = new Date(_startObj); _endObj.setDate(_startObj.getDate() + 14);
+const START_DATE = toIso(_startObj);
+const MID_DATE   = toIso(_midObj);
+const END_DATE   = toIso(_endObj);
 
 maybeDescribe('Recurring Workouts integration', () => {
   let sb: SupabaseClient;
@@ -72,12 +86,12 @@ maybeDescribe('Recurring Workouts integration', () => {
 
   it('generateOccurrenceDates returns 3 Mondays for weekly between Jan 6 and Jan 20', () => {
     const dates = generateOccurrenceDates(START_DATE, END_DATE, [1], 'weekly');
-    expect(dates).toEqual(['2026-04-20', '2026-04-27', '2026-05-04']);
+    expect(dates).toEqual([START_DATE, MID_DATE, END_DATE]);
   });
 
   it('generateOccurrenceDates biweekly returns 2 dates (Jan 6, Jan 20)', () => {
     const dates = generateOccurrenceDates(START_DATE, END_DATE, [1], 'biweekly');
-    expect(dates).toEqual(['2026-04-20', '2026-05-04']);
+    expect(dates).toEqual([START_DATE, END_DATE]);
   });
 
   // ─── DB: create recurring plan ─────────────────────────────────────────────
@@ -133,8 +147,8 @@ maybeDescribe('Recurring Workouts integration', () => {
       .order('scheduled_date', { ascending: true });
 
     expect(instances).toHaveLength(3);
-    expect(instances![0].scheduled_date).toBe('2026-04-20');
-    expect(instances![2].scheduled_date).toBe('2026-05-04');
+    expect(instances![0].scheduled_date).toBe(START_DATE);
+    expect(instances![2].scheduled_date).toBe(END_DATE);
     instances!.forEach((i) => expect(i.status).toBe('assigned'));
   });
 
@@ -180,7 +194,7 @@ maybeDescribe('Recurring Workouts integration', () => {
       .select('id, status')
       .eq('recurring_plan_id', planId);
 
-    // All future instances should be cancelled (test dates are in the past, so all qualify)
+    // All future instances should be cancelled (test dates are always in the future)
     instances?.filter((_i) => true)
       .forEach((i) => expect(i.status).toBe('cancelled'));
   });
