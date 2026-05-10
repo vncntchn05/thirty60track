@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter, Stack, useNavigation } from 'expo-rout
 import { Ionicons } from '@expo/vector-icons';
 import { ExercisePicker } from '@/components/workout/ExercisePicker';
 import { TemplatePicker } from '@/components/workout/TemplatePicker';
+import { PreviousWorkoutPicker } from '@/components/workout/PreviousWorkoutPicker';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { createWorkoutWithSets } from '@/hooks/useWorkouts';
 import { createAssignedWorkout } from '@/hooks/useAssignedWorkouts';
@@ -19,7 +20,7 @@ import { colors, spacing, typography, radius, useTheme } from '@/constants/theme
 import { estimateBlockKcal } from '@/lib/calorieEstimation';
 import { parseWorkoutNotes } from '@/lib/workoutNotesAI';
 import { UnsavedChangesModal } from '@/components/ui/UnsavedChangesModal';
-import type { Exercise, NewPR } from '@/types';
+import type { Exercise, NewPR, WorkoutWithSets } from '@/types';
 import type { WorkoutTemplate } from '@/constants/workoutTemplates';
 
 // ─── Template name normalisation ─────────────────────────────────
@@ -236,6 +237,7 @@ export default function NewWorkoutScreen() {
   const [workoutNotes, setWorkoutNotes] = useState('');
   const [showPicker, setShowPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showPreviousPicker, setShowPreviousPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingExercise, setPendingExercise] = useState<Exercise | null>(null);
   const [injuryWarning, setInjuryWarning] = useState<{ message: string; isCurrent: boolean } | null>(null);
@@ -449,6 +451,65 @@ export default function NewWorkoutScreen() {
       Alert.alert(
         'Replace current workout?',
         `Loading "${template.name}" will replace the ${blocks.length} exercise${blocks.length !== 1 ? 's' : ''} you've already added.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Replace', style: 'destructive', onPress: apply },
+        ],
+      );
+    } else {
+      apply();
+    }
+  }
+
+  function handleSelectPreviousWorkout(workout: WorkoutWithSets) {
+    const exerciseOrder: string[] = [];
+    const byExercise = new Map<string, typeof workout.workout_sets>();
+    for (const s of workout.workout_sets) {
+      if (!byExercise.has(s.exercise_id)) {
+        exerciseOrder.push(s.exercise_id);
+        byExercise.set(s.exercise_id, []);
+      }
+      byExercise.get(s.exercise_id)!.push(s);
+    }
+
+    const supersetGroups = exerciseOrder.map((exId) => byExercise.get(exId)![0].superset_group);
+
+    const newBlocks: ExerciseBlock[] = exerciseOrder.map((exId, i) => {
+      const sets = byExercise.get(exId)!.slice().sort((a, b) => a.set_number - b.set_number);
+      const exercise = sets[0].exercise;
+
+      const firstWithData = sets.find((s) => s.weight_kg != null || s.duration_seconds != null);
+      let unit: WeightUnit = 'lbs';
+      if (firstWithData?.duration_seconds != null) unit = 'secs';
+
+      const setRows: SetRow[] = sets.map((s) => {
+        let amount = '';
+        if (s.duration_seconds != null) {
+          amount = String(s.duration_seconds);
+        } else if (s.weight_kg != null) {
+          amount = (Math.round(s.weight_kg / 0.453592 * 10) / 10).toString();
+        }
+        return { reps: s.reps != null ? String(s.reps) : '', amount, notes: s.notes ?? '' };
+      });
+
+      const linkedToNext =
+        i < exerciseOrder.length - 1 &&
+        supersetGroups[i] !== null &&
+        supersetGroups[i] === supersetGroups[i + 1];
+
+      return { exercise, sets: setRows, linkedToNext, unit, restSecs: 120 };
+    });
+
+    const apply = () => {
+      setIsDirty(true);
+      setBlocks(newBlocks);
+      setShowPreviousPicker(false);
+    };
+
+    if (blocks.length > 0) {
+      Alert.alert(
+        'Replace current workout?',
+        `Loading this workout will replace the ${blocks.length} exercise${blocks.length !== 1 ? 's' : ''} you've already added.`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Replace', style: 'destructive', onPress: apply },
@@ -732,6 +793,17 @@ export default function NewWorkoutScreen() {
         clientIntake={intake}
         clientId={singleClientId}
         client={targetClient}
+      />
+    );
+  }
+
+  // ── Previous workout picker ───────────────────────────────────────
+  if (showPreviousPicker && singleClientId) {
+    return (
+      <PreviousWorkoutPicker
+        clientId={singleClientId}
+        onSelect={handleSelectPreviousWorkout}
+        onClose={() => setShowPreviousPicker(false)}
       />
     );
   }
@@ -1187,14 +1259,26 @@ export default function NewWorkoutScreen() {
             <Text style={styles.addExerciseBtnText}>Use Template</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[styles.fromNotesBtn, { borderColor: colors.primary }]}
-          onPress={() => setShowNotesPicker(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="sparkles" size={18} color={colors.primary} />
-          <Text style={styles.addExerciseBtnText}>Import from Notes</Text>
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.addExerciseBtn, styles.actionFlex, { borderColor: colors.primary }]}
+            onPress={() => setShowNotesPicker(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="sparkles" size={18} color={colors.primary} />
+            <Text style={styles.addExerciseBtnText}>Import from Notes</Text>
+          </TouchableOpacity>
+          {singleClientId && (
+            <TouchableOpacity
+              style={[styles.addExerciseBtn, styles.actionFlex, { borderColor: colors.primary }]}
+              onPress={() => setShowPreviousPicker(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="time-outline" size={18} color={colors.primary} />
+              <Text style={styles.addExerciseBtnText}>Load Previous</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
 
       <TouchableOpacity

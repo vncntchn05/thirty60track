@@ -204,6 +204,7 @@ export type AssignedWorkout = {
   completed_at: string | null;
   completed_workout_id: string | null;
   recurring_plan_id: string | null;  // Migration 028
+  scheduled_time: string | null;     // HH:MM — Migration 042
   created_at: string;
   updated_at: string;
 };
@@ -617,8 +618,9 @@ export type RecurringPlan = {
   /** Array of JS day-of-week integers: 0=Sun, 1=Mon … 6=Sat */
   days_of_week: number[];
   frequency: 'weekly' | 'biweekly';
-  start_date: string;  // YYYY-MM-DD
-  end_date: string;    // YYYY-MM-DD
+  start_date: string;      // YYYY-MM-DD
+  end_date: string;        // YYYY-MM-DD
+  scheduled_time: string | null;  // HH:MM — Migration 042
   created_at: string;
   updated_at: string;
 };
@@ -630,6 +632,7 @@ export type InsertRecurringPlan = {
   frequency: 'weekly' | 'biweekly';
   start_date: string;
   end_date: string;
+  scheduled_time?: string | null;  // HH:MM
   exercises: AssignedExercisePayload[];
 };
 

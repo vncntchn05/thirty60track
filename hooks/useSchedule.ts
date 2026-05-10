@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { sendBookingEmail } from '@/lib/notificationEmail';
 import type {
   TrainerAvailability, InsertTrainerAvailability,
   ScheduledSession, ScheduledSessionWithDetails, InsertScheduledSession,
@@ -348,7 +349,7 @@ export async function confirmSession(
     });
   if (txErr) return { error: txErr.message };
 
-  // 5. Notify client — fire-and-forget
+  // 5. Notify client — fire-and-forget (DM + email)
   getClientAuthUserId(clientId).then((clientAuthId) => {
     if (!clientAuthId) return;
     sendSessionAutoMessage(
@@ -356,6 +357,22 @@ export async function confirmSession(
       `✅ Session confirmed — ${fmtSessionLine(scheduledAt, durationMinutes)}. ${creditCost} credit${creditCost > 1 ? 's' : ''} deducted.`,
     );
   });
+
+  // Look up trainer name for the email, then send
+  supabase
+    .from('trainers')
+    .select('full_name')
+    .eq('id', trainerId)
+    .single()
+    .then(({ data }) => {
+      sendBookingEmail({
+        type: 'session_confirmed',
+        clientId,
+        scheduledAt,
+        durationMinutes,
+        trainerName: data?.full_name ?? 'Your trainer',
+      });
+    });
 
   return { error: null };
 }
@@ -482,7 +499,7 @@ export async function bookSessionForClient(
     });
   if (txErr) return { data: null, error: txErr.message };
 
-  // 5. Notify client — fire-and-forget
+  // 5. Notify client — fire-and-forget (DM + email)
   getClientAuthUserId(clientId).then((clientAuthId) => {
     if (!clientAuthId) return;
     sendSessionAutoMessage(
@@ -490,6 +507,21 @@ export async function bookSessionForClient(
       `📅 Session booked — ${fmtSessionLine(scheduledAt, durationMinutes)}. ${creditCost} credit${creditCost > 1 ? 's' : ''} deducted.`,
     );
   });
+
+  supabase
+    .from('trainers')
+    .select('full_name')
+    .eq('id', trainerId)
+    .single()
+    .then(({ data }) => {
+      sendBookingEmail({
+        type: 'session_confirmed',
+        clientId,
+        scheduledAt,
+        durationMinutes,
+        trainerName: data?.full_name ?? 'Your trainer',
+      });
+    });
 
   return { data: session as ScheduledSession, error: null };
 }

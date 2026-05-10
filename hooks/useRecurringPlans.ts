@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { sendBookingEmail } from '@/lib/notificationEmail';
 import type { RecurringPlan, InsertRecurringPlan } from '@/types';
 
 // ─── Date generation ──────────────────────────────────────────
@@ -101,14 +102,15 @@ export async function createRecurringPlan(
   const { data: plan, error: planErr } = await supabase
     .from('recurring_plans')
     .insert({
-      client_id:    clientId,
-      trainer_id:   trainerId,
-      title:        payload.title,
-      notes:        payload.notes ?? null,
-      days_of_week: payload.days_of_week,
-      frequency:    payload.frequency,
-      start_date:   payload.start_date,
-      end_date:     payload.end_date,
+      client_id:      clientId,
+      trainer_id:     trainerId,
+      title:          payload.title,
+      notes:          payload.notes ?? null,
+      days_of_week:   payload.days_of_week,
+      frequency:      payload.frequency,
+      start_date:     payload.start_date,
+      end_date:       payload.end_date,
+      scheduled_time: payload.scheduled_time ?? null,
     })
     .select('id')
     .single();
@@ -143,6 +145,7 @@ export async function createRecurringPlan(
         notes:             payload.notes ?? null,
         status:            'assigned',
         recurring_plan_id: planId,
+        scheduled_time:    payload.scheduled_time ?? null,
       })
       .select('id')
       .single();
@@ -173,6 +176,16 @@ export async function createRecurringPlan(
       }
     }
   }
+
+  // Notify client of the new recurring series — fire-and-forget
+  sendBookingEmail({
+    type: 'recurring_plan',
+    clientId,
+    title: payload.title,
+    occurrenceCount: dates.length,
+    startDate: payload.start_date,
+    scheduledTime: payload.scheduled_time ?? null,
+  });
 
   return { planId, count: dates.length, error: null };
 }

@@ -302,6 +302,73 @@ export function useWorkoutDetail(workoutId: string) {
   return { workout, groupPeers, loading, error, refetch: fetch, updateWorkout, deleteWorkout, deleteSet, updateSet, addSet, updateExerciseSupersetGroup, addToGroup, removeFromGroup };
 }
 
+export type WorkoutSummaryForPicker = {
+  id: string;
+  performed_at: string;
+  notes: string | null;
+  exercises: { id: string; name: string; muscle_group: string | null; set_count: number }[];
+};
+
+/** Fetch recent workouts for the "load previous" picker — includes exercise names but not full set data. */
+export async function fetchRecentWorkoutsForPicker(
+  clientId: string,
+  limit = 25,
+): Promise<{ data: WorkoutSummaryForPicker[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from('workouts')
+    .select('id, performed_at, notes, workout_sets(exercise_id, exercise:exercises(id, name, muscle_group))')
+    .eq('client_id', clientId)
+    .order('performed_at', { ascending: false })
+    .limit(limit);
+
+  if (error) return { data: [], error: error.message };
+
+  const summaries = ((data ?? []) as unknown as Array<{
+    id: string; performed_at: string; notes: string | null;
+    workout_sets: Array<{ exercise_id: string; exercise: { id: string; name: string; muscle_group: string | null } | null }>;
+  }>).map((w) => {
+    const exerciseMap = new Map<string, { id: string; name: string; muscle_group: string | null; set_count: number }>();
+    for (const s of w.workout_sets) {
+      if (!s.exercise) continue;
+      if (!exerciseMap.has(s.exercise.id)) {
+        exerciseMap.set(s.exercise.id, { ...s.exercise, set_count: 0 });
+      }
+      exerciseMap.get(s.exercise.id)!.set_count++;
+    }
+    return { id: w.id, performed_at: w.performed_at, notes: w.notes, exercises: [...exerciseMap.values()] };
+  });
+
+  return { data: summaries, error: null };
+}
+
+/** Fetch a single workout with full set + exercise detail for copying into the workout builder. */
+export async function fetchWorkoutForCopy(workoutId: string): Promise<{ data: WorkoutWithSets | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('workouts')
+    .select(`
+      id, client_id, trainer_id, performed_at, notes, body_weight_kg, body_fat_percent,
+      workout_group_id, logged_by_role, logged_by_user_id, created_at, updated_at,
+      trainer:trainers(full_name),
+      client:clients!client_id(full_name),
+      workout_sets(
+        id, workout_id, exercise_id, set_number, reps, weight_kg, duration_seconds, notes, superset_group, created_at,
+        exercise:exercises(id, name, muscle_group, category, form_notes, help_url, created_at)
+      )
+    `)
+    .eq('id', workoutId)
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  const typedData = data as unknown as WorkoutWithSets;
+  const sorted = {
+    ...typedData,
+    workout_sets: typedData.workout_sets.slice().sort((a, b) =>
+      a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : a.set_number - b.set_number
+    ),
+  };
+  return { data: sorted, error: null };
+}
+
 /** Create a workout with sets in a single operation.
  *  Pass linkedClientIds to create the same workout for other clients in the same group session. */
 export async function createWorkoutWithSets(

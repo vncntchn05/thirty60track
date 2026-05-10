@@ -17,6 +17,25 @@ import type { Exercise } from '@/types';
 // Stored as end_date in the DB when the series has no end date
 const INDEFINITE_SENTINEL = '9999-12-31';
 
+// ─── Time helpers ─────────────────────────────────────────────
+
+/** Generate time slots from 5:00 AM to 10:00 PM in 30-min steps. */
+function buildTimeSlots(): { label: string; value: string }[] {
+  const slots: { label: string; value: string }[] = [];
+  for (let mins = 5 * 60; mins <= 22 * 60; mins += 30) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hh = h > 12 ? h - 12 : h === 0 ? 12 : h;
+    const label = `${hh}:${m.toString().padStart(2, '0')} ${period}`;
+    const value = `${String(h).padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    slots.push({ label, value });
+  }
+  return slots;
+}
+
+const TIME_SLOTS = buildTimeSlots();
+
 // ─── Types ───────────────────────────────────────────────────
 
 type WeightUnit = 'lbs' | 'kg' | 'secs';
@@ -84,6 +103,7 @@ export default function RecurringNewScreen() {
   const [notes, setNotes] = useState('');
   const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set([1, 3, 5])); // Mon/Wed/Fri
   const [frequency, setFrequency] = useState<'weekly' | 'biweekly'>('weekly');
+  const [scheduledTime, setScheduledTime] = useState<string | null>(null); // HH:MM or null
   const startDefault = getTomorrow();
   const [startDate, setStartDate] = useState(startDefault);
   const [endDate, setEndDate] = useState(addWeeks(startDefault, 4));
@@ -171,6 +191,7 @@ export default function RecurringNewScreen() {
         frequency,
         start_date: startDate,
         end_date: indefinite ? INDEFINITE_SENTINEL : endDate,
+        scheduled_time: scheduledTime,
         exercises,
       });
 
@@ -188,7 +209,7 @@ export default function RecurringNewScreen() {
     } finally {
       setSaving(false);
     }
-  }, [user, singleClientId, title, notes, selectedDays, frequency, startDate, endDate, blocks, occurrenceCount, router]);
+  }, [user, singleClientId, title, notes, selectedDays, frequency, startDate, endDate, scheduledTime, blocks, occurrenceCount, router]);
 
   // ExercisePicker is full-screen — render it instead of the form
   if (showPicker) {
@@ -317,6 +338,55 @@ export default function RecurringNewScreen() {
             <Text style={[s.occurrenceHint, { color: colors.primary }]}>
               {occurrenceCount} workout{occurrenceCount !== 1 ? 's' : ''} will be scheduled
               {indefinite ? ' (first year)' : ''}
+            </Text>
+          )}
+
+          {/* ── Booking time ── */}
+          <View style={[s.timeSeparator, { borderTopColor: t.border }]} />
+          <Text style={[s.sectionLabel, { color: t.textSecondary }]}>BOOKING TIME (OPTIONAL)</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.timeRow}
+          >
+            {/* "No time" chip */}
+            <TouchableOpacity
+              style={[
+                s.timeChip,
+                { borderColor: scheduledTime === null ? colors.primary : t.border },
+                scheduledTime === null && s.timeChipActive,
+              ]}
+              onPress={() => setScheduledTime(null)}
+              activeOpacity={0.7}
+            >
+              <Text style={[s.timeChipText, { color: scheduledTime === null ? colors.textInverse : t.textSecondary }]}>
+                None
+              </Text>
+            </TouchableOpacity>
+
+            {TIME_SLOTS.map((slot) => {
+              const active = scheduledTime === slot.value;
+              return (
+                <TouchableOpacity
+                  key={slot.value}
+                  style={[
+                    s.timeChip,
+                    { borderColor: active ? colors.primary : t.border },
+                    active && s.timeChipActive,
+                  ]}
+                  onPress={() => setScheduledTime(slot.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[s.timeChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
+                    {slot.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {scheduledTime && (
+            <Text style={[s.timeSelectedHint, { color: t.textSecondary }]}>
+              Each session will be booked at {TIME_SLOTS.find((s) => s.value === scheduledTime)?.label}
             </Text>
           )}
         </View>
@@ -467,6 +537,17 @@ const s = StyleSheet.create({
   indefiniteLabel: { ...typography.body },
   indefiniteHint: { ...typography.bodySmall },
   occurrenceHint: { ...typography.bodySmall, fontWeight: '600', textAlign: 'center' },
+
+  // Booking time
+  timeSeparator: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.xs },
+  timeRow: { flexDirection: 'row', gap: spacing.xs, paddingVertical: spacing.xs },
+  timeChip: {
+    paddingVertical: spacing.xs, paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm, borderWidth: 1,
+  },
+  timeChipActive: { backgroundColor: colors.primary },
+  timeChipText: { ...typography.label, fontWeight: '600' },
+  timeSelectedHint: { ...typography.label, textAlign: 'center' },
 
   // Exercise block
   blockHeader: {

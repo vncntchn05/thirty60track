@@ -12,6 +12,7 @@ import { AddFoodModal } from './AddFoodModal';
 import { NutritionEncyclopedia } from './NutritionEncyclopedia';
 import { NutritionGuide } from './NutritionGuide';
 import { MealPlanView } from './MealPlanView';
+import { MetabolicsCard } from './MetabolicsCard';
 import { DatePickerModal } from '@/components/ui/DatePickerModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 import type { MealType, InsertNutritionLog, NutritionLog, NutritionGoal, Client, ClientIntake } from '@/types';
@@ -308,6 +309,11 @@ export function NutritionTab({ clientId, canEditGoal, client, intake }: Props) {
             onDelete={deleteLog}
           />
         ))}
+
+        {/* Recommendations */}
+        {client && (
+          <MetabolicsCard client={client} intake={intake} />
+        )}
 
       </ScrollView>
       )} {/* end log view */}

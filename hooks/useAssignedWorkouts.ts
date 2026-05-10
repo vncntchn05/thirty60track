@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { sendBookingEmail } from '@/lib/notificationEmail';
 import type {
   AssignedWorkoutWithDetails,
   AssignedExercisePayload,
@@ -136,6 +137,15 @@ export async function createAssignedWorkout(
     const insertErr = await _insertExerciseWithSets(aw.id, ex);
     if (insertErr) return { id: aw.id, error: insertErr };
   }
+
+  // Notify client via email — fire-and-forget
+  sendBookingEmail({
+    type: 'assigned_workout',
+    clientId,
+    title: payload.title ?? null,
+    scheduledDate: payload.scheduled_date,
+    scheduledTime: (payload as { scheduled_time?: string | null }).scheduled_time ?? null,
+  });
 
   return { id: aw.id, error: null };
 }

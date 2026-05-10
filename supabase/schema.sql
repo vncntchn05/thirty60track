@@ -3262,3 +3262,72 @@ CREATE POLICY "checkins_client_self_insert" ON client_checkins
     AND is_self_checkin = TRUE
     AND trainer_id IS NULL
   );
+
+-- ============================================================
+-- Migration 042 — Booking Time on Recurring Plans
+-- ============================================================
+-- Adds an optional preferred time of day to recurring plan series
+-- and propagates it to each generated assigned_workout instance.
+
+ALTER TABLE recurring_plans
+  ADD COLUMN IF NOT EXISTS scheduled_time TIME;
+
+ALTER TABLE assigned_workouts
+  ADD COLUMN IF NOT EXISTS scheduled_time TIME;
+
+-- ============================================================
+-- Migration 043 — Email Notifications
+-- ============================================================
+
+ALTER TABLE conversation_participants
+  ADD COLUMN IF NOT EXISTS email_reminder_sent_at TIMESTAMPTZ;
+
+CREATE OR REPLACE FUNCTION mark_conversation_read(p_conversation_id UUID)
+RETURNS void
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+  UPDATE conversation_participants
+  SET last_read_at           = NOW(),
+      email_reminder_sent_at = NULL
+  WHERE conversation_id = p_conversation_id AND user_id = auth.uid();
+$$;
+
+CREATE OR REPLACE FUNCTION get_stale_unread_participants(p_cutoff TIMESTAMPTZ)
+RETURNS TABLE(user_id UUID, conversation_id UUID)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT DISTINCT cp.user_id, cp.conversation_id
+  FROM   conversation_participants cp
+  WHERE  cp.email_reminder_sent_at IS NULL
+  AND    EXISTS (
+    SELECT 1
+    FROM   messages m
+    WHERE  m.conversation_id = cp.conversation_id
+    AND    m.sender_id        != cp.user_id
+    AND    m.created_at        > COALESCE(cp.last_read_at, '1970-01-01'::timestamptz)
+    AND    m.created_at        < p_cutoff
+  );
+$$;
+
+-- pg_cron job — run manually after enabling pg_cron + pg_net extensions.
+-- Replace the two placeholder values, then run in SQL editor:
+--
+-- SELECT cron.unschedule('notify-unread-messages');
+-- SELECT cron.schedule(
+--   'notify-unread-messages',
+--   '0 * * * *',
+--   $cmd$
+--   SELECT net.http_post(
+--     url     := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/notify-unread',
+--     headers := jsonb_build_object(
+--       'Content-Type',  'application/json',
+--       'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'
+--     ),
+--     body    := '{}'::jsonb
+--   );
+--   $cmd$
+-- );
