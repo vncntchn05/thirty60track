@@ -37,3 +37,18 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   global: { fetch: fetchWithBackoff },
 });
+
+// ─── CI/CD keep-alive ─────────────────────────────────────────────
+// Pings the CI/CD database so Supabase doesn't pause it for inactivity.
+// Called fire-and-forget on every production auth session restore/sign-in.
+// Set EXPO_PUBLIC_CICD_SUPABASE_URL + EXPO_PUBLIC_CICD_SUPABASE_ANON_KEY
+// in .env.local (or CI env) to enable; no-ops silently if unset.
+const _cicdUrl = process.env.EXPO_PUBLIC_CICD_SUPABASE_URL;
+const _cicdKey = process.env.EXPO_PUBLIC_CICD_SUPABASE_ANON_KEY;
+
+export function pingCicdDatabase(): void {
+  if (!_cicdUrl || !_cicdKey) return;
+  fetch(`${_cicdUrl}/rest/v1/`, {
+    headers: { apikey: _cicdKey, Authorization: `Bearer ${_cicdKey}` },
+  }).catch(() => {});
+}

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase, pingCicdDatabase } from '@/lib/supabase';
 import type { Trainer } from '@/types';
 
 /**
@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && s) {
+        pingCicdDatabase();
         detectRole(s.user.id);
       } else if (!s) {
         setTrainer(null);
