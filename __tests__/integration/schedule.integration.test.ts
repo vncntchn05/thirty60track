@@ -344,8 +344,12 @@ maybeDescribe('Schedule & Credits integration', () => {
         .select('id, trainer_id');
 
       expect(error).toBeNull();
+      // Transactions visible to the trainer must either be ones they recorded
+      // (trainer_id = their auth.uid()) OR webhook-recorded purchases
+      // (trainer_id = NULL) for clients they own — both are permitted by the
+      // transactions_trainer_select policy.
       for (const row of data ?? []) {
-        expect(row.trainer_id).toBe(trainerId);
+        expect(row.trainer_id === null || row.trainer_id === trainerId).toBe(true);
       }
     });
   });

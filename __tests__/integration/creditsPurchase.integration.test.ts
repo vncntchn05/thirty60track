@@ -60,12 +60,13 @@ maybeDescribe('Credits — trainer grant integration', () => {
   });
 
   afterAll(async () => {
-    // Revert balance and remove test transactions
+    // Use the service role for cleanup so we can also delete purchase rows
+    // (trainer_id=null) that RLS blocks the authenticated trainer from removing.
+    const cleanupClient = SUPABASE_SERVICE_KEY ? buildClient(SUPABASE_SERVICE_KEY) : sb;
     if (createdTxIds.length > 0) {
-      await sb.from('credit_transactions').delete().in('id', createdTxIds);
+      await cleanupClient.from('credit_transactions').delete().in('id', createdTxIds);
     }
-    // Restore balance to initial
-    await sb.from('client_credits').upsert(
+    await cleanupClient.from('client_credits').upsert(
       { client_id: CLIENT_ID, balance: initialBalance, updated_at: new Date().toISOString() },
       { onConflict: 'client_id' },
     );
@@ -104,8 +105,17 @@ maybeDescribe('Credits — trainer grant integration', () => {
     createdTxIds.push(data!.id);
   });
 
-  it('credit_transaction with reason=purchase allows NULL trainer_id', async () => {
-    const { data, error } = await sb.from('credit_transactions').insert({
+  // Purchases are recorded by the Stripe webhook running with the service
+  // role key — never by a trainer/client. RLS correctly blocks anon JWTs
+  // from inserting purchase rows. We assert the schema (nullable trainer_id
+  // + 'purchase' reason) via the service-role insert path that production
+  // actually uses, then re-read via the trainer client to confirm the
+  // transactions_trainer_select policy surfaces it.
+  const maybeIt = hasServiceKey ? it : it.skip;
+
+  maybeIt('credit_transaction with reason=purchase allows NULL trainer_id', async () => {
+    const sbService = buildClient(SUPABASE_SERVICE_KEY);
+    const { data, error } = await sbService.from('credit_transactions').insert({
       client_id:  CLIENT_ID,
       trainer_id: null,
       amount:     10,
@@ -118,7 +128,7 @@ maybeDescribe('Credits — trainer grant integration', () => {
     createdTxIds.push(data!.id);
   });
 
-  it('transactions list includes both grant and purchase entries', async () => {
+  maybeIt('transactions list includes both grant and purchase entries', async () => {
     const { data, error } = await sb.from('credit_transactions')
       .select('id, reason, amount, trainer_id')
       .eq('client_id', CLIENT_ID)
