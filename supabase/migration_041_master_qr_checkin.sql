@@ -14,6 +14,9 @@ CREATE INDEX IF NOT EXISTS client_checkins_trainer_idx
   WHERE trainer_id IS NOT NULL;
 
 -- Trainers can view ALL check-ins for their own clients (including self-check-ins)
+DROP POLICY IF EXISTS "checkins_trainer_select_clients" ON client_checkins;
+DROP POLICY IF EXISTS "checkins_client_self_insert"     ON client_checkins;
+
 CREATE POLICY "checkins_trainer_select_clients" ON client_checkins
   FOR SELECT TO authenticated
   USING (

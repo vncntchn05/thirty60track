@@ -12,9 +12,17 @@
 ALTER TABLE workout_templates
   DROP CONSTRAINT IF EXISTS workout_templates_name_split_key;
 
-ALTER TABLE workout_templates
-  ADD CONSTRAINT workout_templates_name_split_subgroup_key
-  UNIQUE (name, split, subgroup);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'workout_templates_name_split_subgroup_key'
+      AND conrelid = 'workout_templates'::regclass
+  ) THEN
+    ALTER TABLE workout_templates
+      ADD CONSTRAINT workout_templates_name_split_subgroup_key
+      UNIQUE (name, split, subgroup);
+  END IF;
+END $$;
 
 -- ── 2. Full Body / Standard ───────────────────────────────────
 UPDATE workout_templates SET name = 'Full Body 1'

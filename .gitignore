@@ -28,4 +28,10 @@ Thumbs.db
 
 # ─── Supabase CLI ─────────────────────────────────────────────
 supabase/.temp/
+supabase/.branches/
 *.tar.gz
+
+# ─── Playwright ───────────────────────────────────────────────
+playwright-report/
+test-results/
+.playwright/

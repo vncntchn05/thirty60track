@@ -17,6 +17,9 @@ CREATE INDEX IF NOT EXISTS client_checkins_trainer_idx ON client_checkins (train
 
 ALTER TABLE client_checkins ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "checkins_trainer_all"    ON client_checkins;
+DROP POLICY IF EXISTS "checkins_client_select"  ON client_checkins;
+
 -- Trainer who performed the scan: full access
 CREATE POLICY "checkins_trainer_all" ON client_checkins
   FOR ALL TO authenticated

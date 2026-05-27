@@ -1,0 +1,19 @@
+# supabase/config.toml — minimal config for local CLI use.
+#
+# Our schema lives in `supabase/schema.sql` (source of truth) and our patches
+# in `supabase/sql_migrations/` + `supabase/migration_*.sql`. Neither path is
+# what the Supabase CLI auto-discovers, and `supabase/seed.sql` deliberately
+# isn't auto-loaded either — it expects schema.sql to have run first.
+#
+# Everything else uses CLI defaults; this file exists solely to opt out of
+# the auto-apply behaviour during `supabase start`.
+
+project_id = "thirty60track"
+
+[db.migrations]
+# Empty — our migrations are applied by scripts/migrate.sh, not the CLI.
+schema_paths = []
+
+[db.seed]
+# Our seed.sql + seed_cicd.sql are applied manually via psql after schema.sql.
+enabled = false

@@ -214,7 +214,15 @@ CREATE POLICY "workout_templates: authenticated" ON workout_templates
 -- Run this if you already ran Migration 004.
 -- The old UNIQUE(name) prevented same-named workouts across phases.
 ALTER TABLE workout_templates DROP CONSTRAINT IF EXISTS workout_templates_name_key;
-ALTER TABLE workout_templates ADD CONSTRAINT workout_templates_name_phase_key UNIQUE (name, phase);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'workout_templates_name_phase_key'
+      AND conrelid = 'workout_templates'::regclass
+  ) THEN
+    ALTER TABLE workout_templates ADD CONSTRAINT workout_templates_name_phase_key UNIQUE (name, phase);
+  END IF;
+END $$;
 
 -- ─── Migration 006: superset grouping on workout_sets ──────────────
 -- Group numbers are app-assigned integers, scoped to a workout.

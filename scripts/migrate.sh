@@ -6,8 +6,14 @@
 #   SUPABASE_DB_URL=postgres://... ./scripts/migrate.sh --dry-run
 #
 # Migration files discovered (sorted by version):
-#   supabase/migrations/NNN_name.sql
+#   supabase/sql_migrations/NNN_name.sql
 #   supabase/migration_NNN[letter]_name.sql
+#
+# NOTE: This script intentionally does NOT use supabase/migrations/. That path
+# is reserved for the Supabase CLI's auto-apply behaviour during `supabase
+# start`; our patches are not safe to apply against an empty DB (they assume
+# supabase/schema.sql ran first). Keeping them under sql_migrations/ hides
+# them from the CLI while leaving migrate.sh fully functional.
 
 set -euo pipefail
 
@@ -45,8 +51,8 @@ SQL
 # version-sort (sort -V) handles 029 < 029b < 029c < 030 correctly.
 mapfile -t SORTED_FILES < <(
   {
-    find "$REPO_ROOT/supabase/migrations" -maxdepth 1 -name '*.sql' 2>/dev/null || true
-    find "$REPO_ROOT/supabase"            -maxdepth 1 -name 'migration_*.sql' 2>/dev/null || true
+    find "$REPO_ROOT/supabase/sql_migrations" -maxdepth 1 -name '*.sql' 2>/dev/null || true
+    find "$REPO_ROOT/supabase"                -maxdepth 1 -name 'migration_*.sql' 2>/dev/null || true
   } | while IFS= read -r f; do
     echo "$(version_of "$f") $f"
   done | sort -k1,1V | awk '{print $2}'

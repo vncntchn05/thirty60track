@@ -23,6 +23,11 @@ CREATE INDEX IF NOT EXISTS personal_records_client_idx
 ALTER TABLE personal_records ENABLE ROW LEVEL SECURITY;
 
 -- Trainer: full access to records for their clients
+DROP POLICY IF EXISTS "pr_trainer_all"   ON personal_records;
+DROP POLICY IF EXISTS "pr_client_select" ON personal_records;
+DROP POLICY IF EXISTS "pr_client_insert" ON personal_records;
+DROP POLICY IF EXISTS "pr_client_update" ON personal_records;
+
 CREATE POLICY "pr_trainer_all" ON personal_records
   FOR ALL TO authenticated
   USING (

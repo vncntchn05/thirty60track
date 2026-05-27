@@ -42,15 +42,27 @@ upsert_user() {
   }
 
   local existing_id
-  existing_id=$(echo "$list_resp" | jq -r '.users[0].id // empty' 2>/dev/null || true)
+  existing_id=$(echo "$list_resp" | python3 -c '
+import json, sys
+try:
+  d = json.load(sys.stdin)
+  users = d.get("users") or []
+  print(users[0]["id"] if users and users[0].get("id") else "")
+except Exception:
+  print("")
+' 2>/dev/null || true)
 
   if [[ -n "$existing_id" ]]; then
     echo "  Found existing user id=$existing_id — updating password..."
     local update_payload
-    update_payload=$(jq -n \
-      --arg password "$password" \
-      --argjson meta "$metadata" \
-      '{password: $password, user_metadata: $meta, email_confirm: true}')
+    update_payload=$(PW="$password" META="$metadata" python3 -c '
+import json, os
+print(json.dumps({
+  "password": os.environ["PW"],
+  "user_metadata": json.loads(os.environ["META"]),
+  "email_confirm": True,
+}))
+')
 
     local resp
     resp=$(curl -s -w "\n%{http_code}" -X PUT "${AUTH_URL}/${existing_id}" \
@@ -68,13 +80,16 @@ upsert_user() {
   else
     echo "  No existing user — creating with id=$fixed_id..."
     local create_payload
-    create_payload=$(jq -n \
-      --arg id "$fixed_id" \
-      --arg email "$email" \
-      --arg password "$password" \
-      --argjson meta "$metadata" \
-      '{id: $id, email: $email, password: $password, email_confirm: true,
-        user_metadata: $meta}')
+    create_payload=$(ID="$fixed_id" EMAIL="$email" PW="$password" META="$metadata" python3 -c '
+import json, os
+print(json.dumps({
+  "id": os.environ["ID"],
+  "email": os.environ["EMAIL"],
+  "password": os.environ["PW"],
+  "email_confirm": True,
+  "user_metadata": json.loads(os.environ["META"]),
+}))
+')
 
     local resp
     resp=$(curl -s -w "\n%{http_code}" -X POST "${AUTH_URL}" \
