@@ -28,15 +28,15 @@ jobs:
       frontend:   ${{ steps.filter.outputs.frontend }}
       e2e:        ${{ steps.filter.outputs.e2e }}
       ci:         ${{ steps.filter.outputs.ci }}
-      docs_only:  ${{ steps.filter.outputs.docs_only }}
+      docs_only:  ${{ steps.docs.outputs.docs_only }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          # 'docs_only' is the negation: true when *only* markdown/text files changed.
-          predicate-quantifier: 'every'
+          # Default predicate-quantifier 'some': a filter matches when at least
+          # one of its patterns matches at least one changed file.
           filters: |
             backend:
               - 'supabase/**'
@@ -60,9 +60,21 @@ jobs:
               - 'playwright.config.*'
             ci:
               - '.github/workflows/**'
-            docs_only:
-              - '!**/*.md'
-              - '!docs/**'
+
+      # docs_only is true when none of the code-impacting filters above matched
+      # — i.e. only docs/markdown/etc. files changed. Derived rather than
+      # filter-based because dorny/paths-filter's quantifier is workflow-wide.
+      - name: Derive docs_only
+        id: docs
+        run: |
+          if [[ "${{ steps.filter.outputs.backend }}"  != "true" \
+             && "${{ steps.filter.outputs.frontend }}" != "true" \
+             && "${{ steps.filter.outputs.e2e }}"      != "true" \
+             && "${{ steps.filter.outputs.ci }}"       != "true" ]]; then
+            echo "docs_only=true"  >> $GITHUB_OUTPUT
+          else
+            echo "docs_only=false" >> $GITHUB_OUTPUT
+          fi
 
   # ─── Lint & type-check — fast, always runs ───────────────────────────────
   lint-and-typecheck:
