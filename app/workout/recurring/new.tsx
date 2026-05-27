@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, StyleSheet, ActivityIndicator, Alert,
@@ -19,10 +19,10 @@ const INDEFINITE_SENTINEL = '9999-12-31';
 
 // ─── Time helpers ─────────────────────────────────────────────
 
-/** Generate time slots from 5:00 AM to 10:00 PM in 30-min steps. */
+/** Generate time slots from 5:00 AM to 10:00 PM in 15-min steps — mirrors the booking flow. */
 function buildTimeSlots(): { label: string; value: string }[] {
   const slots: { label: string; value: string }[] = [];
-  for (let mins = 5 * 60; mins <= 22 * 60; mins += 30) {
+  for (let mins = 5 * 60; mins < 22 * 60; mins += 15) {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
     const period = h >= 12 ? 'PM' : 'AM';
@@ -35,6 +35,81 @@ function buildTimeSlots(): { label: string; value: string }[] {
 }
 
 const TIME_SLOTS = buildTimeSlots();
+const DEFAULT_TIME_INDEX = TIME_SLOTS.findIndex((slot) => slot.value === '09:00');
+
+// ─── Vertical scroll picker (mirrors BookingSheet/TrainerBookingSheet) ─────
+
+const ITEM_H = 52;
+const VISIBLE_ROWS = 5;
+const PICKER_H = ITEM_H * VISIBLE_ROWS;
+
+function TimeVerticalPicker({
+  items,
+  initialIdx,
+  onSelect,
+  textColor,
+}: {
+  items: { label: string; value: string }[];
+  initialIdx: number;
+  onSelect: (idx: number) => void;
+  textColor: string;
+}) {
+  const ref = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      ref.current?.scrollTo({ y: initialIdx * ITEM_H, animated: false });
+    }, 80);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function snap(e: { nativeEvent: { contentOffset: { y: number } } }) {
+    const i = Math.max(0, Math.min(Math.round(e.nativeEvent.contentOffset.y / ITEM_H), items.length - 1));
+    onSelect(i);
+  }
+
+  return (
+    <View style={p.wrap}>
+      <View style={[p.indicator, { borderColor: colors.primary }]} pointerEvents="none" />
+      <ScrollView
+        ref={ref}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
+        onMomentumScrollEnd={snap}
+        onScrollEndDrag={snap}
+        nestedScrollEnabled
+      >
+        {items.map((item, i) => (
+          <TouchableOpacity
+            key={item.value}
+            style={p.item}
+            onPress={() => {
+              ref.current?.scrollTo({ y: i * ITEM_H, animated: true });
+              onSelect(i);
+            }}
+            activeOpacity={0.6}
+          >
+            <Text style={[p.itemLabel, { color: textColor }]}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const p = StyleSheet.create({
+  wrap: { height: PICKER_H, overflow: 'hidden' },
+  indicator: {
+    position: 'absolute', left: 32, right: 32,
+    top: ITEM_H * 2, height: ITEM_H,
+    borderTopWidth: 1.5, borderBottomWidth: 1.5,
+    zIndex: 10,
+  },
+  item: { height: ITEM_H, justifyContent: 'center', alignItems: 'center' },
+  itemLabel: { ...typography.body, fontWeight: '600', textAlign: 'center' },
+});
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -103,7 +178,9 @@ export default function RecurringNewScreen() {
   const [notes, setNotes] = useState('');
   const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set([1, 3, 5])); // Mon/Wed/Fri
   const [frequency, setFrequency] = useState<'weekly' | 'biweekly'>('weekly');
-  const [scheduledTime, setScheduledTime] = useState<string | null>(null); // HH:MM or null
+  const initialTimeIdx = DEFAULT_TIME_INDEX >= 0 ? DEFAULT_TIME_INDEX : 0;
+  const [timeIdx, setTimeIdx] = useState(initialTimeIdx);
+  const scheduledTime = TIME_SLOTS[timeIdx]?.value ?? null;
   const startDefault = getTomorrow();
   const [startDate, setStartDate] = useState(startDefault);
   const [endDate, setEndDate] = useState(addWeeks(startDefault, 4));
@@ -164,6 +241,7 @@ export default function RecurringNewScreen() {
     if (!singleClientId) { Alert.alert('No client selected'); return; }
     if (!title.trim()) { Alert.alert('Title required', 'Give this recurring series a name.'); return; }
     if (selectedDays.size === 0) { Alert.alert('No days selected', 'Choose at least one day of the week.'); return; }
+    if (!scheduledTime) { Alert.alert('Booking time required', 'Pick a time of day for each session.'); return; }
     if (!indefinite && startDate > endDate) { Alert.alert('Invalid dates', 'End date must be after start date.'); return; }
     if (blocks.length === 0) { Alert.alert('No exercises', 'Add at least one exercise.'); return; }
     if (occurrenceCount === 0) { Alert.alert('No occurrences', 'The selected days don\'t fall between the start and end dates.'); return; }
@@ -343,52 +421,16 @@ export default function RecurringNewScreen() {
 
           {/* ── Booking time ── */}
           <View style={[s.timeSeparator, { borderTopColor: t.border }]} />
-          <Text style={[s.sectionLabel, { color: t.textSecondary }]}>BOOKING TIME (OPTIONAL)</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.timeRow}
-          >
-            {/* "No time" chip */}
-            <TouchableOpacity
-              style={[
-                s.timeChip,
-                { borderColor: scheduledTime === null ? colors.primary : t.border },
-                scheduledTime === null && s.timeChipActive,
-              ]}
-              onPress={() => setScheduledTime(null)}
-              activeOpacity={0.7}
-            >
-              <Text style={[s.timeChipText, { color: scheduledTime === null ? colors.textInverse : t.textSecondary }]}>
-                None
-              </Text>
-            </TouchableOpacity>
-
-            {TIME_SLOTS.map((slot) => {
-              const active = scheduledTime === slot.value;
-              return (
-                <TouchableOpacity
-                  key={slot.value}
-                  style={[
-                    s.timeChip,
-                    { borderColor: active ? colors.primary : t.border },
-                    active && s.timeChipActive,
-                  ]}
-                  onPress={() => setScheduledTime(slot.value)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[s.timeChipText, { color: active ? colors.textInverse : t.textSecondary }]}>
-                    {slot.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          {scheduledTime && (
-            <Text style={[s.timeSelectedHint, { color: t.textSecondary }]}>
-              Each session will be booked at {TIME_SLOTS.find((s) => s.value === scheduledTime)?.label}
-            </Text>
-          )}
+          <Text style={[s.sectionLabel, { color: t.textSecondary }]}>BOOKING TIME</Text>
+          <TimeVerticalPicker
+            items={TIME_SLOTS}
+            initialIdx={initialTimeIdx}
+            onSelect={setTimeIdx}
+            textColor={t.textPrimary as string}
+          />
+          <Text style={[s.timeSelectedHint, { color: t.textSecondary }]}>
+            Each session will be booked at {TIME_SLOTS[timeIdx]?.label ?? '—'}
+          </Text>
         </View>
 
         {/* Exercise blocks */}
@@ -540,14 +582,7 @@ const s = StyleSheet.create({
 
   // Booking time
   timeSeparator: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.xs },
-  timeRow: { flexDirection: 'row', gap: spacing.xs, paddingVertical: spacing.xs },
-  timeChip: {
-    paddingVertical: spacing.xs, paddingHorizontal: spacing.sm,
-    borderRadius: radius.sm, borderWidth: 1,
-  },
-  timeChipActive: { backgroundColor: colors.primary },
-  timeChipText: { ...typography.label, fontWeight: '600' },
-  timeSelectedHint: { ...typography.label, textAlign: 'center' },
+  timeSelectedHint: { ...typography.label, textAlign: 'center', marginTop: spacing.xs },
 
   // Exercise block
   blockHeader: {
