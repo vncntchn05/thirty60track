@@ -13,6 +13,9 @@
     "test:coverage": "NODE_OPTIONS=--max-old-space-size=4096 jest --coverage --watchAll=false --runInBand",
     "test:ci": "NODE_OPTIONS=--max-old-space-size=4096 jest --watchAll=false --forceExit --runInBand",
     "test:integration": "NODE_OPTIONS=--max-old-space-size=4096 jest --testPathPatterns=__tests__/integration --watchAll=false --forceExit --runInBand",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:report": "playwright show-report",
     "build": "npx expo export --platform web"
   },
   "dependencies": {
@@ -52,6 +55,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@playwright/test": "^1.60.0",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^12.9.0",
     "@types/jest": "^30.0.0",
@@ -63,6 +67,7 @@
     "jest": "^30.3.0",
     "jest-expo": "^51.0.4",
     "react-test-renderer": "^18.2.0",
+    "serve": "^14.2.6",
     "ts-jest": "^29.4.6",
     "typescript": "^5.3.3"
   }

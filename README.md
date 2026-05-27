@@ -807,7 +807,9 @@ The `schema_migrations` table (created at the top of `schema.sql`) records every
 | `checksum` | SHA-256 of the file contents at apply time |
 | `applied_by` | Postgres `current_user` at apply time |
 
-`scripts/migrate.sh` discovers all migration files in `supabase/migrations/` and `supabase/migration_*.sql`, sorts them by version using `sort -V` (handles `029 < 029b < 029c < 030` correctly), skips already-applied versions, and logs each new migration after execution.
+`scripts/migrate.sh` discovers all migration files in `supabase/sql_migrations/` and `supabase/migration_*.sql`, sorts them by version using `sort -V` (handles `029 < 029b < 029c < 030` correctly), skips already-applied versions, and logs each new migration after execution.
+
+> **Why `sql_migrations/` and not the conventional `supabase/migrations/`?** The Supabase CLI auto-applies anything in `supabase/migrations/` during `supabase start`. Our patches (`001_body_metrics_and_rls.sql`, etc.) ALTER tables that only exist after `supabase/schema.sql` has run — so the CLI's auto-apply fails on a fresh DB. Keeping the patches under `sql_migrations/` hides them from the CLI while leaving `migrate.sh` and CI fully functional.
 
 CI runs `migrate.sh` then `check-migrations.sh` automatically before seeding the test database — the migration status is visible in every CI run's logs.
 
