@@ -14,6 +14,8 @@ type Props = {
   trainerId?: string; // required for trainer actions
   onClose: () => void;
   onChanged: () => void;
+  /** Called when the user taps "Book Again" on a past session. */
+  onRepeat?: (session: ScheduledSessionWithDetails) => void;
 };
 
 function formatDateTime(iso: string): string {
@@ -36,7 +38,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function SessionSheet({ session, role, trainerId, onClose, onChanged }: Props) {
+export function SessionSheet({ session, role, trainerId, onClose, onChanged, onRepeat }: Props) {
   const t = useTheme();
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -49,10 +51,12 @@ export function SessionSheet({ session, role, trainerId, onClose, onChanged }: P
   const hoursUntil = (new Date(s.scheduled_at).getTime() - Date.now()) / (1000 * 60 * 60);
   const isAtLeastDayAway = hoursUntil >= 24;
   const isActive = s.status === 'pending' || s.status === 'confirmed';
+  const isPast = new Date(s.scheduled_at).getTime() < Date.now();
 
   const canConfirm  = role === 'trainer' && s.status === 'pending';
   const canComplete = role === 'trainer' && s.status === 'confirmed';
   const canCancel   = isActive && (role === 'trainer' || isAtLeastDayAway);
+  const canRepeat   = !!onRepeat && isPast;
   // Client has an active session but within the 24-hour window
   const showLateCancelNote = role === 'client' && isActive && !isAtLeastDayAway;
 
@@ -163,6 +167,15 @@ export function SessionSheet({ session, role, trainerId, onClose, onChanged }: P
                 <TouchableOpacity style={styles.completeBtn} onPress={handleComplete}>
                   <Ionicons name="trophy-outline" size={18} color={colors.textInverse} />
                   <Text style={styles.confirmBtnText}>Mark Completed</Text>
+                </TouchableOpacity>
+              )}
+              {canRepeat && (
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={() => { onRepeat!(s); onClose(); }}
+                >
+                  <Ionicons name="repeat-outline" size={18} color={colors.textInverse} />
+                  <Text style={styles.confirmBtnText}>Book Again</Text>
                 </TouchableOpacity>
               )}
               {canCancel && (

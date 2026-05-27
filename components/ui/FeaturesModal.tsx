@@ -157,6 +157,13 @@ const TRAINER_FEATURES: FeatureGroup[] = [
         routeLabel: 'Schedule tab',
       },
       {
+        icon: 'repeat-outline',
+        title: 'Repeat Past Session',
+        description: "Tap any past session to open Book Again — pre-fills the original client, day-of-week, time, and duration; tap the Edit pills on the confirm step to adjust the date or time.",
+        route: '/(tabs)/schedule',
+        routeLabel: 'Schedule → tap any past session',
+      },
+      {
         icon: 'card-outline',
         title: 'Session Credits',
         description: 'Grant or deduct session credits for any client; 1 credit = 30 min, 2 credits = 60 min.',
@@ -316,6 +323,20 @@ const CLIENT_FEATURES: FeatureGroup[] = [
         description: "Request a session from your trainer's available time slots using your credits.",
         route: '/(client)/workouts',
         routeLabel: 'Workouts → Schedule tab',
+      },
+      {
+        icon: 'repeat-outline',
+        title: 'Repeat Past Session',
+        description: 'Tap a past session on your schedule and choose Book Again to request the same time and duration on a future date. Use the Edit pills on the confirm step to change the date or time.',
+        route: '/(client)/workouts',
+        routeLabel: 'Workouts → Schedule → tap any past session',
+      },
+      {
+        icon: 'card-outline',
+        title: 'Buy Credits',
+        description: 'Purchase session credits with Stripe — packages of 5, 10, or 20 credits at $1 per credit. Shows "Coming Soon" until payments are enabled.',
+        route: '/(client)/profile',
+        routeLabel: 'Profile → Credits tab',
       },
       {
         icon: 'fitness-outline',

@@ -192,11 +192,17 @@ type Props = {
   trainerId: string;
   onClose: () => void;
   onBooked: () => void;
+  /**
+   * If set, opens the sheet pre-filled to suggest re-booking a past session.
+   * Pre-selects the client, suggests the next future date matching source's
+   * day-of-week + time-of-day, pre-sets duration, and jumps to confirm step.
+   */
+  prefill?: { scheduledAt: string; durationMinutes: 30 | 60; clientId: string } | null;
 };
 
 // ─── Main component ───────────────────────────────────────────
 
-export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: Props) {
+export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked, prefill }: Props) {
   const t = useTheme();
   const { clients, loading: clientsLoading } = useClients();
 
@@ -210,6 +216,61 @@ export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: P
   const [allBalances, setAllBalances]           = useState<Record<string, number>>({});
   const [submitting, setSubmitting]             = useState(false);
   const [error, setError]                       = useState<string | null>(null);
+  const [prefillApplied, setPrefillApplied]     = useState(false);
+
+  // Reset prefill flag when sheet closes
+  useEffect(() => { if (!visible) setPrefillApplied(false); }, [visible]);
+
+  // Apply prefill once clients have loaded
+  useEffect(() => {
+    if (!visible || !prefill || prefillApplied || clientsLoading) return;
+    const client = clients.find((c) => c.id === prefill.clientId);
+    if (!client) {
+      // Source client not found — just pre-set duration and leave at client step
+      setDuration(prefill.durationMinutes);
+      setPrefillApplied(true);
+      return;
+    }
+
+    const source = new Date(prefill.scheduledAt);
+    const sourceDow = source.getDay();
+    const sourceH = source.getHours();
+    const sourceM = source.getMinutes();
+
+    // Find the soonest future date with matching day-of-week (within trainerMonths window)
+    const months = getTrainerMonths();
+    let foundDate: Date | null = null;
+    let foundMonthIdx = -1;
+    let foundDateIdx = -1;
+    for (let i = 0; i < months.length && !foundDate; i++) {
+      const datesIn = getDatesForTrainer(months[i]);
+      const dIdx = datesIn.findIndex((d) => d.getDay() === sourceDow);
+      if (dIdx !== -1) {
+        foundMonthIdx = i;
+        foundDateIdx = dIdx;
+        foundDate = datesIn[dIdx];
+      }
+    }
+
+    // Match time slot
+    const slots = getAllTimeSlots();
+    const tIdx = slots.findIndex((opt) => opt.h === sourceH && opt.m === sourceM);
+
+    setSelectedClient(client);
+    setDuration(prefill.durationMinutes);
+    if (foundDate && foundMonthIdx >= 0 && tIdx >= 0) {
+      setMonthIdx(foundMonthIdx);
+      setDateIdx(foundDateIdx);
+      setTimeIdx(tIdx);
+      setStep('confirm');
+    } else if (tIdx >= 0) {
+      setTimeIdx(tIdx);
+      setStep('month');
+    } else {
+      setStep('month');
+    }
+    setPrefillApplied(true);
+  }, [visible, prefill, prefillApplied, clients, clientsLoading]);
 
   // Fetch selected client's balance
   useEffect(() => {
@@ -473,21 +534,29 @@ export function TrainerBookingSheet({ visible, trainerId, onClose, onBooked }: P
                 </View>
                 <View style={styles.confirmRow}>
                   <Ionicons name="calendar-outline" size={18} color={t.textSecondary as string} />
-                  <View>
+                  <View style={styles.confirmRowMain}>
                     <Text style={[styles.confirmLabel, { color: t.textSecondary }]}>Date</Text>
                     <Text style={[styles.confirmValue, { color: t.textPrimary }]}>
                       {DAY_ABBR[selectedDate.getDay()]}, {MONTH_ABBR[selectedDate.getMonth()]} {selectedDate.getDate()}, {selectedDate.getFullYear()}
                     </Text>
                   </View>
+                  <TouchableOpacity onPress={() => setStep('date')} style={styles.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="pencil-outline" size={14} color={colors.primary} />
+                    <Text style={styles.editBtnText}>Edit</Text>
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.confirmRow}>
                   <Ionicons name="time-outline" size={18} color={t.textSecondary as string} />
-                  <View>
+                  <View style={styles.confirmRowMain}>
                     <Text style={[styles.confirmLabel, { color: t.textSecondary }]}>Time</Text>
                     <Text style={[styles.confirmValue, { color: t.textPrimary }]}>
                       {fmtTime(selectedTimeSlot.h, selectedTimeSlot.m)} · {duration} min
                     </Text>
                   </View>
+                  <TouchableOpacity onPress={() => setStep('time')} style={styles.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="pencil-outline" size={14} color={colors.primary} />
+                    <Text style={styles.editBtnText}>Edit</Text>
+                  </TouchableOpacity>
                 </View>
                 <View style={[styles.confirmRow, styles.confirmRowLast]}>
                   <Ionicons name="wallet-outline" size={18} color={t.textSecondary as string} />
@@ -605,8 +674,15 @@ const styles = StyleSheet.create({
     padding: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   confirmRowLast: { borderBottomWidth: 0 },
+  confirmRowMain: { flex: 1 },
   confirmLabel: { ...typography.label },
   confirmValue: { ...typography.body, fontWeight: '600' },
+  editBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    paddingHorizontal: spacing.xs, paddingVertical: 3,
+    borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary,
+  },
+  editBtnText: { ...typography.label, color: colors.primary, fontWeight: '700' },
   creditRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   costBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.full },
   costBadgeText: { ...typography.label, fontWeight: '700' },

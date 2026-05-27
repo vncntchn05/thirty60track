@@ -58,8 +58,18 @@ export default function ScheduleScreen() {
   const [activeSession, setActiveSession] = useState<ScheduledSessionWithDetails | null>(null);
   const [availSheetOpen, setAvailSheetOpen] = useState(false);
   const [bookSheetOpen, setBookSheetOpen] = useState(false);
+  const [bookPrefill, setBookPrefill] = useState<{ scheduledAt: string; durationMinutes: 30 | 60; clientId: string } | null>(null);
   const [recurringSheetOpen, setRecurringSheetOpen] = useState(false);
   const [weekPickerOpen, setWeekPickerOpen] = useState(false);
+
+  function handleRepeat(s: ScheduledSessionWithDetails) {
+    setBookPrefill({
+      scheduledAt: s.scheduled_at,
+      durationMinutes: s.duration_minutes as 30 | 60,
+      clientId: s.client_id,
+    });
+    setBookSheetOpen(true);
+  }
 
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
@@ -193,6 +203,7 @@ export default function ScheduleScreen() {
         trainerId={myTrainerId}
         onClose={() => setActiveSession(null)}
         onChanged={refetch}
+        onRepeat={isViewingOwn ? handleRepeat : undefined}
       />
 
       {myTrainerId ? (
@@ -207,8 +218,9 @@ export default function ScheduleScreen() {
         <TrainerBookingSheet
           visible={bookSheetOpen}
           trainerId={myTrainerId}
-          onClose={() => setBookSheetOpen(false)}
+          onClose={() => { setBookSheetOpen(false); setBookPrefill(null); }}
           onBooked={refetch}
+          prefill={bookPrefill}
         />
       ) : null}
 

@@ -176,13 +176,20 @@ type Props = {
   clientId: string;
   onClose: () => void;
   onBooked: () => void;
+  /**
+   * If set, opens the sheet pre-filled to suggest re-booking a past session.
+   * The sheet finds the next future date matching the source's day-of-week + time-of-day,
+   * pre-selects it, and jumps straight to the confirm step. If no match exists in
+   * future availability, only the duration is pre-filled.
+   */
+  prefill?: { scheduledAt: string; durationMinutes: 30 | 60 } | null;
 };
 
 type Step = 'month' | 'date' | 'time' | 'confirm';
 
 // ─── Component ───────────────────────────────────────────────
 
-export function BookingSheet({ visible, clientId, onClose, onBooked }: Props) {
+export function BookingSheet({ visible, clientId, onClose, onBooked, prefill }: Props) {
   const t = useTheme();
   const { slots, trainerId, loading: slotsLoading } = useAvailabilityForClient(clientId);
   const { balance } = useClientCredits(clientId);
@@ -194,10 +201,62 @@ export function BookingSheet({ visible, clientId, onClose, onBooked }: Props) {
   const [duration, setDuration] = useState<30 | 60 | null>(null);
   const [saving, setSaving]     = useState(false);
   const [err, setErr]           = useState<string | null>(null);
+  const [prefillApplied, setPrefillApplied] = useState(false);
 
   const upcomingDates   = useMemo(() => getUpcomingDates(slots), [slots]);
   const availableMonths = useMemo(() => getAvailableMonths(upcomingDates), [upcomingDates]);
   const selectedMonth   = availableMonths[monthIdx] ?? null;
+
+  // Reset the "applied" flag when the sheet closes so a re-open re-applies prefill.
+  useEffect(() => {
+    if (!visible) setPrefillApplied(false);
+  }, [visible]);
+
+  // Apply prefill once availability has loaded and the sheet is open.
+  useEffect(() => {
+    if (!visible || !prefill || prefillApplied || slotsLoading) return;
+    if (availableMonths.length === 0) {
+      // No future availability — just pre-set duration and bail.
+      setDuration(prefill.durationMinutes);
+      setPrefillApplied(true);
+      return;
+    }
+    const source = new Date(prefill.scheduledAt);
+    const sourceDow = source.getDay();
+    const sourceH = source.getHours();
+    const sourceM = source.getMinutes();
+
+    // Find the soonest upcoming date that matches the source's day-of-week AND
+    // has a time-option matching the source time and duration.
+    let matched: { date: Date; tIdx: number } | null = null;
+    for (const d of upcomingDates) {
+      if (d.getDay() !== sourceDow) continue;
+      const times = getTimeOptions(slots, d);
+      const tIdx = times.findIndex(
+        (opt) => opt.h === sourceH && opt.m === sourceM && opt.durations.includes(prefill.durationMinutes),
+      );
+      if (tIdx !== -1) { matched = { date: d, tIdx }; break; }
+    }
+
+    if (!matched) {
+      // Pre-set duration only and leave at month step.
+      setDuration(prefill.durationMinutes);
+      setPrefillApplied(true);
+      return;
+    }
+
+    const monthKey = getMonthKey(matched.date);
+    const mIdx = availableMonths.findIndex((m) => m.key === monthKey);
+    const datesIn = upcomingDates.filter((dt) => getMonthKey(dt) === monthKey);
+    const dIdx = datesIn.findIndex((dt) => toIso(dt) === toIso(matched!.date));
+
+    setMonthIdx(Math.max(0, mIdx));
+    setDateIdx(Math.max(0, dIdx));
+    setTimeIdx(matched.tIdx);
+    setDuration(prefill.durationMinutes);
+    setStep('confirm');
+    setPrefillApplied(true);
+  }, [visible, prefill, prefillApplied, slotsLoading, availableMonths, upcomingDates, slots]);
 
   const datesInMonth = useMemo(
     () => (selectedMonth ? upcomingDates.filter((d) => getMonthKey(d) === selectedMonth.key) : []),
@@ -424,12 +483,20 @@ export function BookingSheet({ visible, clientId, onClose, onBooked }: Props) {
                       <Text style={[styles.summaryText, { color: t.textPrimary }]}>
                         {DAY_ABBR[selectedDate.getDay()]}, {MONTH_ABBR[selectedDate.getMonth()]} {selectedDate.getDate()}
                       </Text>
+                      <TouchableOpacity onPress={() => setStep('date')} style={styles.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="pencil-outline" size={14} color={colors.primary} />
+                        <Text style={styles.editBtnText}>Edit</Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={styles.summaryRow}>
                       <Ionicons name="time-outline" size={16} color={t.textSecondary as string} />
                       <Text style={[styles.summaryText, { color: t.textPrimary }]}>
                         {fmtTime(selectedTimeOpt.h, selectedTimeOpt.m)} · {duration} min
                       </Text>
+                      <TouchableOpacity onPress={() => setStep('time')} style={styles.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="pencil-outline" size={14} color={colors.primary} />
+                        <Text style={styles.editBtnText}>Edit</Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={styles.summaryRow}>
                       <Ionicons name="wallet-outline" size={16} color={t.textSecondary as string} />
@@ -534,7 +601,13 @@ const styles = StyleSheet.create({
   summaryBox: { borderRadius: radius.md, borderWidth: 1, padding: spacing.md, gap: spacing.sm },
   summaryTitle: { ...typography.body, fontWeight: '700' },
   summaryRow:   { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  summaryText:  { ...typography.body },
+  summaryText:  { ...typography.body, flex: 1 },
+  editBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    paddingHorizontal: spacing.xs, paddingVertical: 2,
+    borderRadius: radius.sm, borderWidth: 1, borderColor: colors.primary,
+  },
+  editBtnText: { ...typography.label, color: colors.primary, fontWeight: '700' },
   bookBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: spacing.xs, backgroundColor: colors.primary,

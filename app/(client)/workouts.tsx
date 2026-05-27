@@ -133,7 +133,16 @@ export default function ClientWorkoutsScreen() {
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()));
   const [activeSession, setActiveSession] = useState<ScheduledSessionWithDetails | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingPrefill, setBookingPrefill] = useState<{ scheduledAt: string; durationMinutes: 30 | 60 } | null>(null);
   const [weekPickerOpen, setWeekPickerOpen] = useState(false);
+
+  function handleRepeatSession(s: ScheduledSessionWithDetails) {
+    setBookingPrefill({
+      scheduledAt: s.scheduled_at,
+      durationMinutes: s.duration_minutes as 30 | 60,
+    });
+    setBookingOpen(true);
+  }
 
   const { workouts, loading: workoutsLoading, error, refresh } = useClientWorkouts(clientId ?? '');
   const { assignedWorkouts, error: assignedError, refetch: refreshAssigned } = usePendingAssignedWorkoutsForClient(clientId ?? '');
@@ -369,14 +378,16 @@ export default function ClientWorkoutsScreen() {
         role="client"
         onClose={() => setActiveSession(null)}
         onChanged={refetchSessions}
+        onRepeat={isGuest ? undefined : handleRepeatSession}
       />
 
       {clientId && (
         <BookingSheet
           visible={bookingOpen}
           clientId={clientId}
-          onClose={() => setBookingOpen(false)}
+          onClose={() => { setBookingOpen(false); setBookingPrefill(null); }}
           onBooked={refetchSessions}
+          prefill={bookingPrefill}
         />
       )}
 

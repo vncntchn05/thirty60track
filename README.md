@@ -27,6 +27,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - **Workout template library** — 40+ pre-built clinical templates across 6 splits; template picker has three tabs: Suggested (matched to client health conditions), All Templates, and **Generate** (AI-personalised)
 - **AI Workout Generator** — template picker's Generate tab analyses a client's past workouts, goals, training frequency, and injury profile to suggest two personalised workout templates; each can be saved directly to the template library or loaded into the session immediately; runs in mock mode by default (no API key required)
 - Weekly availability management + session scheduling
+- **Repeat past session** — tap any past session on the schedule to open a "Book Again" action that pre-fills the booking flow with the original client, time-of-day, day-of-week, and duration; jumps to the confirm step with inline Edit buttons on date/time so the trainer can adjust before confirming
 - Grant or deduct session credits for any client (not limited to own clients)
 - **Family account linking** — link two or more client accounts into a family group; all members can view and edit each other's progress, workouts, nutrition, and credits
 - **Master check-in QR code** — trainer Profile tab displays a single master QR code (encodes the app's `/checkin` URL) to print and post at the gym; all client visits appear on the client's Check-ins tab with a "Self" badge
@@ -49,7 +50,7 @@ A personal training management app built with Expo + Supabase. Trainers manage c
 - Home screen shows linked family members (avatar, workout count, last session) with tap-through to their full profile
 - Pending assigned workouts with one-tap execution
 - Log workouts and manage nutrition for linked family members
-- Book sessions from trainer's availability slots
+- Book sessions from trainer's availability slots; tap any past session and choose **Book Again** to request the same time/duration on a future date (with inline Edit buttons to change date or time before confirming)
 - **Buy Credits** — Credits tab shows a "Buy Credits" button opening a Stripe Checkout modal with 5/10/20-credit packages at $1/credit; displays as "Coming Soon" until payments are enabled
 - **AI Nutrition Assistant** — pinned at the top of the Messages tab; ask for meal ideas, fast food picks, snack suggestions, recipe ideas, supplement guidance, workout recommendations, and exercise tips; answers are personalised to macro targets, dietary restrictions, and actual workout history (recent sessions, muscle group frequency, personal records); cheat meal tracker shows a banner when a cheat meal is due
 - **Gym check-in** — "Check In at the Gym" button on the Profile tab (or scan the master QR with a phone camera) opens the `/checkin` screen and records a self-check-in instantly
@@ -589,6 +590,17 @@ Trainers can then:
 - **Cancel the full series** — marks all future `assigned` instances as `cancelled`
 - **Cancel a single instance** — tap the × on any upcoming row; other instances are untouched
 - **Edit a single instance** — tap the row to open the standard assigned-workout editor
+
+## Repeat Past Session
+
+Both trainers and clients can re-book a previous session in one tap. Past sessions remain visible on the Schedule (the client query now returns sessions of any status — only `cancelled` is hidden by the timetable).
+
+Tapping a past session opens the **Session Sheet** with a gold **Book Again** action alongside the existing controls. Selecting it opens the role-appropriate booking sheet pre-filled with the original session's values:
+
+- **Trainer** — `TrainerBookingSheet` pre-selects the original client (skipping the client picker), suggests the next future date matching the source's day-of-week, copies the time and duration, and jumps straight to the confirm step.
+- **Client** — `BookingSheet` walks future trainer availability to find the soonest date matching the source's day-of-week + time-of-day + duration; pre-selects month/date/time/duration and jumps to confirm. If no matching future slot exists, only the duration is pre-filled and the flow opens at the month step.
+
+On the confirm step, **Edit** pills appear next to the date and time rows. Tapping one jumps back to the corresponding picker so the user can adjust before booking. Booking uses the existing flows — trainer-side bookings are immediately confirmed (credits deducted), client-side bookings are sent as pending requests.
 
 ## Workout Logger — Rest Timer, Calories & Summary
 

@@ -173,7 +173,6 @@ export function useClientSessions(clientId: string) {
       .from('scheduled_sessions')
       .select('*, client:clients(full_name, email), trainer:trainers(full_name)')
       .eq('client_id', clientId)
-      .in('status', ['pending', 'confirmed'])
       .order('scheduled_at', { ascending: true });
     if (err) setError(err.message);
     else setSessions((data ?? []) as ScheduledSessionWithDetails[]);
