@@ -8,6 +8,7 @@ import { useClientIntake } from '@/hooks/useClientIntake';
 import { useFeatureGuide } from '@/hooks/useFeatureGuide';
 import { IntakeForm } from '@/components/client/IntakeForm';
 import { ChangePasswordModal } from '@/components/ui/ChangePasswordModal';
+import { ClientCheckinScannerModal } from '@/components/checkin/ClientCheckinScannerModal';
 import { colors, spacing, typography, radius, useTheme } from '@/constants/theme';
 
 function MetricRow({ label, value }: { label: string; value: string | null }) {
@@ -28,6 +29,7 @@ export default function ClientProfileScreen() {
   const { intake, saveIntake } = useClientIntake(clientId ?? '');
   const [editingIntake, setEditingIntake] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [scanningCheckin, setScanningCheckin] = useState(false);
   const { enabled: guideEnabled, toggle: toggleGuide } = useFeatureGuide(user?.id);
 
   if (isGuest) {
@@ -66,14 +68,15 @@ export default function ClientProfileScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.background }} contentContainerStyle={styles.scroll}>
-      {/* Gym check-in */}
+      {/* Gym check-in — opens camera to scan the master gym QR */}
       <TouchableOpacity
         style={[styles.checkinBtn, { backgroundColor: colors.primary }]}
-        onPress={() => router.push('/checkin' as never)}
+        onPress={() => setScanningCheckin(true)}
         activeOpacity={0.85}
+        disabled={!clientId}
       >
-        <Ionicons name="checkmark-circle-outline" size={20} color={colors.textInverse} />
-        <Text style={styles.checkinBtnText}>Check In at the Gym</Text>
+        <Ionicons name="qr-code-outline" size={20} color={colors.textInverse} />
+        <Text style={styles.checkinBtnText}>Scan Gym QR to Check In</Text>
       </TouchableOpacity>
 
       {/* Info card */}
@@ -163,6 +166,14 @@ export default function ClientProfileScreen() {
         email={client?.email ?? ''}
         onClose={() => setChangingPassword(false)}
       />
+
+      {clientId && (
+        <ClientCheckinScannerModal
+          visible={scanningCheckin}
+          clientId={clientId}
+          onClose={() => setScanningCheckin(false)}
+        />
+      )}
 
       {/* Intake edit modal */}
       {client && (
