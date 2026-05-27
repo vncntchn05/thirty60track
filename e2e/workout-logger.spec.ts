@@ -27,16 +27,16 @@ test.beforeEach(async () => {
 
 test.describe('Workout Logger', () => {
   test('pure grading logic returns expected grade for known input', () => {
-    const result = gradeWorkout(
-      [
-        { exercise_id: 'ex-1', reps: 8, weight_kg: 100 },
-        { exercise_id: 'ex-1', reps: 8, weight_kg: 100 },
-        { exercise_id: 'ex-1', reps: 8, weight_kg: 100 },
-      ],
-      /* pastWorkouts */ [],
-    );
+    const set = {
+      exercise_id: 'ex-1',
+      exercise_name: 'Bench Press',
+      weight_kg: 100,
+      reps: 8,
+      duration_seconds: null,
+    };
+    const result = gradeWorkout([set, set, set], /* pastWorkouts */ []);
     expect(result.letter).toMatch(/^[A-F][+-]?$/);
-    expect(result.volumeKg).toBe(8 * 100 * 3);
+    expect(result.currentVolume).toBe(8 * 100 * 3);
   });
 
   test('UI: trainer logs a workout, save succeeds', async ({ page }) => {
