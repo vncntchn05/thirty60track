@@ -193,15 +193,19 @@ jobs:
           chmod +x scripts/check-migrations.sh
           ./scripts/check-migrations.sh
 
-      - name: Seed exercise library + CI/CD fixture data
-        run: |
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed.sql
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed_cicd.sql
+      - name: Seed exercise library
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed.sql
 
+      # MUST come before seed_cicd.sql — seed_cicd inserts clients with a
+      # trainer_id FK, which requires the trainer auth user (and its trigger-
+      # created trainers row) to exist first.
       - name: Create test auth users (scripts/create-test-users.sh)
         run: |
           chmod +x scripts/create-test-users.sh
           ./scripts/create-test-users.sh
+
+      - name: Seed CI/CD fixture data
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed_cicd.sql
 
       - name: Run integration tests
         run: npm run test:integration
@@ -293,8 +297,10 @@ jobs:
           psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/schema.sql
           ./scripts/migrate.sh
           psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed.sql
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed_cicd.sql
+          # create-test-users must run before seed_cicd.sql — the latter inserts
+          # clients FK-bound to the trainer auth user.
           ./scripts/create-test-users.sh
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed_cicd.sql
 
       - name: Build Expo Web export (against local Supabase)
         run: npx expo export --platform web
