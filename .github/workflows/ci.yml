@@ -174,11 +174,25 @@ jobs:
           # schema.sql + migrate.sh explicitly below.
           supabase start --exclude studio,inbucket,imgproxy,storage-api,edge-runtime
 
+          # `supabase status -o env` emits KEY="value" (with literal double
+          # quotes). Strip them via a capture group so $GITHUB_ENV gets bare
+          # values — otherwise downstream curl/psql see quoted strings and
+          # fail with "URL malformed".
           STATUS_JSON=$(supabase status -o env)
-          echo "$STATUS_JSON" | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY|DB_URL)=' >> $GITHUB_ENV
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$(echo "$STATUS_JSON" | sed -n 's/^ANON_KEY=//p')" >> $GITHUB_ENV
-          echo "SUPABASE_URL=$(echo "$STATUS_JSON" | sed -n 's/^API_URL=//p')" >> $GITHUB_ENV
-          echo "SUPABASE_SERVICE_ROLE_KEY=$(echo "$STATUS_JSON" | sed -n 's/^SERVICE_ROLE_KEY=//p')" >> $GITHUB_ENV
+          extract() { echo "$STATUS_JSON" | sed -n "s/^$1=\"\(.*\)\"\$/\1/p"; }
+          API_URL=$(extract API_URL)
+          DB_URL=$(extract DB_URL)
+          ANON_KEY=$(extract ANON_KEY)
+          SERVICE_ROLE_KEY=$(extract SERVICE_ROLE_KEY)
+          {
+            echo "API_URL=$API_URL"
+            echo "DB_URL=$DB_URL"
+            echo "ANON_KEY=$ANON_KEY"
+            echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> $GITHUB_ENV
 
       - name: Apply source-of-truth schema (schema.sql)
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/schema.sql
@@ -285,11 +299,25 @@ jobs:
         run: |
           supabase start --exclude studio,inbucket,imgproxy,storage-api,edge-runtime
 
+          # `supabase status -o env` emits KEY="value" (with literal double
+          # quotes). Strip them via a capture group so $GITHUB_ENV gets bare
+          # values — otherwise downstream curl/psql see quoted strings and
+          # fail with "URL malformed".
           STATUS_JSON=$(supabase status -o env)
-          echo "$STATUS_JSON" | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY|DB_URL)=' >> $GITHUB_ENV
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$(echo "$STATUS_JSON" | sed -n 's/^ANON_KEY=//p')" >> $GITHUB_ENV
-          echo "SUPABASE_URL=$(echo "$STATUS_JSON" | sed -n 's/^API_URL=//p')" >> $GITHUB_ENV
-          echo "SUPABASE_SERVICE_ROLE_KEY=$(echo "$STATUS_JSON" | sed -n 's/^SERVICE_ROLE_KEY=//p')" >> $GITHUB_ENV
+          extract() { echo "$STATUS_JSON" | sed -n "s/^$1=\"\(.*\)\"\$/\1/p"; }
+          API_URL=$(extract API_URL)
+          DB_URL=$(extract DB_URL)
+          ANON_KEY=$(extract ANON_KEY)
+          SERVICE_ROLE_KEY=$(extract SERVICE_ROLE_KEY)
+          {
+            echo "API_URL=$API_URL"
+            echo "DB_URL=$DB_URL"
+            echo "ANON_KEY=$ANON_KEY"
+            echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> $GITHUB_ENV
 
       - name: Apply schema + migrations + seed + test users
         run: |
