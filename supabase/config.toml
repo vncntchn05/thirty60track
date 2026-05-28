@@ -10,9 +10,11 @@
 
 project_id = "thirty60track"
 
-[db.migrations]
-# Empty — our migrations are applied by scripts/migrate.sh, not the CLI.
-schema_paths = []
+# Note: we don't set [db.migrations] schema_paths here even though it would be
+# the more explicit form — that key was added in Supabase CLI v2.x and our
+# pinned CI version (v1.200.3) errors on unknown fields. Since the patch files
+# live in supabase/sql_migrations/ (not the CLI-default supabase/migrations/),
+# the CLI naturally finds nothing to auto-apply.
 
 [db.seed]
 # Our seed.sql + seed_cicd.sql are applied manually via psql after schema.sql.
